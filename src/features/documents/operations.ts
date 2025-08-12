@@ -26,12 +26,32 @@ export const processContent: ProcessContent<
     // Process different content types
     switch (sourceType) {
       case 'PDF':
-        const pdfResult = await processPDF(content)
-        extractedText = pdfResult.text
-        metadata = {
-          pageCount: pdfResult.numpages,
-          wordCount: estimateWordCount(pdfResult.text),
-          extractedAt: new Date().toISOString()
+        try {
+          const pdfResult = await processPDF(content)
+          extractedText = pdfResult.text
+          metadata = {
+            pageCount: pdfResult.numpages,
+            wordCount: estimateWordCount(pdfResult.text),
+            extractedAt: new Date().toISOString()
+          }
+        } catch (pdfError) {
+          console.error('PDF processing failed, creating placeholder:', pdfError)
+          // Create a placeholder document for failed PDF processing
+          extractedText = `[PDF Processing Failed] 
+          
+This PDF could not be processed automatically. You can:
+1. Try uploading a different PDF file
+2. Copy and paste the text content directly using the "Text Input" tab
+3. Check if the PDF is password protected or corrupted
+
+Original error: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`
+          
+          metadata = {
+            pageCount: 0,
+            wordCount: estimateWordCount(extractedText),
+            extractedAt: new Date().toISOString(),
+            processingFailed: true
+          }
         }
         break
 
@@ -95,6 +115,7 @@ export const getMyDocuments: GetMyDocuments<void, any> = async (args, context) =
       where: { userId: context.user.id },
       orderBy: { createdAt: 'desc' },
       include: {
+        questions: true, // Include actual questions array
         _count: {
           select: {
             quizAttempts: true,
@@ -113,7 +134,8 @@ export const getMyDocuments: GetMyDocuments<void, any> = async (args, context) =
       estimatedReadTime: doc.estimatedReadTime,
       createdAt: doc.createdAt,
       quizCount: doc._count.quizAttempts,
-      questionCount: doc._count.questions
+      questionCount: doc._count.questions,
+      questions: doc.questions // Include the actual questions array!
     }))
 
   } catch (error) {
@@ -144,7 +166,12 @@ async function processPDF(base64Content: string): Promise<{ text: string; numpag
     }
   } catch (error) {
     console.error('PDF processing error:', error)
-    throw new Error('Failed to process PDF content')
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      bufferSize: base64Content.length
+    })
+    throw new Error(`Failed to process PDF content: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { useAction } from 'wasp/client/operations'
+import { useAuth } from 'wasp/client/auth'
 import { Link } from 'wasp/client/router'
 import { processContent } from 'wasp/client/operations'
 import { Header } from '../../components/layout/header'
@@ -27,7 +28,33 @@ export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   
+  const { data: user, isLoading } = useAuth()
   const processContentFn = useAction(processContent)
+
+  // Show loading while checking auth
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <h2 className="text-2xl font-bold">Authentication Required</h2>
+          <p className="text-muted-foreground">Please log in to upload content.</p>
+          <div className="space-x-4">
+            <Link to="/login">
+              <Button>Sign In</Button>
+            </Link>
+            <Link to="/sign-up">
+              <Button variant="outline">Sign Up</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const handleFileUpload = async (file: File) => {
     if (file.type !== 'application/pdf') {

@@ -40,7 +40,7 @@ export const getCurrentUser: GetCurrentUser<void, any> = async (args, context) =
     return {
       id: context.user.id,
       username,
-      email: `${username}@example.com`,
+      email: null, // Wasp username/password auth doesn't collect emails
       createdAt: userWithAuth.createdAt,
       updatedAt: userWithAuth.updatedAt,
       isActive: userWithAuth.isActive
@@ -48,13 +48,13 @@ export const getCurrentUser: GetCurrentUser<void, any> = async (args, context) =
   } catch (error) {
     // Fallback: return basic user info on any error
     console.error('Error in getCurrentUser:', error)
-    return {
-      id: context.user.id,
-      username: `user${context.user.id}`,
-      email: `user${context.user.id}@example.com`,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isActive: true
-    }
+            return {
+          id: context.user.id,
+          username: `user${context.user.id}`,
+          email: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          isActive: true
+        }
   }
 }

@@ -58,6 +58,30 @@ page DocumentsPage {
   authRequired: true
 }
 
+route QuizSettingsRoute { path: "/quiz/:documentId/settings", to: QuizSettingsPage }
+page QuizSettingsPage {
+  component: import QuizSettingsPage from "@src/features/quiz/settings",
+  authRequired: true
+}
+
+route QuizTakeRoute { path: "/quiz/:documentId/take", to: QuizTakePage }
+page QuizTakePage {
+  component: import QuizTakePage from "@src/features/quiz/take",
+  authRequired: true
+}
+
+route QuizResultsRoute { path: "/quiz/:attemptId/results", to: QuizResultsPage }
+page QuizResultsPage {
+  component: import QuizResultsPage from "@src/features/quiz/results",
+  authRequired: true
+}
+
+route QuizHistoryRoute { path: "/quiz-history", to: QuizHistoryPage }
+page QuizHistoryPage {
+  component: import QuizHistoryPage from "@src/features/quiz/history",
+  authRequired: true
+}
+
 route ChatsRoute { path: "/chats", to: ChatsPage }
 page ChatsPage {
   component: import ChatsPage from "@src/features/chats/index",
@@ -169,5 +193,31 @@ action generateQuiz {
 query getDocumentQuestions {
   fn: import { getDocumentQuestions } from "@src/features/documents/operations",
   entities: [Document, Question, Answer, User]
+}
+
+// Quiz operations
+action startQuiz {
+  fn: import { startQuiz } from "@src/features/quiz/operations",
+  entities: [Document, Question, Answer, QuizAttempt, UserQuestionHistory, User]
+}
+
+action submitQuizAnswer {
+  fn: import { submitQuizAnswer } from "@src/features/quiz/operations",
+  entities: [QuizAttempt, UserQuestionHistory, Question, Answer, User]
+}
+
+action completeQuiz {
+  fn: import { completeQuiz } from "@src/features/quiz/operations",
+  entities: [QuizAttempt, UserQuestionHistory, Question, User]
+}
+
+query getQuizAttempt {
+  fn: import { getQuizAttempt } from "@src/features/quiz/operations",
+  entities: [QuizAttempt, Question, Answer, UserQuestionHistory, Document, User]
+}
+
+query getQuizHistory {
+  fn: import { getQuizHistory } from "@src/features/quiz/operations",
+  entities: [QuizAttempt, Document, User]
 }
 

@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import { useQuery, useAction } from 'wasp/client/operations'
+import { useAuth } from 'wasp/client/auth'
 import { Link } from 'wasp/client/router'
 import { getMyDocuments, generateQuiz } from 'wasp/client/operations'
+import { useQueryClient } from '@tanstack/react-query'
 import { Header } from '../../components/layout/header'
 import { Main } from '../../components/layout/main'
 import { TopNav } from '../../components/layout/top-nav'
@@ -22,7 +24,35 @@ const topNav = [
 ]
 
 export default function DocumentsPage() {
-  const { data: documents, isLoading, error } = useQuery(getMyDocuments)
+  const { data: user, isLoading: authLoading } = useAuth()
+  const { data: documents, isLoading, error } = useQuery(getMyDocuments, undefined, {
+    enabled: !!user // Only fetch documents if user is authenticated
+  })
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <h2 className="text-2xl font-bold">Authentication Required</h2>
+          <p className="text-muted-foreground">Please log in to view your documents.</p>
+          <div className="space-x-4">
+            <Link to="/login">
+              <Button>Sign In</Button>
+            </Link>
+            <Link to="/sign-up">
+              <Button variant="outline">Sign Up</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -51,24 +81,22 @@ export default function DocumentsPage() {
           </Button>
         </div>
 
-        {isLoading && <DocumentsLoading />}
-        
-        {error && (
+        {isLoading ? (
+          <DocumentsLoading />
+        ) : error ? (
           <Card>
             <CardContent className='pt-6'>
               <div className='text-center text-destructive'>
-                Failed to load documents: {error.message}
+                Failed to load documents: {error?.message || 'Unknown error'}
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {documents && documents.length === 0 && <EmptyState />}
-
-        {documents && documents.length > 0 && (
+        ) : !documents || documents.length === 0 ? (
+          <EmptyState />
+        ) : (
           <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
             {documents.map((document) => (
-              <DocumentCard key={document.id} document={document} />
+              <DocumentCard key={document?.id || Math.random()} document={document} />
             ))}
           </div>
         )}
@@ -80,19 +108,39 @@ export default function DocumentsPage() {
 function DocumentCard({ document }: { document: any }) {
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false)
   const generateQuizFn = useAction(generateQuiz)
+  const queryClient = useQueryClient()
 
-  const sourceTypeIcon = {
-    PDF: <FileText className='h-4 w-4' />,
-    YOUTUBE: <PlayCircle className='h-4 w-4' />,
-    WEB_ARTICLE: <FileText className='h-4 w-4' />,
-    TEXT_INPUT: <FileText className='h-4 w-4' />,
+  // Safety check for document
+  if (!document) {
+    return (
+      <Card className='hover:shadow-md transition-shadow'>
+        <CardContent className='pt-6'>
+          <div className='text-center text-muted-foreground'>
+            Invalid document data
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
-  const sourceTypeColor = {
-    PDF: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-    YOUTUBE: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
-    WEB_ARTICLE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-    TEXT_INPUT: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  const getSourceTypeIcon = (sourceType: string) => {
+    switch (sourceType) {
+      case 'PDF': return <FileText className='h-4 w-4' />
+      case 'YOUTUBE': return <PlayCircle className='h-4 w-4' />
+      case 'WEB_ARTICLE': return <FileText className='h-4 w-4' />
+      case 'TEXT_INPUT': return <FileText className='h-4 w-4' />
+      default: return <FileText className='h-4 w-4' />
+    }
+  }
+
+  const getSourceTypeColor = (sourceType: string) => {
+    switch (sourceType) {
+      case 'PDF': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+      case 'YOUTUBE': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+      case 'WEB_ARTICLE': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+      case 'TEXT_INPUT': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+    }
   }
 
   const handleGenerateQuiz = async () => {
@@ -109,6 +157,11 @@ function DocumentCard({ document }: { document: any }) {
           title: result.isNewGeneration ? 'Quiz Generated!' : 'Quiz Ready!',
           description: `${result.questionCount} questions ${result.isNewGeneration ? 'generated' : 'available'} for "${document.title}"`,
         })
+        
+        // Invalidate and refetch the documents query to show updated question count
+        await queryClient.invalidateQueries()
+        // Force a hard refresh of this specific query
+        window.location.reload()
       }
     } catch (error) {
       console.error('Quiz generation error:', error)
@@ -127,20 +180,20 @@ function DocumentCard({ document }: { document: any }) {
       <CardHeader className='pb-3'>
         <div className='flex items-start justify-between'>
           <div className='flex items-center gap-2'>
-            {sourceTypeIcon[document.sourceType as keyof typeof sourceTypeIcon]}
+            {getSourceTypeIcon(document.sourceType || 'PDF')}
             <Badge 
-              className={sourceTypeColor[document.sourceType as keyof typeof sourceTypeColor]}
+              className={getSourceTypeColor(document.sourceType || 'PDF')}
               variant='secondary'
             >
-              {document.sourceType}
+              {document.sourceType || 'PDF'}
             </Badge>
           </div>
           <div className='text-xs text-muted-foreground flex items-center gap-1'>
             <Calendar className='h-3 w-3' />
-            {new Date(document.createdAt).toLocaleDateString()}
+            {document.createdAt ? new Date(document.createdAt).toLocaleDateString() : 'Unknown date'}
           </div>
         </div>
-        <CardTitle className='text-lg leading-tight'>{document.title}</CardTitle>
+        <CardTitle className='text-lg leading-tight'>{document.title || 'Untitled Document'}</CardTitle>
       </CardHeader>
       
       <CardContent className='space-y-4'>
@@ -155,11 +208,11 @@ function DocumentCard({ document }: { document: any }) {
           </div>
           <div className='flex items-center gap-2'>
             <BarChart3 className='h-4 w-4 text-muted-foreground' />
-            <span>{document.quizCount || 0} quizzes</span>
+            <span>{document.questions?.length || 0} questions</span>
           </div>
           <div className='flex items-center gap-2'>
-            <PlayCircle className='h-4 w-4 text-muted-foreground' />
-            <span>{document.questionCount || 0} questions</span>
+            <Calendar className='h-4 w-4 text-muted-foreground' />
+            <span>Uploaded {document.createdAt ? new Date(document.createdAt).toLocaleDateString() : 'Unknown'}</span>
           </div>
         </div>
 
@@ -170,32 +223,46 @@ function DocumentCard({ document }: { document: any }) {
         )}
 
         <div className='flex gap-2 pt-2'>
-          <Button 
-            size='sm' 
-            className='flex-1' 
-            onClick={handleGenerateQuiz}
-            disabled={isGeneratingQuiz}
-          >
-            {isGeneratingQuiz ? (
-              <>
-                <Loader2 className='h-4 w-4 mr-2 animate-spin' />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Brain className='h-4 w-4 mr-2' />
-                Generate Quiz
-              </>
-            )}
-          </Button>
+          {(document.questions && document.questions.length > 0) ? (
+            <Button 
+              size='sm' 
+              className='flex-1' 
+              onClick={() => {
+                // Navigate to quiz settings page
+                window.location.href = `/quiz/${document.id}/settings`;
+              }}
+            >
+              <PlayCircle className='h-4 w-4 mr-2' />
+              Start Quiz
+            </Button>
+          ) : (
+            <Button 
+              size='sm' 
+              className='flex-1' 
+              onClick={handleGenerateQuiz}
+              disabled={isGeneratingQuiz}
+            >
+              {isGeneratingQuiz ? (
+                <>
+                  <Loader2 className='h-4 w-4 mr-2 animate-spin' />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Brain className='h-4 w-4 mr-2' />
+                  Generate Quiz
+                </>
+              )}
+            </Button>
+          )}
           <Button size='sm' variant='outline' className='flex-1' disabled>
             View Questions
           </Button>
         </div>
         
-        {document.questionCount > 0 && (
+        {(document.questions && document.questions.length > 0) && (
           <div className='text-xs text-center text-muted-foreground'>
-            ✅ {document.questionCount} questions ready for quiz
+            ✅ {document.questions.length} questions ready for quiz
           </div>
         )}
       </CardContent>

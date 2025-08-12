@@ -45,7 +45,7 @@ export async function generateQuestionsFromContent(
 
   try {
     // Get the generative model
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
 
     // Prepare the content for AI processing
     const contentForAI = prepareContentForAI(contentJson)

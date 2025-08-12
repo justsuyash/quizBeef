@@ -61,7 +61,7 @@ export const sidebarData: SidebarData = {
         },
         {
           title: 'Quiz History',
-          url: '/quizzes',
+          url: '/quiz-history',
           icon: IconPackages,
         },
         {

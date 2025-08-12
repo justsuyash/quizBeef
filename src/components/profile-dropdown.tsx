@@ -23,7 +23,7 @@ export function ProfileDropdown() {
   
   // Generate user display info
   const userName = userData?.username || 'Guest'
-  const userEmail = userData?.email || 'guest@example.com'
+  const userEmail = userData?.email || 'No email set'
   const userInitials = userName.substring(0, 2).toUpperCase()
 
   return (
