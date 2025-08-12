@@ -1,87 +1,98 @@
-# Vibe Coding a Full-Stack Budget App: YouTube Series Starter
+# 🔥 Quiz Beef - The Gym for Your Brain
 
-[![Link to YouTube Video](https://img.youtube.com/vi/WYzEROo7reY/0.jpg)](https://www.youtube.com/watch?v=WYzEROo7reY) 
+*Transform any content into active recall challenges. Master knowledge through practice and friendly competition.*
 
-This repository contains the starter code for the [walkthrough video](https://www.youtube.com/watch?v=WYzEROo7reY) demonstrating how to "vibe code" a full-featured, full-stack web application using Wasp, React, Shadcn/ui, and AI assistance (like Cursor + Gemini 2.5 Pro).
+## 🧠 Our Mission
+To remove the friction from effective learning, we build intelligent, playful tools that transform any content into an active recall challenge, effortlessly empowering our users to master knowledge through practice and friendly competition.
 
-The goal is to showcase a realistic workflow for building complex applications collaboratively with an AI, focusing on a vertical slice approach to deliver features incrementally. 
+## 🚀 Our Vision
+We envision a world where knowledge is not just consumed, but conquered. At Quiz Beef, we blend cutting-edge AI with the principles of active recall to foster a new culture of learning—one built on friendly competition, measurable progress, and a genuine love for mastering new skills.
 
-We'll be building a collaborative envelope budgeting app inspired by tools like YNAB.
+## The Story of Quiz Beef: Why We're Here
 
-## Tech Stack
+Welcome to Quiz Beef. You're not just joining a platform—you're joining a movement to make learning powerful, effective, and ridiculously fun.
 
-*   **Framework:** [Wasp](https://wasp.sh/) - A full-stack framework using a declarative DSL to integrate React, Node.js, and Prisma. It handles boilerplate like auth, database operations, and build processes.
-*   **UI Components:** [Shadcn-admin](https://github.com/satnaing/shadcn-admin/) - Admin Dashboard UI built with Shadcn and Vite.
-*   **AI Assistance:** [Cursor](https://cursor.sh/) / Gemini 2.5 Pro (or your preferred AI coding tool)
+For too long, studying has meant staring at pages, highlighting text, and hoping something sticks. It's a lonely, inefficient, and often boring process. Modern education gave us access to unlimited information but often delivered burnout. We believe there is a smarter, more engaging, and more effective way.
 
-## The Workflow (As Seen in the Video)
+## What We Do
+Quiz Beef is an AI-powered learning platform, but at our core, we are a venture at the intersection of cognitive science and modern technology. We use sophisticated AI not just to test people, but to help them actively retrieve information and solidify knowledge in a way that passive reading never could.
 
-The YouTube video demonstrates a workflow similar to this:
+## The "Why" Behind Our Work
+Our purpose is rooted in a simple truth: the most effective way to learn is to actively test yourself. The journey to mastering a subject begins with the courage to ask, "Do I really know this?"
 
-1.  **Understanding the Goal:** Defining the features of the collaborative budgeting app.
-2.  **AI Setup:** Ensuring the AI (Cursor) has access to the project rules (`./cursor/rules/`).
-3.  **PRD (Product Requirements Document):** Collaboratively defining the app's requirements with the AI.
-4.  **Planning:** Breaking down the PRD into actionable, step-by-step implementation tasks suitable for the vertical slice approach.
-5.  **Implementation (Vertical Slices):**
-    *   Pick a small, end-to-end feature slice (e.g., basic manual transaction entry).
-    *   Define the necessary database models (`schema.prisma`).
-    *   Define Wasp operations (queries/actions) in `main.wasp`.
-    *   Implement server logic for operations (`src/server/...`).
-    *   Build the UI components (`src/client/...` or `src/features/...`).
-    *   Connect UI to backend using Wasp operations.
-    *   Test and refine.
-6.  **Documentation:** Asking the AI to document implemented features (e.g., in `ai/docs/`).
-7.  **Iteration:** Repeating the process for subsequent features, building upon the existing foundation, and revising the PLAN on-the-go as needed.
+Active recall, the principle of actively stimulating your memory, is a proven system for building strong, long-lasting neural pathways. By bridging AI-driven questioning with any content source, we unlock a new dimension of personal and professional growth.
 
-## Getting Started (Following Along)
+## Who We Serve
+We are here for ambitious learners—students, professionals, and lifelong enthusiasts who crave mastery over mediocrity. Our users value their time and are driven to achieve their goals, whether it's acing an exam, earning a certification, or simply learning a new skill. With Quiz Beef, the time they spend studying translates directly into measurable, tangible results.
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/wasp-lang/vibe-coding-video.git
-    cd vibe-coding-video
-    ```
-2.  **Install Wasp:** 
-    ```bash
-    curl -sSL https://get.wasp.sh/installer.sh | sh
-    ```
-3.  **Set up Environment Variables:**
-    *   Copy the example server environment file: `cp .env.server.example .env.server`
-4.  **Database Setup:**
-    * Start a local PostgreSQL instance (make sure to have [docker](https://www.docker.com/) installed and running)
-        ```bash
-        wasp db start
-        ```
-    *   Run the initial database migration:
-        ```bash
-        wasp db migrate-dev
-        ```
-5.  **Start the Development Server:**
-    ```bash
-    wasp start
-    ```
-    This will launch the frontend (React app) and the backend server. Open your browser to `http://localhost:3000`.
+## Our Place in the World
+In a marketplace crowded with apps that ask, "What do you want to read?", we dare to ask, "What can you prove you know?"
 
-## Project Structure & Key Concepts
+We are not just another study app; we are creating a new category: **competitive learning**. While others focus on content delivery, we elevate the entire process of knowledge retention.
 
-### Codebase Structure
+Our uniqueness lies in dual victory:
 
-*   `main.wasp`: The heart of the Wasp application. Defines routes, pages, operations (queries/actions), auth methods, jobs, APIs, etc. See [Rule 1](.cursor/rules/1-wasp-overview.mdc).
-*   `schema.prisma`: Defines the database models (entities). See [Rule 3](.cursor/rules/3-database-operations.mdc).
-*   `src/`: Contains your custom React (client) and Node.js (server) code.
-    *   `src/features/`: Fullstack code is organized by feature (e.g., `auth`, `transactions`).
-    *   `src/components/`: Reusable UI components, including those based on Shadcn/ui. See [Rule 5](.cursor/rules/5-frontend-styling.mdc).
-*   `.cursor/rules/`: Contains detailed markdown files explaining project conventions, Wasp features, and best practices used in this project. **Crucial for guiding the AI.**
+### Conquering Content
+Our platform is a tool for active engagement, turning any static document, video, or article into an interactive challenge that builds and proves knowledge.
 
-### Project Conventions
-Refer to the `.cursor/rules/` directory for in-depth explanations of:
-*   Wasp Overview & Core Concepts ([Rule 1](.cursor/rules/1-wasp-overview.mdc))
-*   Project Conventions ([Rule 2](.cursor/rules/2-project-conventions.mdc))
-*   Database, Entities & Operations ([Rule 3](.cursor/rules/3-database-operations.mdc))
-*   Authentication ([Rule 4](.cursor/rules/4-authentication.mdc))
-*   Frontend & Styling ([Rule 5](.cursor/rules/5-frontend-styling.mdc))
-*   Advanced Features & Troubleshooting ([Rule 6](.cursor/rules/6-advanced-troubleshooting.mdc))
-*   Possible Solutions Thinking Command ([Rule 7](.cursor/rules/7-possible-solutions-thinking.mdc)) **pass this in manually with @ in the cursor chat**
-*   Deployment guidelines ([Rule 8](.cursor/rules/8-deployment.mdc))
+### Challenging Others
+With this proven knowledge, users can engage in a "Quiz Beef"—a friendly, real-time competition to see who has truly mastered the material, making learning a social and motivating sport.
 
-### Example Prompts
-Example prompts that were used in the video can be found in `ai/example-prompts.md`, along with the PRD (`ai/example-prd.md`) and plan (`ai/example-plan.md`) generated from them.
+## Core Principles
+
+- **Active Recall Over Passive Reading**: We believe testing yourself is the fastest path to mastery
+- **Friendly Competition**: Learning becomes more engaging when it's social and competitive
+- **Measurable Progress**: Every moment spent studying should translate to tangible results
+- **AI-Powered Intelligence**: Technology should make learning more effective, not just more convenient
+- **Content Agnostic**: Any document, video, or article can become a learning challenge
+- **Time Respect**: We serve ambitious learners who value their time and demand efficiency
+
+## The Quiz Beef Difference
+
+While others ask: *"What do you want to read?"*  
+We ask: *"What can you prove you know?"*
+
+This is the revolution. This is Quiz Beef. 🔥
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend**: React + TypeScript + Vite
+- **Backend**: Node.js + Wasp Framework
+- **Database**: PostgreSQL
+- **UI**: TailwindCSS + ShadCN/ui
+- **AI**: Google Gemini API (planned)
+
+## 🚀 Getting Started
+
+1. **Prerequisites**: Docker, Node.js 18+
+
+2. **Clone & Install**:
+   ```bash
+   git clone https://github.com/justsuyash/quizBeef.git
+   cd quizBeef
+   npm install
+   ```
+
+3. **Start Development**:
+   ```bash
+   wasp start
+   ```
+
+4. **Visit**: http://localhost:3000
+
+## 📁 Project Structure
+
+- `/ai/` - Project planning and AI documentation (gitignored)
+- `/src/` - Application source code
+- `/scripts/` - Development and deployment scripts
+- `/summary/` - Phase summaries and development documentation
+
+## 🤝 Contributing
+
+We're building the future of learning. Join us in creating tools that help people master knowledge through active recall and friendly competition.
+
+## 📄 License
+
+MIT License - Build amazing learning experiences!
