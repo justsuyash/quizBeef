@@ -1,0 +1,26 @@
+datasource db {
+  provider = "postgresql"
+  // Wasp requires that the url is set to the DATABASE_URL environment variable.
+  url      = env("DATABASE_URL")
+}
+
+// Wasp requires the `prisma-client-js` generator to be present.
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  isActive                  Boolean       @default(true)
+  
+  // Phase 1.1 Quiz Beef fields
+  handle                    String?       @unique  // e.g., "quiz_master" (displayed as @quiz_master)
+  profileType               ProfileType   @default(ADULT)
+}
+
+enum ProfileType {
+  ADULT
+  KID
+}

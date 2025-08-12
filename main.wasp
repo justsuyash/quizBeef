@@ -1,0 +1,140 @@
+app vibeCodeWasp {
+  wasp: {
+    version: "^0.16.3"
+  },
+  title: "Vibe Coding with Wasp",
+  head: [
+    "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />",
+    "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />",
+    "<link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />",
+    "<link href=\"https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Manrope:wght@200..800&display=swap\" rel=\"stylesheet\" />"
+  ],
+  auth: {
+    userEntity: User,
+    methods: {
+      usernameAndPassword: {},
+      // google: {},
+      // github: {},
+    },
+    onAuthFailedRedirectTo: "/login",
+    onAuthSucceededRedirectTo: "/",
+  },
+  client: {
+    rootComponent: import Main from "@src/main",
+    setupFn: import QuerySetup from "@src/config/querySetup",
+  },
+  server: {
+    middlewareConfigFn: import { serverMiddlewareFn } from "@src/config/serverSetup",
+  },
+}
+
+//#region Auth Routes
+route SignupRoute { path: "/sign-up", to: Signup }
+page Signup {
+  component: import { Signup } from "@src/features/auth/signup"
+}
+
+route LoginRoute { path: "/login", to: Login }
+page Login {
+  component: import { Login } from "@src/features/auth/login"
+}
+//#endregion
+
+route DashboardRoute { path: "/", to: Dashboard }
+page Dashboard {
+  component: import Dashboard from "@src/features/dashboard/index",
+  authRequired: true
+}
+
+route ChatsRoute { path: "/chats", to: ChatsPage }
+page ChatsPage {
+  component: import ChatsPage from "@src/features/chats/index",
+  authRequired: true
+}
+
+route TasksRoute { path: "/tasks", to: TasksPage }
+page TasksPage {
+  component: import TasksPage from "@src/features/tasks/index",
+  authRequired: true
+}
+
+route UsersRoute { path: "/users", to: UsersPage }
+page UsersPage {
+  component: import UsersPage from "@src/features/users/index",
+  authRequired: true
+}
+
+route AppsRoute { path: "/apps", to: AppsPage }
+page AppsPage {
+  component: import AppsPage from "@src/features/apps/index",
+  authRequired: true
+}
+
+route SettingsRoute { path: "/settings", to: SettingsPage }
+page SettingsPage {
+  component: import SettingsPage from "@src/features/settings/index",
+  authRequired: true
+}
+
+route SettingsAccountRoute { path: "/settings/account", to: SettingsAccountPage }
+page SettingsAccountPage {
+  component: import SettingsAccountPage from "@src/features/settings/account/index",
+  authRequired: true
+}
+
+route SettingsAppearanceRoute { path: "/settings/appearance", to: SettingsAppearancePage }
+page SettingsAppearancePage {
+  component: import SettingsAppearancePage from "@src/features/settings/appearance/index",
+  authRequired: true
+}
+
+route SettingsNotificationsRoute { path: "/settings/notifications", to: SettingsNotificationsPage }
+page SettingsNotificationsPage {
+  component: import SettingsNotificationsPage from "@src/features/settings/notifications/index",
+  authRequired: true
+}
+
+route SettingsDisplayRoute { path: "/settings/display", to: SettingsDisplayPage }
+page SettingsDisplayPage {
+  component: import SettingsDisplayPage from "@src/features/settings/display/index",
+  authRequired: true
+}
+
+route SettingsProfileRoute { path: "/settings/profile", to: SettingsProfilePage }
+page SettingsProfilePage {
+  component: import SettingsProfilePage from "@src/features/settings/profile/index",
+  authRequired: true
+}
+
+// Error and utility routes
+route GeneralErrorRoute { path: "/general-error", to: GeneralError }
+page GeneralError {
+  component: import GeneralError from "@src/features/errors/general-error"
+}
+
+route NotFoundRoute { path: "/not-found", to: NotFound }
+page NotFound {
+  component: import NotFound from "@src/features/errors/not-found-error"
+}
+
+route MaintenanceRoute { path: "/maintenance", to: Maintenance }
+page Maintenance {
+  component: import Maintenance from "@src/features/errors/maintenance-error"
+}
+
+route UnauthorizedRoute { path: "/unauthorized", to: Unauthorized }
+page Unauthorized {
+  component: import Unauthorized from "@src/features/errors/unauthorized-error"
+}
+
+route ForbiddenRoute { path: "/forbidden", to: Forbidden }
+page Forbidden {
+  component: import Forbidden from "@src/features/errors/forbidden"
+}
+
+// User operations
+query getCurrentUser {
+  fn: import { getCurrentUser } from "@src/features/auth/operations",
+  entities: [User]
+}
+
