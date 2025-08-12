@@ -1,0 +1,128 @@
+[
+  [
+    {
+      "Question": "What is a primary driver of the sharp rise in global energy demand?",
+      "Options": {
+        "A": "Decreasing population",
+        "B": "Reduced industrialization",
+        "C": "Technological advancement",
+        "D": "Environmental conservation efforts"
+      },
+      "Answer": "C"
+    },
+    {
+      "Question": "What is a significant negative consequence of increased energy consumption?",
+      "Options": {
+        "A": "Improved air quality",
+        "B": "Environmental degradation",
+        "C": "Increased biodiversity",
+        "D": "Stable climate patterns"
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "Which of the following best describes sustainable energy?",
+      "Options": {
+        "A": "Energy that depletes natural resources quickly.",
+        "B": "Energy that meets present needs without compromising future generations.",
+        "C": "Energy derived solely from fossil fuels.",
+        "D": "Energy that is environmentally harmful."
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "Which of the following is NOT mentioned as a common example of sustainable energy?",
+      "Options": {
+        "A": "Solar",
+        "B": "Wind",
+        "C": "Nuclear",
+        "D": "Geothermal"
+      },
+      "Answer": "C"
+    }
+  ],
+  [
+    {
+      "Question": "What technology is used to harness sunlight for solar energy?",
+      "Options": {
+        "A": "Wind turbines",
+        "B": "Photovoltaic cells",
+        "C": "Hydroelectric dams",
+        "D": "Geothermal vents"
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "Which of these countries has successfully integrated wind energy into its national grid?",
+      "Options": {
+        "A": "Iceland",
+        "B": "Denmark",
+        "C": "Canada",
+        "D": "Brazil"
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "What is a potential drawback of large-scale hydropower dams?",
+      "Options": {
+        "A": "They are not a reliable source of energy.",
+        "B": "They are expensive to build.",
+        "C": "They can disrupt local ecosystems and communities.",
+        "D": "They do not produce enough electricity."
+      },
+      "Answer": "C"
+    },
+    {
+      "Question": "Which renewable energy source relies on the Earth's internal heat?",
+      "Options": {
+        "A": "Solar energy",
+        "B": "Wind energy",
+        "C": "Hydropower",
+        "D": "Geothermal energy"
+      },
+      "Answer": "D"
+    }
+  ],
+  [
+    {
+      "Question": "According to the text, which of the following is a challenge faced by renewable energy sources?",
+      "Options": {
+        "A": "Unlimited availability",
+        "B": "Low maintenance costs",
+        "C": "Intermittency",
+        "D": "Easy installation"
+      },
+      "Answer": "C"
+    },
+    {
+      "Question": "The text mentions that advancements are being made in which area to address the challenges of renewable energy?",
+      "Options": {
+        "A": "Fossil fuel extraction",
+        "B": "Nuclear fission technology",
+        "C": "Battery technology",
+        "D": "Coal combustion methods"
+      },
+      "Answer": "C"
+    },
+    {
+      "Question": "What is mentioned as an economic benefit of transitioning to sustainable energy?",
+      "Options": {
+        "A": "Increased reliance on foreign energy sources",
+        "B": "Job creation",
+        "C": "Higher energy prices",
+        "D": "Decreased technological innovation"
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "The text suggests that the adoption of clean energy is expected to...",
+      "Options": {
+        "A": "Decrease due to high costs",
+        "B": "Remain stagnant regardless of public awareness",
+        "C": "Accelerate as technology evolves and public awareness increases",
+        "D": "Be limited by the availability of fossil fuels"
+      },
+      "Answer": "C"
+    }
+  ]
+]

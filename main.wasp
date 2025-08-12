@@ -1,8 +1,8 @@
-app vibeCodeWasp {
+app quizBeef {
   wasp: {
     version: "^0.16.3"
   },
-  title: "Vibe Coding with Wasp",
+  title: "Quiz Beef - The Gym for Your Brain",
   head: [
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />",
     "<link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />",

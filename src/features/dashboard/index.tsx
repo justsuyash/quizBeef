@@ -38,9 +38,13 @@ export default function Dashboard() {
       {/* ===== Main ===== */}
       <Main>
         <div className='mb-2 flex items-center justify-between space-y-2'>
-          <h1 className='text-2xl font-bold tracking-tight'>Dashboard</h1>
+          <div>
+            <h1 className='text-3xl font-bold tracking-tight'>Welcome to Quiz Beef 🔥</h1>
+            <p className='text-muted-foreground'>Transform any content into active recall challenges. Ready to beef up your brain?</p>
+          </div>
           <div className='flex items-center space-x-2'>
-            <Button>Download</Button>
+            <Button>Upload Document</Button>
+            <Button variant="outline">Start a Beef</Button>
           </div>
         </div>
         <Tabs
@@ -67,7 +71,7 @@ export default function Dashboard() {
               <Card>
                 <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                   <CardTitle className='text-sm font-medium'>
-                    Total Revenue
+                    Questions Mastered
                   </CardTitle>
                   <svg
                     xmlns='http://www.w3.org/2000/svg'
@@ -79,13 +83,14 @@ export default function Dashboard() {
                     strokeWidth='2'
                     className='h-4 w-4 text-muted-foreground'
                   >
-                    <path d='M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6' />
+                    <path d='M9 12l2 2 4-4' />
+                    <path d='M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z' />
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>$45,231.89</div>
+                  <div className='text-2xl font-bold'>1,247</div>
                   <p className='text-xs text-muted-foreground'>
-                    +20.1% from last month
+                    +15.2% from last week
                   </p>
                 </CardContent>
               </Card>

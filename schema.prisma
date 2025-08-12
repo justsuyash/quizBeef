@@ -18,9 +18,137 @@ model User {
   // Phase 1.1 Quiz Beef fields
   handle                    String?       @unique  // e.g., "quiz_master" (displayed as @quiz_master)
   profileType               ProfileType   @default(ADULT)
+  
+  // Relations
+  documents                 Document[]
+  quizAttempts             QuizAttempt[]
+  questionHistory          UserQuestionHistory[]
 }
 
 enum ProfileType {
   ADULT
   KID
+}
+
+enum SourceType {
+  PDF
+  YOUTUBE
+  WEB_ARTICLE
+  TEXT_INPUT
+}
+
+model Document {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  
+  title                     String
+  contentJson               Json          // Structured content for AI processing
+  sourceType                SourceType    
+  sourceUrl                 String?       // Original source URL
+  wordCount                 Int?
+  estimatedReadTime         Int?          // in minutes
+  
+  // Relations
+  userId                    Int
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizAttempts             QuizAttempt[]
+  questions                Question[]
+}
+
+enum QuizMode {
+  PRACTICE
+  NEW_QUESTIONS
+  BEEF_CHALLENGE
+  SPEED_ROUND
+}
+
+model QuizAttempt {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  completedAt               DateTime?
+  
+  score                     Float         // Percentage score
+  totalQuestions            Int
+  correctAnswers            Int
+  timeSpent                 Int           // in seconds
+  quizMode                  QuizMode      @default(PRACTICE)
+  
+  // Relations
+  userId                    Int
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId                Int
+  document                  Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  questionHistory          UserQuestionHistory[]
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_ANSWER
+  FILL_IN_BLANK
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+  EXPERT
+}
+
+model Question {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  
+  questionText              String
+  questionType              QuestionType  @default(MULTIPLE_CHOICE)
+  difficulty                Difficulty    @default(MEDIUM)
+  explanation               String?       // Why this answer is correct
+  
+  // Quality tracking
+  upvotes                   Int           @default(0)
+  downvotes                 Int           @default(0)
+  timesAsked                Int           @default(0)
+  correctRate               Float?        // Percentage of correct answers
+  
+  // Relations
+  documentId                Int
+  document                  Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  answers                   Answer[]
+  questionHistory          UserQuestionHistory[]
+}
+
+model Answer {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  
+  answerText                String
+  isCorrect                 Boolean       @default(false)
+  explanation               String?       // Why this answer is right/wrong
+  orderIndex                Int           // For multiple choice ordering
+  
+  // Relations
+  questionId                Int
+  question                  Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+}
+
+model UserQuestionHistory {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  
+  wasCorrect                Boolean
+  timeSpent                 Int           // in seconds
+  selectedAnswerId          Int?          // Which answer they chose
+  confidenceLevel           Int?          // 1-5 scale
+  
+  // Relations
+  userId                    Int
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId                Int
+  question                  Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  quizAttemptId             Int?
+  quizAttempt               QuizAttempt?  @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, questionId, createdAt])
 }

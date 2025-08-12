@@ -1,0 +1,128 @@
+[
+  [
+    {
+      "Question": "What is a major driver of the sharp rise in global energy demand?",
+      "Options": {
+        "A": "Decreasing population",
+        "B": "Reduced industrialization",
+        "C": "Technological advancement",
+        "D": "Increased use of fossil fuels"
+      },
+      "Answer": "C"
+    },
+    {
+      "Question": "What is a primary concern associated with increased energy consumption?",
+      "Options": {
+        "A": "Environmental improvement",
+        "B": "Greenhouse gas reduction",
+        "C": "Depletion of renewable resources",
+        "D": "Environmental degradation"
+      },
+      "Answer": "D"
+    },
+    {
+      "Question": "What is the key characteristic of sustainable energy?",
+      "Options": {
+        "A": "It depletes resources rapidly.",
+        "B": "It compromises future generations' needs.",
+        "C": "It meets present needs without compromising future needs.",
+        "D": "It relies solely on fossil fuels."
+      },
+      "Answer": "C"
+    },
+    {
+      "Question": "Which of the following energy sources is NOT mentioned as a common example of sustainable energy?",
+      "Options": {
+        "A": "Solar",
+        "B": "Wind",
+        "C": "Nuclear",
+        "D": "Geothermal"
+      },
+      "Answer": "C"
+    }
+  ],
+  [
+    {
+      "Question": "What technology is used to convert sunlight into electricity?",
+      "Options": {
+        "A": "Wind turbines",
+        "B": "Photovoltaic cells",
+        "C": "Hydroelectric dams",
+        "D": "Geothermal vents"
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "Which of the following countries has successfully integrated wind energy into its national grid?",
+      "Options": {
+        "A": "Iceland",
+        "B": "Brazil",
+        "C": "Denmark",
+        "D": "Canada"
+      },
+      "Answer": "C"
+    },
+    {
+      "Question": "What is a potential drawback of large-scale hydroelectric dams?",
+      "Options": {
+        "A": "They are not a reliable source of energy.",
+        "B": "They can disrupt local ecosystems and communities.",
+        "C": "They are only effective in cold climates.",
+        "D": "They require a lot of fossil fuels to operate."
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "In which type of region is geothermal energy particularly effective?",
+      "Options": {
+        "A": "Desert regions",
+        "B": "Coastal regions",
+        "C": "Regions with volcanic activity",
+        "D": "Polar regions"
+      },
+      "Answer": "C"
+    }
+  ],
+  [
+    {
+      "Question": "Which of the following is a challenge faced by renewable energy sources?",
+      "Options": {
+        "A": "Unlimited availability",
+        "B": "Low initial setup costs",
+        "C": "Intermittency",
+        "D": "Easy integration with existing power grids"
+      },
+      "Answer": "C"
+    },
+    {
+      "Question": "What is one way that advances are addressing the challenges of renewable energy?",
+      "Options": {
+        "A": "Increased reliance on fossil fuels",
+        "B": "Development of smart grid systems",
+        "C": "Decreased policy support",
+        "D": "Ignoring storage limitations"
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "What is a potential economic benefit of transitioning to sustainable energy?",
+      "Options": {
+        "A": "Decreased energy security",
+        "B": "Job creation",
+        "C": "Increased reliance on foreign energy sources",
+        "D": "Higher energy costs"
+      },
+      "Answer": "B"
+    },
+    {
+      "Question": "What is expected to accelerate the adoption of clean energy?",
+      "Options": {
+        "A": "Decreasing public awareness",
+        "B": "Stagnant technology",
+        "C": "Evolving technology and increasing public awareness",
+        "D": "Increased reliance on non-renewable resources"
+      },
+      "Answer": "C"
+    }
+  ]
+]

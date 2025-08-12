@@ -30,24 +30,24 @@ export const sidebarData: SidebarData = {
   },
   teams: [
     {
-      name: 'Shadcn Admin',
+      name: 'Quiz Beef 🔥',
       logo: Command,
-      plan: 'Vite + ShadcnUI',
+      plan: 'Brain Gym',
     },
     {
-      name: 'Acme Inc',
+      name: 'Study Group Alpha',
       logo: GalleryVerticalEnd,
-      plan: 'Enterprise',
+      plan: 'Competitive',
     },
     {
-      name: 'Acme Corp.',
+      name: 'Learning Squad',
       logo: AudioWaveform,
-      plan: 'Startup',
+      plan: 'Active Recall',
     },
   ],
   navGroups: [
     {
-      title: 'General',
+      title: 'Learning',
       items: [
         {
           title: 'Dashboard',
@@ -55,24 +55,24 @@ export const sidebarData: SidebarData = {
           icon: IconLayoutDashboard,
         },
         {
-          title: 'Tasks',
-          url: '/tasks',
+          title: 'My Documents',
+          url: '/documents',
           icon: IconChecklist,
         },
         {
-          title: 'Apps',
-          url: '/apps',
+          title: 'Quiz History',
+          url: '/quizzes',
           icon: IconPackages,
         },
         {
-          title: 'Chats',
-          url: '/chats',
-          badge: '3',
+          title: 'Beef Challenges',
+          url: '/beefs',
+          badge: '2',
           icon: IconMessages,
         },
         {
-          title: 'Users',
-          url: '/users',
+          title: 'Leaderboard',
+          url: '/leaderboard',
           icon: IconUsers,
         },
       ],
