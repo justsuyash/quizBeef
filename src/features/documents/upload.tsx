@@ -18,9 +18,9 @@ import { toast } from '../../hooks/use-toast'
 import { Upload, FileText, Youtube, Globe, Type } from 'lucide-react'
 
 const topNav = [
-  { title: 'Dashboard', href: '/' },
-  { title: 'Documents', href: '/documents' },
-  { title: 'Upload', href: '/upload' },
+  { title: 'Dashboard', href: '/', isActive: false },
+  { title: 'Documents', href: '/documents', isActive: false },
+  { title: 'Upload', href: '/upload', isActive: true },
 ]
 
 export default function UploadPage() {

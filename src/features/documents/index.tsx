@@ -15,9 +15,9 @@ import { Skeleton } from '../../components/ui/skeleton'
 import { FileText, Clock, Upload, PlayCircle, BarChart3, Calendar } from 'lucide-react'
 
 const topNav = [
-  { title: 'Dashboard', href: '/' },
-  { title: 'Documents', href: '/documents' },
-  { title: 'Upload', href: '/upload' },
+  { title: 'Dashboard', href: '/', isActive: false },
+  { title: 'Documents', href: '/documents', isActive: true },
+  { title: 'Upload', href: '/upload', isActive: false },
 ]
 
 export default function DocumentsPage() {
