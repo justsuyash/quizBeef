@@ -1,7 +1,7 @@
-import React from 'react'
-import { useQuery } from 'wasp/client/operations'
+import React, { useState } from 'react'
+import { useQuery, useAction } from 'wasp/client/operations'
 import { Link } from 'wasp/client/router'
-import { getMyDocuments } from 'wasp/client/operations'
+import { getMyDocuments, generateQuiz } from 'wasp/client/operations'
 import { Header } from '../../components/layout/header'
 import { Main } from '../../components/layout/main'
 import { TopNav } from '../../components/layout/top-nav'
@@ -12,7 +12,8 @@ import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 import { Skeleton } from '../../components/ui/skeleton'
-import { FileText, Clock, Upload, PlayCircle, BarChart3, Calendar } from 'lucide-react'
+import { FileText, Clock, Upload, PlayCircle, BarChart3, Calendar, Brain, Loader2 } from 'lucide-react'
+import { toast } from '../../hooks/use-toast'
 
 const topNav = [
   { title: 'Dashboard', href: '/', isActive: false },
@@ -77,6 +78,9 @@ export default function DocumentsPage() {
 }
 
 function DocumentCard({ document }: { document: any }) {
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false)
+  const generateQuizFn = useAction(generateQuiz)
+
   const sourceTypeIcon = {
     PDF: <FileText className='h-4 w-4' />,
     YOUTUBE: <PlayCircle className='h-4 w-4' />,
@@ -89,6 +93,33 @@ function DocumentCard({ document }: { document: any }) {
     YOUTUBE: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300',
     WEB_ARTICLE: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
     TEXT_INPUT: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
+  }
+
+  const handleGenerateQuiz = async () => {
+    setIsGeneratingQuiz(true)
+    try {
+      const result = await generateQuizFn({
+        documentId: document.id,
+        questionCount: 10,
+        difficulty: 'MIXED'
+      })
+
+      if (result.success) {
+        toast({
+          title: result.isNewGeneration ? 'Quiz Generated!' : 'Quiz Ready!',
+          description: `${result.questionCount} questions ${result.isNewGeneration ? 'generated' : 'available'} for "${document.title}"`,
+        })
+      }
+    } catch (error) {
+      console.error('Quiz generation error:', error)
+      toast({
+        title: 'Generation Failed',
+        description: error instanceof Error ? error.message : 'Failed to generate quiz questions',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsGeneratingQuiz(false)
+    }
   }
 
   return (
@@ -139,17 +170,34 @@ function DocumentCard({ document }: { document: any }) {
         )}
 
         <div className='flex gap-2 pt-2'>
-          <Button size='sm' className='flex-1' disabled>
-            Generate Quiz
+          <Button 
+            size='sm' 
+            className='flex-1' 
+            onClick={handleGenerateQuiz}
+            disabled={isGeneratingQuiz}
+          >
+            {isGeneratingQuiz ? (
+              <>
+                <Loader2 className='h-4 w-4 mr-2 animate-spin' />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Brain className='h-4 w-4 mr-2' />
+                Generate Quiz
+              </>
+            )}
           </Button>
           <Button size='sm' variant='outline' className='flex-1' disabled>
-            View Details
+            View Questions
           </Button>
         </div>
         
-        <div className='text-xs text-center text-muted-foreground'>
-          🚧 Quiz generation coming in Phase 2.2
-        </div>
+        {document.questionCount > 0 && (
+          <div className='text-xs text-center text-muted-foreground'>
+            ✅ {document.questionCount} questions ready for quiz
+          </div>
+        )}
       </CardContent>
     </Card>
   )

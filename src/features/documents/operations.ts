@@ -1,4 +1,5 @@
-import { type ProcessContent, type GetMyDocuments } from 'wasp/server/operations'
+import { type ProcessContent, type GetMyDocuments, type GenerateQuiz, type GetDocumentQuestions } from 'wasp/server/operations'
+import { generateQuestionsFromContent } from './aiService'
 
 /**
  * Process content from various sources (PDF, URL, text) and store as structured JSON
@@ -209,5 +210,168 @@ function createStructuredContent(text: string, metadata: any): any {
       avgParagraphLength: Math.round(paragraphs.reduce((sum, p) => sum + p.length, 0) / paragraphs.length),
       keywordDensity: keywords.length / Math.max(cleanText.split(/\s+/).length, 1)
     }
+  }
+}
+
+/**
+ * Generate quiz questions from a document using AI
+ */
+export const generateQuiz: GenerateQuiz<
+  {
+    documentId: number
+    questionCount?: number
+    difficulty?: 'EASY' | 'MEDIUM' | 'HARD' | 'MIXED'
+    questionTypes?: ('MULTIPLE_CHOICE' | 'TRUE_FALSE' | 'SHORT_ANSWER')[]
+  },
+  any
+> = async (args, context) => {
+  if (!context.user) {
+    throw new Error('User must be authenticated')
+  }
+
+  const { documentId, questionCount = 10, difficulty = 'MIXED', questionTypes = ['MULTIPLE_CHOICE', 'TRUE_FALSE'] } = args
+
+  try {
+    // Get the document
+    const document = await context.entities.Document.findUnique({
+      where: { 
+        id: documentId,
+        userId: context.user.id // Ensure user owns the document
+      }
+    })
+
+    if (!document) {
+      throw new Error('Document not found or access denied')
+    }
+
+    // Check if we already have questions for this document
+    const existingQuestions = await context.entities.Question.findMany({
+      where: { documentId }
+    })
+
+    if (existingQuestions.length > 0) {
+      return {
+        success: true,
+        message: 'Questions already exist for this document',
+        questionCount: existingQuestions.length,
+        documentId,
+        isNewGeneration: false
+      }
+    }
+
+    // Generate questions using AI
+    const generatedQuiz = await generateQuestionsFromContent(
+      document.contentJson,
+      { questionCount, difficulty, questionTypes }
+    )
+
+    // Save questions and answers to database
+    for (const questionData of generatedQuiz.questions) {
+      const question = await context.entities.Question.create({
+        data: {
+          questionText: questionData.questionText,
+          questionType: questionData.questionType,
+          difficulty: questionData.difficulty,
+          explanation: questionData.explanation || '',
+          upvotes: 0,
+          downvotes: 0,
+          timesAsked: 0,
+          correctRate: null,
+          documentId,
+        }
+      })
+
+      // Create answers for this question
+      for (const answerData of questionData.answers) {
+        await context.entities.Answer.create({
+          data: {
+            answerText: answerData.answerText,
+            isCorrect: answerData.isCorrect,
+            explanation: answerData.explanation || '',
+            orderIndex: answerData.orderIndex,
+            questionId: question.id
+          }
+        })
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Quiz questions generated successfully',
+      questionCount: generatedQuiz.questions.length,
+      documentId,
+      isNewGeneration: true,
+      metadata: generatedQuiz.metadata
+    }
+
+  } catch (error) {
+    console.error('Error generating quiz:', error)
+    throw new Error(`Failed to generate quiz: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
+}
+
+/**
+ * Get questions for a specific document
+ */
+export const getDocumentQuestions: GetDocumentQuestions<
+  { documentId: number },
+  any
+> = async (args, context) => {
+  if (!context.user) {
+    throw new Error('User must be authenticated')
+  }
+
+  const { documentId } = args
+
+  try {
+    // Verify user owns the document
+    const document = await context.entities.Document.findUnique({
+      where: { 
+        id: documentId,
+        userId: context.user.id
+      }
+    })
+
+    if (!document) {
+      throw new Error('Document not found or access denied')
+    }
+
+    // Get questions with their answers
+    const questions = await context.entities.Question.findMany({
+      where: { documentId },
+      include: {
+        answers: {
+          orderBy: { orderIndex: 'asc' }
+        }
+      },
+      orderBy: { createdAt: 'asc' }
+    })
+
+    return {
+      documentId,
+      documentTitle: document.title,
+      questions: questions.map(q => ({
+        id: q.id,
+        questionText: q.questionText,
+        questionType: q.questionType,
+        difficulty: q.difficulty,
+        explanation: q.explanation,
+        upvotes: q.upvotes,
+        downvotes: q.downvotes,
+        timesAsked: q.timesAsked,
+        correctRate: q.correctRate,
+        answers: q.answers.map(a => ({
+          id: a.id,
+          answerText: a.answerText,
+          isCorrect: a.isCorrect,
+          explanation: a.explanation,
+          orderIndex: a.orderIndex
+        }))
+      }))
+    }
+
+  } catch (error) {
+    console.error('Error fetching document questions:', error)
+    throw new Error('Failed to fetch questions')
   }
 }
