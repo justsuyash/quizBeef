@@ -1,4 +1,4 @@
-import { Routes, routes } from 'wasp/client/router'
+import { Routes, routes, Link } from 'wasp/client/router'
 import { Button } from '../../components/ui/button'
 import {
   Card,
@@ -43,8 +43,10 @@ export default function Dashboard() {
             <p className='text-muted-foreground'>Transform any content into active recall challenges. Ready to beef up your brain?</p>
           </div>
           <div className='flex items-center space-x-2'>
-            <Button>Upload Document</Button>
-            <Button variant="outline">Start a Beef</Button>
+            <Button asChild>
+              <Link to='/upload'>Upload Document</Link>
+            </Button>
+            <Button variant="outline" disabled>Start a Beef</Button>
           </div>
         </div>
         <Tabs

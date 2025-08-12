@@ -46,6 +46,18 @@ page Dashboard {
   authRequired: true
 }
 
+route UploadRoute { path: "/upload", to: UploadPage }
+page UploadPage {
+  component: import UploadPage from "@src/features/documents/upload",
+  authRequired: true
+}
+
+route DocumentsRoute { path: "/documents", to: DocumentsPage }
+page DocumentsPage {
+  component: import DocumentsPage from "@src/features/documents/index",
+  authRequired: true
+}
+
 route ChatsRoute { path: "/chats", to: ChatsPage }
 page ChatsPage {
   component: import ChatsPage from "@src/features/chats/index",
@@ -136,5 +148,16 @@ page Forbidden {
 query getCurrentUser {
   fn: import { getCurrentUser } from "@src/features/auth/operations",
   entities: [User]
+}
+
+// Document operations
+action processContent {
+  fn: import { processContent } from "@src/features/documents/operations",
+  entities: [Document, User]
+}
+
+query getMyDocuments {
+  fn: import { getMyDocuments } from "@src/features/documents/operations",
+  entities: [Document, User]
 }
 
