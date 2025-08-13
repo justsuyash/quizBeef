@@ -82,6 +82,38 @@ page QuizHistoryPage {
   authRequired: true
 }
 
+// Phase 4: Beef Challenge routes
+route BeefLobbyRoute { path: "/beef", to: BeefLobbyPage }
+page BeefLobbyPage {
+  component: import BeefLobbyPage from "@src/features/beef/lobby",
+  authRequired: true
+}
+
+route CreateBeefRoute { path: "/beef/create/:documentId", to: CreateBeefPage }
+page CreateBeefPage {
+  component: import CreateBeefPage from "@src/features/beef/create",
+  authRequired: true
+}
+
+route BeefChallengeRoute { path: "/beef/:challengeId", to: BeefChallengePage }
+page BeefChallengePage {
+  component: import BeefChallengePage from "@src/features/beef/challenge",
+  authRequired: true
+}
+
+// Profile routes
+route UserProfileRoute { path: "/user/:userId", to: UserProfilePage }
+page UserProfilePage {
+  component: import UserProfilePage from "@src/features/profile/user-profile",
+  authRequired: false
+}
+
+route LeaderboardRoute { path: "/leaderboard", to: LeaderboardPage }
+page LeaderboardPage {
+  component: import LeaderboardPage from "@src/features/profile/leaderboard",
+  authRequired: false
+}
+
 route ChatsRoute { path: "/chats", to: ChatsPage }
 page ChatsPage {
   component: import ChatsPage from "@src/features/chats/index",
@@ -219,5 +251,104 @@ query getQuizAttempt {
 query getQuizHistory {
   fn: import { getQuizHistory } from "@src/features/quiz/operations",
   entities: [QuizAttempt, Document, User]
+}
+
+// Dashboard Analytics operations
+query getUserAnalytics {
+  fn: import { getUserAnalytics } from "@src/features/dashboard/operations",
+  entities: [User, Document, QuizAttempt, UserQuestionHistory]
+}
+
+query getLearningProgress {
+  fn: import { getLearningProgress } from "@src/features/dashboard/operations",
+  entities: [User, QuizAttempt, UserQuestionHistory]
+}
+
+query getPerformanceTrends {
+  fn: import { getPerformanceTrends } from "@src/features/dashboard/operations",
+  entities: [User, Document, QuizAttempt, UserQuestionHistory]
+}
+
+// Folder and Document Organization operations
+action createFolder {
+  fn: import { createFolder } from "@src/features/documents/folder-operations",
+  entities: [User, Folder]
+}
+
+action updateFolder {
+  fn: import { updateFolder } from "@src/features/documents/folder-operations",
+  entities: [User, Folder]
+}
+
+action deleteFolder {
+  fn: import { deleteFolder } from "@src/features/documents/folder-operations",
+  entities: [User, Folder, Document]
+}
+
+query getUserFolders {
+  fn: import { getUserFolders } from "@src/features/documents/folder-operations",
+  entities: [User, Folder]
+}
+
+action updateDocumentFolder {
+  fn: import { updateDocumentFolder } from "@src/features/documents/folder-operations",
+  entities: [User, Document, Folder]
+}
+
+query searchDocuments {
+  fn: import { searchDocuments } from "@src/features/documents/folder-operations",
+  entities: [User, Document, Folder]
+}
+
+// Phase 4: Beef Challenge operations
+action createBeef {
+  fn: import { createBeef } from "@src/features/beef/operations",
+  entities: [User, Document, BeefChallenge, BeefParticipant]
+}
+
+action joinBeef {
+  fn: import { joinBeef } from "@src/features/beef/operations",
+  entities: [User, BeefChallenge, BeefParticipant]
+}
+
+action startBeef {
+  fn: import { startBeef } from "@src/features/beef/operations",
+  entities: [User, BeefChallenge, BeefParticipant, BeefRound, Document, Question, Answer]
+}
+
+action submitBeefAnswer {
+  fn: import { submitBeefAnswer } from "@src/features/beef/operations",
+  entities: [User, BeefChallenge, BeefParticipant, BeefRound, BeefAnswer, Question, Answer]
+}
+
+query getBeefChallenge {
+  fn: import { getBeefChallenge } from "@src/features/beef/operations",
+  entities: [User, BeefChallenge, BeefParticipant, BeefRound, BeefAnswer, Document, Question, Answer]
+}
+
+query getActiveBeefs {
+  fn: import { getActiveBeefs } from "@src/features/beef/operations",
+  entities: [User, BeefChallenge, BeefParticipant, Document]
+}
+
+action leaveBeef {
+  fn: import { leaveBeef } from "@src/features/beef/operations",
+  entities: [User, BeefChallenge, BeefParticipant]
+}
+
+// Profile & User operations
+query getUserProfile {
+  fn: import { getUserProfile } from "@src/features/profile/operations",
+  entities: [User, Document, QuizAttempt, BeefParticipant, BeefChallenge]
+}
+
+action updateUserProfile {
+  fn: import { updateUserProfile } from "@src/features/profile/operations",
+  entities: [User]
+}
+
+query getLeaderboard {
+  fn: import { getLeaderboard } from "@src/features/profile/operations",
+  entities: [User, BeefParticipant]
 }
 

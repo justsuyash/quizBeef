@@ -1,0 +1,364 @@
+import type { 
+  GetUserProfile,
+  UpdateUserProfile,
+  GetLeaderboard
+} from 'wasp/server/operations'
+import { HttpError } from 'wasp/server'
+
+/**
+ * Get user profile by ID (for public viewing)
+ */
+export const getUserProfile: GetUserProfile<{ userId: number }, any> = async (args, context) => {
+  const { userId } = args
+
+  try {
+    const user = await context.entities.User.findUnique({
+      where: { id: userId },
+      include: {
+        documents: {
+          where: {
+            // Only include public documents or user's own documents
+            OR: [
+              { userId: context.user?.id || -1 },
+              // Add public documents logic here if needed
+            ]
+          },
+          select: {
+            id: true,
+            title: true,
+            sourceType: true,
+            createdAt: true,
+            _count: {
+              select: {
+                questions: true,
+                quizAttempts: true
+              }
+            }
+          },
+          take: 5, // Show recent 5 documents
+          orderBy: { createdAt: 'desc' }
+        },
+        quizAttempts: {
+          select: {
+            id: true,
+            score: true,
+            createdAt: true,
+            document: {
+              select: {
+                title: true
+              }
+            }
+          },
+          take: 10, // Recent 10 quiz attempts
+          orderBy: { createdAt: 'desc' }
+        },
+        beefParticipations: {
+          where: {
+            position: 1 // Only wins
+          },
+          include: {
+            challenge: {
+              select: {
+                title: true,
+                createdAt: true,
+                document: {
+                  select: {
+                    title: true
+                  }
+                }
+              }
+            }
+          },
+          take: 5, // Recent 5 wins
+          orderBy: { createdAt: 'desc' }
+        },
+        _count: {
+          select: {
+            documents: true,
+            quizAttempts: true,
+            createdBeefs: true,
+            beefParticipations: true
+          }
+        }
+      }
+    })
+
+    if (!user) {
+      throw new HttpError(404, 'User not found')
+    }
+
+    // Check if profile is public or if it's the user's own profile
+    if (!user.isPublicProfile && user.id !== context.user?.id) {
+      throw new HttpError(403, 'Profile is private')
+    }
+
+    // Calculate additional stats
+    const totalBeefParticipations = await context.entities.BeefParticipant.count({
+      where: { userId: user.id }
+    })
+
+    const beefWins = await context.entities.BeefParticipant.count({
+      where: {
+        userId: user.id,
+        position: 1
+      }
+    })
+
+    const avgQuizScore = await context.entities.QuizAttempt.aggregate({
+      where: { userId: user.id },
+      _avg: {
+        score: true
+      }
+    })
+
+    // Remove sensitive information for public profiles
+    const publicUser = {
+      id: user.id,
+      handle: user.handle,
+      profileType: user.profileType,
+      bio: user.bio,
+      location: user.location,
+      website: user.website,
+      joinedAt: user.joinedAt,
+      totalScore: user.totalScore,
+      totalQuizzes: user.totalQuizzes,
+      totalBeefWins: user.totalBeefWins,
+      winStreak: user.winStreak,
+      longestWinStreak: user.longestWinStreak,
+      averageAccuracy: user.averageAccuracy,
+      favoriteSubject: user.favoriteSubject,
+      isPublicProfile: user.isPublicProfile,
+      
+      // Calculated stats
+      totalBeefParticipations,
+      beefWins,
+      beefWinRate: totalBeefParticipations > 0 ? (beefWins / totalBeefParticipations) * 100 : 0,
+      averageQuizScore: avgQuizScore._avg.score || 0,
+      
+      // Related data
+      recentDocuments: user.documents,
+      recentQuizAttempts: user.quizAttempts,
+      recentBeefWins: user.beefParticipations,
+      
+      // Counts
+      stats: {
+        totalDocuments: user._count.documents,
+        totalQuizAttempts: user._count.quizAttempts,
+        totalBeefChallengesCreated: user._count.createdBeefs,
+        totalBeefParticipations: user._count.beefParticipations
+      },
+      
+      // Privacy flag
+      isOwnProfile: user.id === context.user?.id
+    }
+
+    return publicUser
+  } catch (error) {
+    console.error('Error fetching user profile:', error)
+    if (error instanceof HttpError) throw error
+    throw new HttpError(500, 'Failed to fetch user profile')
+  }
+}
+
+/**
+ * Update user profile (for own profile only)
+ */
+export const updateUserProfile: UpdateUserProfile<{
+  handle?: string
+  email?: string
+  name?: string
+  dateOfBirth?: Date
+  language?: string
+  accountType?: string
+  bio?: string
+  location?: string
+  website?: string
+  favoriteSubject?: string
+  isPublicProfile?: boolean
+}, any> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  try {
+    const updatedUser = await context.entities.User.update({
+      where: { id: context.user.id },
+      data: {
+        handle: args.handle,
+        email: args.email,
+        name: args.name,
+        dateOfBirth: args.dateOfBirth,
+        language: args.language,
+        accountType: args.accountType as any,
+        bio: args.bio,
+        location: args.location,
+        website: args.website,
+        favoriteSubject: args.favoriteSubject,
+        isPublicProfile: args.isPublicProfile
+      },
+      select: {
+        id: true,
+        handle: true,
+        email: true,
+        name: true,
+        dateOfBirth: true,
+        language: true,
+        accountType: true,
+        bio: true,
+        location: true,
+        website: true,
+        favoriteSubject: true,
+        isPublicProfile: true
+      }
+    })
+
+    return updatedUser
+  } catch (error) {
+    console.error('Error updating user profile:', error)
+    throw new HttpError(500, 'Failed to update profile')
+  }
+}
+
+/**
+ * Get leaderboard with top users
+ */
+export const getLeaderboard: GetLeaderboard<{ 
+  type?: 'quiz_score' | 'beef_wins' | 'accuracy' | 'total_quizzes'
+  limit?: number 
+}, any> = async (args, context) => {
+  const { type = 'total_score', limit = 50 } = args
+
+  try {
+    let orderBy: any = { totalScore: 'desc' }
+
+    switch (type) {
+      case 'beef_wins':
+        orderBy = { totalBeefWins: 'desc' }
+        break
+      case 'accuracy':
+        orderBy = { averageAccuracy: 'desc' }
+        break
+      case 'total_quizzes':
+        orderBy = { totalQuizzes: 'desc' }
+        break
+      default:
+        orderBy = { totalScore: 'desc' }
+    }
+
+    const users = await context.entities.User.findMany({
+      where: {
+        isPublicProfile: true,
+        // Only users who have participated in at least one quiz
+        OR: [
+          { totalQuizzes: { gt: 0 } },
+          { totalBeefWins: { gt: 0 } }
+        ]
+      },
+      select: {
+        id: true,
+        handle: true,
+        profileType: true,
+        totalScore: true,
+        totalQuizzes: true,
+        totalBeefWins: true,
+        averageAccuracy: true,
+        winStreak: true,
+        longestWinStreak: true,
+        joinedAt: true,
+        favoriteSubject: true,
+        _count: {
+          select: {
+            beefParticipations: true
+          }
+        }
+      },
+      orderBy,
+      take: limit
+    })
+
+    // Add ranking and additional calculations
+    const leaderboard = users.map((user, index) => ({
+      ...user,
+      rank: index + 1,
+      beefWinRate: user._count.beefParticipations > 0 
+        ? (user.totalBeefWins / user._count.beefParticipations) * 100 
+        : 0
+    }))
+
+    return leaderboard
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error)
+    throw new HttpError(500, 'Failed to fetch leaderboard')
+  }
+}
+
+/**
+ * Update user stats after quiz completion
+ */
+export const updateUserStats = async (
+  userId: number, 
+  quizScore: number, 
+  accuracy: number,
+  context: any
+) => {
+  try {
+    const user = await context.entities.User.findUnique({
+      where: { id: userId }
+    })
+
+    if (!user) return
+
+    const newTotalQuizzes = user.totalQuizzes + 1
+    const newTotalScore = user.totalScore + quizScore
+    
+    // Calculate new average accuracy
+    const currentTotalAccuracy = (user.averageAccuracy || 0) * user.totalQuizzes
+    const newAverageAccuracy = (currentTotalAccuracy + accuracy) / newTotalQuizzes
+
+    await context.entities.User.update({
+      where: { id: userId },
+      data: {
+        totalQuizzes: newTotalQuizzes,
+        totalScore: newTotalScore,
+        averageAccuracy: newAverageAccuracy
+      }
+    })
+  } catch (error) {
+    console.error('Error updating user stats:', error)
+  }
+}
+
+/**
+ * Update user beef stats after beef completion
+ */
+export const updateUserBeefStats = async (
+  userId: number,
+  position: number,
+  context: any
+) => {
+  try {
+    const user = await context.entities.User.findUnique({
+      where: { id: userId }
+    })
+
+    if (!user) return
+
+    const isWin = position === 1
+    let updateData: any = {}
+
+    if (isWin) {
+      updateData.totalBeefWins = user.totalBeefWins + 1
+      updateData.winStreak = user.winStreak + 1
+      updateData.longestWinStreak = Math.max(user.longestWinStreak, user.winStreak + 1)
+    } else {
+      updateData.winStreak = 0 // Reset win streak on loss
+    }
+
+    await context.entities.User.update({
+      where: { id: userId },
+      data: updateData
+    })
+  } catch (error) {
+    console.error('Error updating user beef stats:', error)
+  }
+}

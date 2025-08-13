@@ -22,8 +22,8 @@ export function ProfileDropdown() {
   })
   
   // Generate user display info
-  const userName = userData?.username || 'Guest'
-  const userEmail = userData?.email || 'No email set'
+  const userName = userData?.handle || userData?.username || 'Guest'
+  const userEmail = userData?.email || 'Add email in profile settings'
   const userInitials = userName.substring(0, 2).toUpperCase()
 
   return (
@@ -48,15 +48,15 @@ export function ProfileDropdown() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link to='/settings'>
+            <Link to='/settings/profile'>
               Profile
               <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to='/settings'>
-              Billing
-              <DropdownMenuShortcut>⌘B</DropdownMenuShortcut>
+            <Link to='/settings/account'>
+              Account
+              <DropdownMenuShortcut>⌘A</DropdownMenuShortcut>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>

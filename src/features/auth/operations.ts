@@ -40,21 +40,53 @@ export const getCurrentUser: GetCurrentUser<void, any> = async (args, context) =
     return {
       id: context.user.id,
       username,
-      email: null, // Wasp username/password auth doesn't collect emails
+      email: userWithAuth.email || null, // From user's profile
+      name: userWithAuth.name || null,
+      dateOfBirth: userWithAuth.dateOfBirth || null,
+      language: userWithAuth.language || null,
       createdAt: userWithAuth.createdAt,
       updatedAt: userWithAuth.updatedAt,
-      isActive: userWithAuth.isActive
+      isActive: userWithAuth.isActive,
+      // Profile fields with safe defaults
+      handle: userWithAuth.handle || null,
+      profileType: userWithAuth.profileType || 'ADULT',
+      accountType: userWithAuth.accountType || 'FREE',
+      bio: userWithAuth.bio || null,
+      location: userWithAuth.location || null,
+      website: userWithAuth.website || null,
+      favoriteSubject: userWithAuth.favoriteSubject || null,
+      isPublicProfile: userWithAuth.isPublicProfile ?? true,
+      totalScore: userWithAuth.totalScore || 0,
+      totalQuizzes: userWithAuth.totalQuizzes || 0,
+      totalBeefWins: userWithAuth.totalBeefWins || 0,
+      averageAccuracy: userWithAuth.averageAccuracy || null
     }
   } catch (error) {
     // Fallback: return basic user info on any error
     console.error('Error in getCurrentUser:', error)
-            return {
-          id: context.user.id,
-          username: `user${context.user.id}`,
-          email: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          isActive: true
-        }
+    return {
+      id: context.user.id,
+      username: `user${context.user.id}`,
+      email: null,
+      name: null,
+      dateOfBirth: null,
+      language: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      isActive: true,
+      // Profile fields with defaults
+      handle: null,
+      profileType: 'ADULT',
+      accountType: 'FREE',
+      bio: null,
+      location: null,
+      website: null,
+      favoriteSubject: null,
+      isPublicProfile: true,
+      totalScore: 0,
+      totalQuizzes: 0,
+      totalBeefWins: 0,
+      averageAccuracy: null
+    }
   }
 }

@@ -64,26 +64,26 @@ const sidebarNavItems = [
   {
     title: 'Profile',
     icon: <IconUser size={18} />,
-    href: 'profile',
+    href: '/settings/profile',
   },
   {
     title: 'Account',
     icon: <IconTool size={18} />,
-    href: 'account',
+    href: '/settings/account',
   },
   {
     title: 'Appearance',
     icon: <IconPalette size={18} />,
-    href: 'appearance',
+    href: '/settings/appearance',
   },
   {
     title: 'Notifications',
     icon: <IconNotification size={18} />,
-    href: 'notifications',
+    href: '/settings/notifications',
   },
   {
     title: 'Display',
     icon: <IconBrowserCheck size={18} />,
-    href: 'display',
+    href: '/settings/display',
   },
 ];

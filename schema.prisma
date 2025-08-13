@@ -18,11 +18,35 @@ model User {
   // Phase 1.1 Quiz Beef fields
   handle                    String?       @unique  // e.g., "quiz_master" (displayed as @quiz_master)
   profileType               ProfileType   @default(ADULT)
+  accountType               AccountType   @default(FREE)
   
   // Relations
+  folders                   Folder[]
   documents                 Document[]
   quizAttempts             QuizAttempt[]
   questionHistory          UserQuestionHistory[]
+  
+  // Phase 4: Beef Relations
+  createdBeefs              BeefChallenge[] @relation("CreatedBeefs")
+  beefParticipations        BeefParticipant[]
+  
+  // Profile & Achievement fields
+  email                     String?
+  name                      String?
+  dateOfBirth               DateTime?
+  language                  String?
+  bio                       String?
+  location                  String?
+  website                   String?
+  joinedAt                  DateTime      @default(now())
+  totalScore                Int           @default(0)
+  totalQuizzes              Int           @default(0)
+  totalBeefWins             Int           @default(0)
+  winStreak                 Int           @default(0)
+  longestWinStreak          Int           @default(0)
+  averageAccuracy           Float?
+  favoriteSubject           String?
+  isPublicProfile           Boolean       @default(true)
 }
 
 enum ProfileType {
@@ -30,11 +54,36 @@ enum ProfileType {
   KID
 }
 
+enum AccountType {
+  FREE
+  PREMIUM
+  KIDS
+  KIDS_PREMIUM
+  FAMILY
+}
+
 enum SourceType {
   PDF
   YOUTUBE
   WEB_ARTICLE
   TEXT_INPUT
+}
+
+model Folder {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  
+  name                      String
+  color                     String?       // Hex color for folder display
+  description               String?
+  
+  // Relations
+  userId                    Int
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents                 Document[]
+  
+  @@unique([userId, name])  // Unique folder names per user
 }
 
 model Document {
@@ -49,11 +98,17 @@ model Document {
   wordCount                 Int?
   estimatedReadTime         Int?          // in minutes
   
+  // Organization
+  folderId                  Int?          // Optional folder organization
+  tags                      String[]      // Tags for categorization
+  
   // Relations
   userId                    Int
   user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folder                    Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
   quizAttempts             QuizAttempt[]
   questions                Question[]
+  beefChallenges           BeefChallenge[]
 }
 
 enum QuizMode {
@@ -117,6 +172,7 @@ model Question {
   document                  Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
   answers                   Answer[]
   questionHistory          UserQuestionHistory[]
+  beefRounds               BeefRound[]
 }
 
 model Answer {
@@ -131,6 +187,7 @@ model Answer {
   // Relations
   questionId                Int
   question                  Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  beefAnswers              BeefAnswer[]
 }
 
 model UserQuestionHistory {
@@ -151,4 +208,104 @@ model UserQuestionHistory {
   quizAttempt               QuizAttempt?  @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
   
   @@unique([userId, questionId, createdAt])
+}
+
+// Phase 4: Social Beef Models
+model BeefChallenge {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  
+  challengeCode             String        @unique // Short code for joining (e.g., "BEEF42")
+  title                     String?       // Optional challenge title
+  status                    BeefStatus    @default(WAITING)
+  maxParticipants           Int           @default(2)
+  timeLimit                 Int           @default(60) // seconds per question
+  questionCount             Int           @default(10)
+  
+  // Challenge settings
+  difficultyDistribution    Json?         // Easy/Medium/Hard percentages
+  isPrivate                 Boolean       @default(false)
+  expiresAt                 DateTime      // When the challenge code expires
+  
+  // Relations
+  documentId                Int
+  document                  Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  creatorId                 Int
+  creator                   User          @relation("CreatedBeefs", fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  participants              BeefParticipant[]
+  rounds                    BeefRound[]
+  
+  @@index([challengeCode])
+  @@index([status])
+}
+
+model BeefParticipant {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  
+  joinedAt                  DateTime      @default(now())
+  isReady                   Boolean       @default(false)
+  finalScore                Int           @default(0)
+  totalTimeSpent            Int           @default(0) // in milliseconds
+  position                  Int?          // Final ranking (1st, 2nd, etc.)
+  
+  // Relations
+  userId                    Int
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId               Int
+  challenge                 BeefChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  
+  answers                   BeefAnswer[]
+  
+  @@unique([userId, challengeId])
+}
+
+model BeefRound {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  
+  roundNumber               Int           // 1, 2, 3, etc.
+  startedAt                 DateTime?
+  endedAt                   DateTime?
+  timeLimit                 Int           // seconds for this round
+  
+  // Relations
+  challengeId               Int
+  challenge                 BeefChallenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  questionId                Int
+  question                  Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  answers                   BeefAnswer[]
+  
+  @@unique([challengeId, roundNumber])
+}
+
+model BeefAnswer {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  
+  answeredAt                DateTime      @default(now())
+  timeSpent                 Int           // milliseconds to answer
+  isCorrect                 Boolean
+  pointsEarned              Int           @default(0) // Points including time bonus
+  
+  // Relations
+  participantId             Int
+  participant               BeefParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  roundId                   Int
+  round                     BeefRound     @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  selectedAnswerId          Int?
+  selectedAnswer            Answer?       @relation(fields: [selectedAnswerId], references: [id], onDelete: SetNull)
+  
+  @@unique([participantId, roundId])
+}
+
+enum BeefStatus {
+  WAITING       // Waiting for participants
+  STARTING      // Countdown before starting
+  IN_PROGRESS   // Game in progress
+  COMPLETED     // Game finished
+  CANCELLED     // Game cancelled
 }

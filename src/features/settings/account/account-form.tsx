@@ -5,6 +5,11 @@ import { CalendarIcon, CaretSortIcon, CheckIcon } from '@radix-ui/react-icons'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { cn } from '../../../lib/cn'
 import { toast } from '../../../hooks/use-toast'
+import { useQuery, useAction } from 'wasp/client/operations'
+import { getCurrentUser, updateUserProfile } from 'wasp/client/operations'
+import { useAuth } from 'wasp/client/auth'
+import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../../../components/ui/button'
 import { Calendar } from '../../../components/ui/calendar'
 import {
@@ -68,20 +73,74 @@ const defaultValues: Partial<AccountFormValues> = {
 }
 
 export function AccountForm() {
+  const { data: user } = useAuth()
+  const { data: userData, isLoading: userDataLoading } = useQuery(getCurrentUser, undefined, {
+    enabled: !!user
+  })
+  const updateProfileFn = useAction(updateUserProfile)
+  const queryClient = useQueryClient()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(accountFormSchema),
-    defaultValues,
+    defaultValues: {
+      name: '',
+    },
   })
 
-  function onSubmit(data: AccountFormValues) {
-    toast({
-      title: 'You submitted the following values:',
-      description: (
-        <pre className='mt-2 w-[340px] rounded-md bg-slate-950 p-4'>
-          <code className='text-white'>{JSON.stringify(data, null, 2)}</code>
-        </pre>
-      ),
-    })
+  // Update form when user data loads
+  useEffect(() => {
+    if (userData) {
+      form.reset({
+        name: userData.name || '',
+        dob: userData.dateOfBirth ? new Date(userData.dateOfBirth) : undefined,
+        language: userData.language || '',
+      })
+    }
+  }, [userData, form])
+
+  async function onSubmit(data: AccountFormValues) {
+    if (isSubmitting) return
+    
+    setIsSubmitting(true)
+    try {
+      await updateProfileFn({
+        name: data.name,
+        dateOfBirth: data.dob,
+        language: data.language,
+      })
+
+      // Invalidate and refetch the getCurrentUser query to update the UI
+      await queryClient.invalidateQueries({ queryKey: ['getCurrentUser'] })
+      await queryClient.refetchQueries({ queryKey: ['getCurrentUser'] })
+      
+      toast({
+        title: 'Account updated successfully!',
+        description: 'Your account settings have been saved.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Error updating account',
+        description: error instanceof Error ? error.message : 'Something went wrong',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (userDataLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="animate-pulse">
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+          <div className="h-10 bg-gray-200 rounded mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+          <div className="h-10 bg-gray-200 rounded mb-4"></div>
+        </div>
+        <p className="text-sm text-muted-foreground">Loading account settings...</p>
+      </div>
+    )
   }
 
   return (
@@ -210,7 +269,9 @@ export function AccountForm() {
             </FormItem>
           )}
         />
-        <Button type='submit'>Update account</Button>
+        <Button type='submit' disabled={isSubmitting}>
+          {isSubmitting ? 'Updating...' : 'Update account'}
+        </Button>
       </form>
     </Form>
   )

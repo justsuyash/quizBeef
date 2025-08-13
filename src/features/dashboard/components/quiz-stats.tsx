@@ -1,131 +1,210 @@
-/**
- * Quiz Beef Statistics Dashboard Component
- * Displays learning progress and competitive stats
- */
-
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../../../components/ui/card'
+import React from 'react'
+import { useQuery } from 'wasp/client/operations'
+import { getUserAnalytics } from 'wasp/client/operations'
+import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
+import { Badge } from '../../../components/ui/badge'
+import { 
+  BookOpen, 
+  Target, 
+  TrendingUp, 
+  Flame, 
+  CheckCircle2, 
+  Clock,
+  Brain,
+  Award
+} from 'lucide-react'
 
 export function QuizStats() {
+  const { data: analytics, isLoading, error } = useQuery(getUserAnalytics)
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[...Array(4)].map((_, i) => (
+          <Card key={i}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Loading...</CardTitle>
+              <div className="h-4 w-4 bg-muted rounded" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">-</div>
+              <p className="text-xs text-muted-foreground">Loading data...</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    )
+  }
+
+  if (error || !analytics) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground">
+              Failed to load analytics
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  const {
+    totalDocuments,
+    totalQuizAttempts,
+    totalQuestionsAnswered,
+    accuracyRate,
+    averageScore,
+    currentStreak,
+    bestStreak,
+    weeklyQuizzes,
+    weeklyQuestions
+  } = analytics
+
+  // Calculate performance level
+  const getPerformanceLevel = (accuracy: number) => {
+    if (accuracy >= 90) return { level: 'Expert', color: 'text-purple-600', bg: 'bg-purple-100' }
+    if (accuracy >= 80) return { level: 'Advanced', color: 'text-blue-600', bg: 'bg-blue-100' }
+    if (accuracy >= 70) return { level: 'Intermediate', color: 'text-green-600', bg: 'bg-green-100' }
+    if (accuracy >= 60) return { level: 'Beginner', color: 'text-yellow-600', bg: 'bg-yellow-100' }
+    return { level: 'Learning', color: 'text-gray-600', bg: 'bg-gray-100' }
+  }
+
+  const performance = getPerformanceLevel(accuracyRate)
+
+  const stats = [
+    {
+      title: 'Documents Studied',
+      value: totalDocuments,
+      description: `${weeklyQuestions} questions this week`,
+      icon: BookOpen,
+      color: 'text-blue-600',
+      trend: weeklyQuestions > 0 ? '+' + weeklyQuestions : null
+    },
+    {
+      title: 'Questions Mastered',
+      value: totalQuestionsAnswered,
+      description: `${accuracyRate.toFixed(1)}% accuracy rate`,
+      icon: Target,
+      color: 'text-green-600',
+      trend: accuracyRate >= 80 ? 'Excellent' : accuracyRate >= 70 ? 'Good' : 'Improving'
+    },
+    {
+      title: 'Average Score',
+      value: `${averageScore.toFixed(1)}%`,
+      description: `${totalQuizAttempts} quizzes completed`,
+      icon: TrendingUp,
+      color: 'text-purple-600',
+      trend: weeklyQuizzes > 0 ? `+${weeklyQuizzes} this week` : 'No activity this week'
+    },
+    {
+      title: 'Current Streak',
+      value: currentStreak,
+      description: `Best streak: ${bestStreak} days`,
+      icon: Flame,
+      color: currentStreak > 0 ? 'text-orange-600' : 'text-gray-500',
+      trend: currentStreak > 0 ? 'Active' : 'Start studying!'
+    }
+  ]
+
   return (
-    <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
-      {/* Questions Mastered */}
-      <Card>
-        <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-          <CardTitle className='text-sm font-medium'>
-            Questions Mastered
-          </CardTitle>
-          <svg
-            xmlns='http://www.w3.org/2000/svg'
-            viewBox='0 0 24 24'
-            fill='none'
-            stroke='currentColor'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth='2'
-            className='h-4 w-4 text-muted-foreground'
-          >
-            <path d='M9 12l2 2 4-4' />
-            <path d='M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z' />
-          </svg>
-        </CardHeader>
-        <CardContent>
-          <div className='text-2xl font-bold'>1,247</div>
-          <p className='text-xs text-muted-foreground'>
-            +15.2% from last week
-          </p>
-        </CardContent>
-      </Card>
+    <div className="space-y-4">
+      {/* Main Stats Grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat, index) => {
+          const Icon = stat.icon
+          return (
+            <Card key={index}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+                <Icon className={`h-4 w-4 ${stat.color}`} />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{stat.value}</div>
+                <p className="text-xs text-muted-foreground">{stat.description}</p>
+                {stat.trend && (
+                  <div className="mt-1">
+                    <Badge variant="outline" className="text-xs">
+                      {stat.trend}
+                    </Badge>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
 
-      {/* Documents Uploaded */}
+      {/* Performance Summary Card */}
       <Card>
-        <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-          <CardTitle className='text-sm font-medium'>
-            Documents Uploaded
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Brain className="h-5 w-5" />
+            Learning Performance
           </CardTitle>
-          <svg
-            xmlns='http://www.w3.org/2000/svg'
-            viewBox='0 0 24 24'
-            fill='none'
-            stroke='currentColor'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth='2'
-            className='h-4 w-4 text-muted-foreground'
-          >
-            <path d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' />
-            <polyline points='14,2 14,8 20,8' />
-          </svg>
         </CardHeader>
         <CardContent>
-          <div className='text-2xl font-bold'>23</div>
-          <p className='text-xs text-muted-foreground'>
-            +3 new this week
-          </p>
-        </CardContent>
-      </Card>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Performance Level */}
+            <div className="text-center">
+              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${performance.bg}`}>
+                <Award className={`h-4 w-4 ${performance.color}`} />
+                <span className={`font-medium ${performance.color}`}>
+                  {performance.level}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">Performance Level</div>
+            </div>
 
-      {/* Beef Wins */}
-      <Card>
-        <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-          <CardTitle className='text-sm font-medium'>
-            Beef Victories 🔥
-          </CardTitle>
-          <svg
-            xmlns='http://www.w3.org/2000/svg'
-            viewBox='0 0 24 24'
-            fill='none'
-            stroke='currentColor'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth='2'
-            className='h-4 w-4 text-muted-foreground'
-          >
-            <path d='M6 9H4.5a2.5 2.5 0 0 1 0-5H6' />
-            <path d='M18 9h1.5a2.5 2.5 0 0 0 0-5H18' />
-            <path d='M4 22h16' />
-            <path d='M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22' />
-            <path d='M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22' />
-            <path d='M18 2H6v7a6 6 0 0 0 12 0V2Z' />
-          </svg>
-        </CardHeader>
-        <CardContent>
-          <div className='text-2xl font-bold'>87</div>
-          <p className='text-xs text-muted-foreground'>
-            12 win streak! 🔥
-          </p>
-        </CardContent>
-      </Card>
+            {/* Accuracy Breakdown */}
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="text-lg font-bold">{accuracyRate.toFixed(1)}%</span>
+              </div>
+              <div className="text-xs text-muted-foreground">Overall Accuracy</div>
+            </div>
 
-      {/* Study Streak */}
-      <Card>
-        <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-          <CardTitle className='text-sm font-medium'>
-            Study Streak
-          </CardTitle>
-          <svg
-            xmlns='http://www.w3.org/2000/svg'
-            viewBox='0 0 24 24'
-            fill='none'
-            stroke='currentColor'
-            strokeLinecap='round'
-            strokeLinejoin='round'
-            strokeWidth='2'
-            className='h-4 w-4 text-muted-foreground'
-          >
-            <path d='M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z' />
-          </svg>
-        </CardHeader>
-        <CardContent>
-          <div className='text-2xl font-bold'>28 days</div>
-          <p className='text-xs text-muted-foreground'>
-            Keep it up! 💪
-          </p>
+            {/* Activity Level */}
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2">
+                <Clock className="h-4 w-4 text-blue-600" />
+                <span className="text-lg font-bold">{weeklyQuizzes}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">Quizzes This Week</div>
+            </div>
+          </div>
+
+          {/* Quick insights */}
+          <div className="mt-4 pt-4 border-t">
+            <div className="text-sm space-y-1">
+              {accuracyRate >= 85 && (
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle2 className="h-3 w-3" />
+                  <span>Excellent accuracy! Keep up the great work.</span>
+                </div>
+              )}
+              {currentStreak >= 7 && (
+                <div className="flex items-center gap-2 text-orange-600">
+                  <Flame className="h-3 w-3" />
+                  <span>Amazing {currentStreak}-day streak! You're on fire!</span>
+                </div>
+              )}
+              {weeklyQuizzes === 0 && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>No quizzes this week. Time to get back to studying!</span>
+                </div>
+              )}
+              {totalQuestionsAnswered >= 100 && (
+                <div className="flex items-center gap-2 text-purple-600">
+                  <Award className="h-3 w-3" />
+                  <span>Milestone achieved: {totalQuestionsAnswered} questions answered!</span>
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

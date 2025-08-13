@@ -66,8 +66,8 @@ export const sidebarData: SidebarData = {
         },
         {
           title: 'Beef Challenges',
-          url: '/beefs',
-          badge: '2',
+          url: '/beef',
+          badge: 'LIVE',
           icon: IconMessages,
         },
         {

@@ -14,7 +14,7 @@ import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 import { Skeleton } from '../../components/ui/skeleton'
-import { FileText, Clock, Upload, PlayCircle, BarChart3, Calendar, Brain, Loader2 } from 'lucide-react'
+import { FileText, Clock, Upload, PlayCircle, BarChart3, Calendar, Brain, Loader2, Flame } from 'lucide-react'
 import { toast } from '../../hooks/use-toast'
 
 const topNav = [
@@ -224,17 +224,30 @@ function DocumentCard({ document }: { document: any }) {
 
         <div className='flex gap-2 pt-2'>
           {(document.questions && document.questions.length > 0) ? (
-            <Button 
-              size='sm' 
-              className='flex-1' 
-              onClick={() => {
-                // Navigate to quiz settings page
-                window.location.href = `/quiz/${document.id}/settings`;
-              }}
-            >
-              <PlayCircle className='h-4 w-4 mr-2' />
-              Start Quiz
-            </Button>
+            <>
+              <Button 
+                size='sm' 
+                className='flex-1' 
+                onClick={() => {
+                  // Navigate to quiz settings page
+                  window.location.href = `/quiz/${document.id}/settings`;
+                }}
+              >
+                <PlayCircle className='h-4 w-4 mr-2' />
+                Start Quiz
+              </Button>
+              <Button 
+                size='sm' 
+                variant='outline'
+                onClick={() => {
+                  // Navigate to create beef page
+                  window.location.href = `/beef/create/${document.id}`;
+                }}
+              >
+                <Flame className='h-4 w-4 mr-2 text-orange-500' />
+                Start Beef
+              </Button>
+            </>
           ) : (
             <Button 
               size='sm' 

@@ -21,8 +21,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   
   // Create user object with actual user data
   const currentUser = userData ? {
-    name: userData.username,
-    email: userData.email || 'No email set',
+    name: userData.handle || userData.username,
+    email: userData.email || 'Add email in profile',
     avatar: '/avatars/01.png' // Default avatar
   } : sidebarData.user // Fallback to default
 
