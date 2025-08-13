@@ -94,6 +94,24 @@ page QuizTakePage {
   authRequired: true
 }
 
+route RapidFireRoute { path: "/quiz/rapid-fire", to: RapidFirePage }
+page RapidFirePage {
+  component: import RapidFirePage from "@src/features/quiz/modes/rapid-fire",
+  authRequired: true
+}
+
+route FlashcardFrenzyRoute { path: "/quiz/flashcard-frenzy", to: FlashcardFrenzyPage }
+page FlashcardFrenzyPage {
+  component: import FlashcardFrenzyPage from "@src/features/quiz/modes/flashcard-frenzy",
+  authRequired: true
+}
+
+route TimeAttackRoute { path: "/quiz/time-attack", to: TimeAttackPage }
+page TimeAttackPage {
+  component: import TimeAttackPage from "@src/features/quiz/modes/time-attack",
+  authRequired: true
+}
+
 route QuizResultsRoute { path: "/quiz/:attemptId/results", to: QuizResultsPage }
 page QuizResultsPage {
   component: import QuizResultsPage from "@src/features/quiz/results",
@@ -271,6 +289,16 @@ action submitQuizAnswer {
 action completeQuiz {
   fn: import { completeQuiz } from "@src/features/quiz/operations",
   entities: [QuizAttempt, UserQuestionHistory, Question, User]
+}
+
+action seedQuizData {
+  fn: import { seedQuizData } from "@src/features/quiz/seed-data",
+  entities: [Document, Question, Answer, User]
+}
+
+action startGameMode {
+  fn: import { startGameMode } from "@src/features/quiz/game-mode-operations",
+  entities: [Document, Question, Answer, QuizAttempt, UserQuestionHistory, User]
 }
 
 query getQuizAttempt {

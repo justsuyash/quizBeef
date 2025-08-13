@@ -116,6 +116,14 @@ enum QuizMode {
   NEW_QUESTIONS
   BEEF_CHALLENGE
   SPEED_ROUND
+  RAPID_FIRE
+  FLASHCARD_FRENZY
+  TEST_MODE
+  TIME_ATTACK
+  PRECISION
+  STUDY_MODE
+  TRENDING
+  AI_CURATED
 }
 
 model QuizAttempt {
@@ -128,6 +136,14 @@ model QuizAttempt {
   correctAnswers            Int
   timeSpent                 Int           // in seconds
   quizMode                  QuizMode      @default(PRACTICE)
+  
+  // Game mode specific fields
+  timeLimit                 Int?          // Time limit in seconds (for timed modes)
+  averageConfidence         Float?        // For flashcard frenzy mode
+  perfectStreak             Int           @default(0)  // Consecutive correct answers
+  longestStreak             Int           @default(0)  // Best streak in this attempt
+  bonusPoints               Int           @default(0)  // Extra points from streaks/speed
+  difficultyDistribution    Json?         // Track questions by difficulty
   
   // Relations
   userId                    Int

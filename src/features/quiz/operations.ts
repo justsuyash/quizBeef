@@ -209,7 +209,10 @@ export const submitQuizAnswer: SubmitQuizAnswer<
 export const completeQuiz: CompleteQuiz<
   {
     quizAttemptId: number
-    totalTimeSpent: number
+    totalTimeSpent?: number
+    bonusPoints?: number
+    perfectStreak?: number
+    averageConfidence?: number
   },
   any
 > = async (args, context) => {
@@ -217,7 +220,13 @@ export const completeQuiz: CompleteQuiz<
     throw new Error('User must be authenticated')
   }
 
-  const { quizAttemptId, totalTimeSpent } = args
+  const { 
+    quizAttemptId, 
+    totalTimeSpent = 0, 
+    bonusPoints = 0, 
+    perfectStreak = 0, 
+    averageConfidence 
+  } = args
 
   try {
     // Get quiz attempt and question history
@@ -253,6 +262,9 @@ export const completeQuiz: CompleteQuiz<
         correctAnswers,
         totalQuestions,
         timeSpent: totalTimeSpent,
+        bonusPoints,
+        longestStreak: perfectStreak,
+        averageConfidence,
         completedAt: new Date()
       }
     })

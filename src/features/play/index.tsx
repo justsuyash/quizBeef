@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { Link } from 'wasp/client/router';
+import { useNavigate } from 'react-router-dom';
+import { useAction, useQuery } from 'wasp/client/operations';
+import { startGameMode, seedQuizData, getQuizHistory } from 'wasp/client/operations';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -29,19 +32,137 @@ import { motion } from 'framer-motion';
 
 export default function PlayPage() {
   const { data: user } = useAuth();
+  const navigate = useNavigate();
   const [selectedMode, setSelectedMode] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  
+  const startGameModeFn = useAction(startGameMode);
+  const seedDataFn = useAction(seedQuizData);
+  
+  // Fetch real quiz history for recent activity
+  const { data: quizHistory, isLoading: historyLoading } = useQuery(getQuizHistory, {}, {
+    enabled: !!user
+  });
 
   const handleModeSelect = (modeId: string) => {
     setSelectedMode(selectedMode === modeId ? null : modeId);
   };
 
-  const handlePlay = () => {
-    if (!selectedMode) return;
+  // Convert quiz history to activity items
+  const getRecentActivity = (): ActivityItem[] => {
+    if (!quizHistory || quizHistory.length === 0) {
+      // Return fallback static data if no history
+      return recentActivityList.slice(0, 5);
+    }
+
+    return quizHistory.slice(0, 10).map((quiz: any): ActivityItem => {
+      const percentage = Math.round((quiz.correctAnswers / quiz.totalQuestions) * 100);
+      const isGoodScore = percentage >= 70;
+      
+      // Get mode display info
+      const getModeInfo = (mode: string) => {
+        switch (mode) {
+          case 'RAPID_FIRE': return { name: 'Rapid Fire', icon: Zap, color: 'bg-gradient-to-br from-yellow-500 to-orange-500' };
+          case 'FLASHCARD_FRENZY': return { name: 'Flashcard Frenzy', icon: Brain, color: 'bg-gradient-to-br from-purple-500 to-indigo-500' };
+          case 'TIME_ATTACK': return { name: 'Time Attack', icon: Timer, color: 'bg-gradient-to-br from-red-500 to-pink-500' };
+          case 'BEEF_CHALLENGE': return { name: 'Beef Challenge', icon: Trophy, color: 'bg-gradient-to-br from-orange-500 to-red-500' };
+          default: return { name: 'Practice Quiz', icon: BookOpen, color: 'bg-gradient-to-br from-blue-500 to-cyan-500' };
+        }
+      };
+
+      const modeInfo = getModeInfo(quiz.quizMode);
+      const timeAgo = formatTimeAgo(new Date(quiz.completedAt));
+
+      return {
+        title: `${modeInfo.name}`,
+        description: quiz.document?.title || 'General Knowledge Quiz',
+        type: 'quiz' as const,
+        score: `${percentage}%`,
+        result: isGoodScore ? 'win' : 'loss',
+        date: timeAgo,
+        icon: modeInfo.icon,
+        color: modeInfo.color
+      };
+    });
+  };
+
+  // Format time ago helper
+  const formatTimeAgo = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
+  const handlePlay = async () => {
+    if (!selectedMode || isStarting) return;
     
-    const mode = quizModes.find(m => m.id === selectedMode);
-    if (mode) {
-      // Navigate to the selected mode
-      window.location.href = mode.href;
+    setIsStarting(true);
+    
+    try {
+      // First ensure we have demo data
+      await seedDataFn({});
+      
+      const mode = quizModes.find(m => m.id === selectedMode);
+      if (!mode) return;
+
+      // Map UI mode IDs to database mode types
+      const modeMap: Record<string, string> = {
+        'rapid-fire': 'RAPID_FIRE',
+        'brain-storm': 'FLASHCARD_FRENZY',
+        'time-attack': 'TIME_ATTACK',
+        'precision': 'PRECISION',
+        'study-mode': 'STUDY_MODE',
+        'beef-challenges': 'BEEF_CHALLENGE',
+        'trending': 'RAPID_FIRE', // Default to rapid fire for now
+        'ai-curated': 'STUDY_MODE' // Default to study mode for now
+      };
+
+      const dbMode = modeMap[selectedMode];
+      
+      if (dbMode === 'BEEF_CHALLENGE') {
+        // Navigate to beef challenges
+        navigate('/beef');
+        return;
+      }
+
+      if (!dbMode || (dbMode !== 'RAPID_FIRE' && dbMode !== 'FLASHCARD_FRENZY' && dbMode !== 'TIME_ATTACK')) {
+        // For modes not yet implemented, navigate to placeholder
+        window.location.href = mode.href;
+        return;
+      }
+
+      // Start the game mode
+      const result = await startGameModeFn({ mode: dbMode as any });
+      
+      if (result.success) {
+        // Navigate to the appropriate quiz mode with the attempt ID
+        const modeRoutes: Record<string, string> = {
+          'RAPID_FIRE': '/quiz/rapid-fire',
+          'FLASHCARD_FRENZY': '/quiz/flashcard-frenzy',
+          'TIME_ATTACK': '/quiz/time-attack'
+        };
+        
+        const route = modeRoutes[dbMode];
+        if (route) {
+          navigate(`${route}?attemptId=${result.quizAttemptId}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error starting game mode:', error);
+      // Fallback to original navigation
+      const mode = quizModes.find(m => m.id === selectedMode);
+      if (mode) {
+        window.location.href = mode.href;
+      }
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -99,17 +220,26 @@ export default function PlayPage() {
         <Button 
           size="lg" 
           onClick={handlePlay}
-          disabled={!selectedMode}
+          disabled={!selectedMode || isStarting}
           className={cn(
             "text-2xl px-16 py-8 rounded-2xl shadow-2xl transition-all duration-300",
             "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90",
             "disabled:opacity-50 disabled:cursor-not-allowed",
-            selectedMode && "animate-pulse"
+            selectedMode && !isStarting && "animate-pulse"
           )}
         >
-          <Play className="w-8 h-8 mr-4" fill="currentColor" />
-          PLAY
-          {selectedMode && <ChevronRight className="w-8 h-8 ml-4" />}
+          {isStarting ? (
+            <>
+              <div className="w-8 h-8 mr-4 border-4 border-white border-t-transparent rounded-full animate-spin" />
+              STARTING...
+            </>
+          ) : (
+            <>
+              <Play className="w-8 h-8 mr-4" fill="currentColor" />
+              PLAY
+              {selectedMode && <ChevronRight className="w-8 h-8 ml-4" />}
+            </>
+          )}
         </Button>
         {!selectedMode && (
           <p className="text-sm text-muted-foreground mt-3">
@@ -158,8 +288,14 @@ export default function PlayPage() {
 
         <Card>
           <CardContent className="p-0">
-            <div className="divide-y divide-border">
-              {recentActivityList.map((activity, index) => (
+            {historyLoading ? (
+              <div className="p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading recent activity...</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {getRecentActivity().map((activity, index) => (
                 <div 
                   key={index} 
                   className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
@@ -224,8 +360,9 @@ export default function PlayPage() {
                     </Button>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -369,7 +506,7 @@ const quizModes: QuizMode[] = [
     difficulty: 'Medium',
     duration: '5 min',
     popularity: 'Hot',
-    href: '/play/recommended'
+    href: '/quiz/rapid-fire'
   },
   {
     id: 'brain-storm',
@@ -381,7 +518,7 @@ const quizModes: QuizMode[] = [
     difficulty: 'Hard',
     duration: '15 min',
     popularity: 'Popular',
-    href: '/play/recommended'
+    href: '/quiz/flashcard-frenzy'
   },
   {
     id: 'time-attack',
@@ -393,7 +530,7 @@ const quizModes: QuizMode[] = [
     difficulty: 'Expert',
     duration: '3 min',
     popularity: 'Hot',
-    href: '/play/recommended'
+    href: '/quiz/time-attack'
   },
   {
     id: 'precision',

@@ -3,12 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
 import { Link } from 'wasp/client/router'
 import { getQuizAttempt } from 'wasp/client/operations'
-import { Header } from '../../components/layout/header'
-import { Main } from '../../components/layout/main'
-import { TopNav } from '../../components/layout/top-nav'
-import { ProfileDropdown } from '../../components/profile-dropdown'
-import { Search } from '../../components/search'
-import { ThemeSwitch } from '../../components/theme-switch'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
@@ -29,11 +23,7 @@ import {
   Brain
 } from 'lucide-react'
 
-const topNav = [
-  { title: 'Dashboard', href: '/', isActive: false },
-  { title: 'Quiz History', href: '/quiz-history', isActive: false },
-  { title: 'Results', href: '#', isActive: true },
-]
+
 
 export default function QuizResultsPage() {
   const { attemptId } = useParams<{ attemptId: string }>()
@@ -107,50 +97,41 @@ export default function QuizResultsPage() {
   }
 
   return (
-    <>
-      <Header>
-        <TopNav links={topNav} />
-        <div className='ml-auto flex items-center space-x-4'>
-          <Search />
-          <ThemeSwitch />
-          <ProfileDropdown />
-        </div>
-      </Header>
-
-      <Main>
-        <div className='mb-8 flex items-center justify-between'>
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/quiz-history')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to History
-              </Button>
-            </div>
-            <h1 className='text-3xl font-bold tracking-tight flex items-center gap-2'>
-              <Trophy className="h-8 w-8" />
-              Quiz Results
-            </h1>
-            <p className='text-muted-foreground'>
-              Quiz completed for "{document?.title}"
-            </p>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                alert('Quiz retake feature coming soon!');
-              }}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retake Quiz
-            </Button>
-            <Button variant="outline" disabled>
-              <Share className="h-4 w-4 mr-2" />
-              Share Results
+    <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8 min-h-screen bg-gradient-to-br from-background to-muted/20">
+      {/* Header */}
+      <div className='mb-8 flex items-center justify-between'>
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/quiz-history')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Quiz History
             </Button>
           </div>
+          <h1 className='text-3xl font-bold tracking-tight flex items-center gap-2'>
+            <Trophy className="h-8 w-8" />
+            Quiz Results
+          </h1>
+          <p className='text-muted-foreground'>
+            Quiz completed for "{document?.title}"
+          </p>
         </div>
+        
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              alert('Quiz retake feature coming soon!');
+            }}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retake Quiz
+          </Button>
+          <Button variant="outline" disabled>
+            <Share className="h-4 w-4 mr-2" />
+            Share Results
+          </Button>
+        </div>
+      </div>
 
         <div className="grid gap-6">
           {/* Overall Results */}
@@ -338,8 +319,7 @@ export default function QuizResultsPage() {
             </CardContent>
           </Card>
         </div>
-      </Main>
-    </>
+    </main>
   )
 }
 
