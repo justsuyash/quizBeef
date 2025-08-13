@@ -93,7 +93,24 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
-        // Competitor's Edge Brand Colors
+        // Nalanda Scholar Brand Colors
+        nalanda: {
+          terracotta: 'hsl(19 85% 38%)', // Ancient brick architecture
+          saffron: 'hsl(30 100% 60%)', // Buddhist robes
+          indigo: 'hsl(234 66% 30%)', // Wisdom and depth
+          gold: 'hsl(46 64% 52%)', // Manuscript illumination
+          palmleaf: 'hsl(30 42% 96%)', // Ancient manuscripts
+          ink: 'hsl(16 25% 20%)', // Traditional ink
+        },
+        // Emerald Champions Brand Colors (previous theme)
+        emerald: {
+          primary: 'hsl(160 84% 39%)', // Emerald Green
+          gold: 'hsl(43 96% 56%)', // Rich Gold
+          ocean: 'hsl(199 89% 48%)', // Ocean Blue
+          teal: 'hsl(173 80% 40%)', // Teal
+          forest: 'hsl(142 76% 36%)', // Forest Green
+        },
+        // Legacy Competitor's Edge Colors (kept for reference)
         competitor: {
           charcoal: 'hsl(210 11% 15%)', // Dark Charcoal
           grey: 'hsl(210 8% 60%)', // Medium Grey

@@ -1,4 +1,4 @@
-import { Routes, routes, Link } from 'wasp/client/router'
+import { Link } from 'wasp/client/router'
 import { Button } from '../../components/ui/button'
 import {
   Card,
@@ -13,12 +13,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '../../components/ui/tabs'
-import { Header } from '../../components/layout/header'
-import { Main } from '../../components/layout/main'
-import { TopNav } from '../../components/layout/top-nav'
-import { ProfileDropdown } from '../../components/profile-dropdown'
-import { Search } from '../../components/search'
-import { ThemeSwitch } from '../../components/theme-switch'
+
 import { Overview } from './components/overview'
 import { RecentSales } from './components/recent-sales'
 import { QuizStats } from './components/quiz-stats'
@@ -27,19 +22,7 @@ import { PerformanceTrends } from './components/performance-trends'
 
 export default function Dashboard() {
   return (
-    <>
-      {/* ===== Top Heading ===== */}
-      <Header>
-        <TopNav links={topNav} />
-        <div className='ml-auto flex items-center space-x-4'>
-          <Search />
-          <ThemeSwitch />
-          <ProfileDropdown />
-        </div>
-      </Header>
-
-      {/* ===== Main ===== */}
-      <Main>
+    <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <div className='mb-2 flex items-center justify-between space-y-2'>
           <div>
             <h1 className='text-3xl font-bold tracking-tight'>Welcome to Quiz Beef 🔥</h1>
@@ -108,41 +91,8 @@ export default function Dashboard() {
             <PerformanceTrends />
           </TabsContent>
         </Tabs>
-      </Main>
-    </>
+    </main>
   )
 }
 
-type TopNavLink = {
-  title: string
-  href: Routes['to']
-  isActive: boolean
-  disabled: boolean
-}
 
-const topNav: TopNavLink[] = [
-  {
-    title: 'Overview',
-    href: routes.DashboardRoute.to,
-    isActive: true,
-    disabled: false,
-  },
-  {
-    title: 'Customers',
-    href: routes.DashboardRoute.to,
-    isActive: false,
-    disabled: true,
-  },
-  {
-    title: 'Products',
-    href: routes.DashboardRoute.to,
-    isActive: false,
-    disabled: true,
-  },
-  {
-    title: 'Settings',
-    href: routes.DashboardRoute.to,
-    isActive: false,
-    disabled: true,
-  },
-]

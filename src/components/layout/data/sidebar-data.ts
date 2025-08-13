@@ -60,6 +60,11 @@ export const sidebarData: SidebarData = {
           icon: IconChecklist,
         },
         {
+          title: 'Upload Content',
+          url: '/upload',
+          icon: IconTool,
+        },
+        {
           title: 'Quiz History',
           url: '/quiz-history',
           icon: IconPackages,

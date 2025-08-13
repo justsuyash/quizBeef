@@ -3,12 +3,7 @@ import { useAction } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import { Link } from 'wasp/client/router'
 import { processContent } from 'wasp/client/operations'
-import { Header } from '../../components/layout/header'
-import { Main } from '../../components/layout/main'
-import { TopNav } from '../../components/layout/top-nav'
-import { ProfileDropdown } from '../../components/profile-dropdown'
-import { Search } from '../../components/search'
-import { ThemeSwitch } from '../../components/theme-switch'
+
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
@@ -18,11 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { toast } from '../../hooks/use-toast'
 import { Upload, FileText, Youtube, Globe, Type } from 'lucide-react'
 
-const topNav = [
-  { title: 'Dashboard', href: '/', isActive: false },
-  { title: 'Documents', href: '/documents', isActive: false },
-  { title: 'Upload', href: '/upload', isActive: true },
-]
+
 
 export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false)
@@ -36,23 +27,37 @@ export default function UploadPage() {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
   }
 
-  // Redirect to login if not authenticated
+  // Show welcome message if not authenticated
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center space-y-4">
-          <h2 className="text-2xl font-bold">Authentication Required</h2>
-          <p className="text-muted-foreground">Please log in to upload content.</p>
-          <div className="space-x-4">
-            <Link to="/login">
-              <Button>Sign In</Button>
-            </Link>
-            <Link to="/sign-up">
-              <Button variant="outline">Sign Up</Button>
-            </Link>
+      <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <div className="flex-1">
+          <div className="max-w-4xl mx-auto">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold mb-2">Upload Content</h1>
+              <p className="text-muted-foreground">Transform your study materials into interactive quizzes</p>
+            </div>
+            
+            <Card className="p-8 text-center">
+              <CardContent className="space-y-4">
+                <Upload className="w-16 h-16 mx-auto text-muted-foreground" />
+                <h2 className="text-2xl font-bold">Start Uploading</h2>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Sign in to upload PDFs, YouTube videos, web articles, or paste text directly to generate AI-powered quizzes.
+                </p>
+                <div className="space-x-4 pt-4">
+                  <Link to="/login">
+                    <Button>Sign In</Button>
+                  </Link>
+                  <Link to="/sign-up">
+                    <Button variant="outline">Create Account</Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -156,17 +161,7 @@ export default function UploadPage() {
   }
 
   return (
-    <>
-      <Header>
-        <TopNav links={topNav} />
-        <div className='ml-auto flex items-center space-x-4'>
-          <Search />
-          <ThemeSwitch />
-          <ProfileDropdown />
-        </div>
-      </Header>
-
-      <Main>
+    <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8">
         <div className='mb-8'>
           <h1 className='text-3xl font-bold tracking-tight'>Upload Content 📚</h1>
           <p className='text-muted-foreground'>
@@ -248,8 +243,7 @@ export default function UploadPage() {
             </TabsContent>
           </Tabs>
         </div>
-      </Main>
-    </>
+    </main>
   )
 }
 

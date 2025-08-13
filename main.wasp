@@ -17,10 +17,10 @@ app quizBeef {
       // github: {},
     },
     onAuthFailedRedirectTo: "/login",
-    onAuthSucceededRedirectTo: "/",
+    onAuthSucceededRedirectTo: "/home",
   },
   client: {
-    rootComponent: import Main from "@src/main",
+    rootComponent: import MainLayoutV15 from "@src/components/layout/main-layout-v15",
     setupFn: import QuerySetup from "@src/config/querySetup",
   },
   server: {
@@ -40,9 +40,27 @@ page Login {
 }
 //#endregion
 
-route DashboardRoute { path: "/", to: Dashboard }
+route LandingRoute { path: "/", to: LandingPage }
+page LandingPage {
+  component: import LandingPage from "@src/features/landing/index",
+  authRequired: false
+}
+
+route HomeRoute { path: "/home", to: HomePage }
+page HomePage {
+  component: import HomePage from "@src/features/home/index",
+  authRequired: true
+}
+
+route DashboardRoute { path: "/dashboard", to: Dashboard }
 page Dashboard {
   component: import Dashboard from "@src/features/dashboard/index",
+  authRequired: true
+}
+
+route PlayRecommendedRoute { path: "/play", to: PlayRecommendedPage }
+page PlayRecommendedPage {
+  component: import PlayRecommendedPage from "@src/features/play/recommended",
   authRequired: true
 }
 
@@ -55,7 +73,13 @@ page UploadPage {
 route DocumentsRoute { path: "/documents", to: DocumentsPage }
 page DocumentsPage {
   component: import DocumentsPage from "@src/features/documents/index",
-  authRequired: true
+  authRequired: false
+}
+
+route LibraryRoute { path: "/library", to: LibraryPage }
+page LibraryPage {
+  component: import LibraryPage from "@src/features/library/index",
+  authRequired: false
 }
 
 route QuizSettingsRoute { path: "/quiz/:documentId/settings", to: QuizSettingsPage }
@@ -172,6 +196,12 @@ route SettingsProfileRoute { path: "/settings/profile", to: SettingsProfilePage 
 page SettingsProfilePage {
   component: import SettingsProfilePage from "@src/features/settings/profile/index",
   authRequired: true
+}
+
+route ThemePreviewRoute { path: "/theme-preview", to: ThemePreviewPage }
+page ThemePreviewPage {
+  component: import ThemePreviewPage from "@src/features/settings/theme-preview",
+  authRequired: false
 }
 
 // Error and utility routes
