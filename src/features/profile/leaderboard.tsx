@@ -190,7 +190,7 @@ export default function LeaderboardPage() {
                     Be the first to complete quizzes and claim the top spot!
                   </p>
                   <Button asChild>
-                    <Link to="/home">
+                    <Link to="/play">
                       <Zap className="w-4 h-4 mr-2" />
                       Start Playing
                     </Link>

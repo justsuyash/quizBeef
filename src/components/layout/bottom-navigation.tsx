@@ -69,11 +69,11 @@ const mobileNavItems: NavItem[] = [
 // Desktop Navigation (comprehensive)
 const desktopNavItems: NavItem[] = [
   {
-    id: 'home',
-    label: 'Home',
-    icon: Home,
-    activeIcon: Home,
-    href: '/home',
+    id: 'play',
+    label: 'Play',
+    icon: Gamepad2,
+    activeIcon: Gamepad2,
+    href: '/play',
     color: 'text-primary',
   },
   {
@@ -156,8 +156,8 @@ export function BottomNavigation() {
 
   // Determine active item based on current path
   const getActiveItem = () => {
-    if (currentPath === '/home') return 'home';
-    if (currentPath.startsWith('/play')) return 'home'; // Play is part of home experience
+            if (currentPath === '/play') return 'play';
+        if (currentPath.startsWith('/play')) return 'play';
     if (currentPath === '/dashboard') return 'dashboard';
     if (currentPath.startsWith('/library')) return 'library';
     if (currentPath.startsWith('/documents')) return 'documents';

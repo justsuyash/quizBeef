@@ -74,7 +74,7 @@ export default function QuizHistoryPage() {
             </div>
             <div className='flex flex-col sm:flex-row gap-4 justify-center'>
               <Button asChild size='lg'>
-                <Link to='/home'>
+                <Link to='/play'>
                   <PlayCircle className='h-5 w-5 mr-2' />
                   Start Your First Quiz
                 </Link>

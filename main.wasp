@@ -17,7 +17,7 @@ app quizBeef {
       // github: {},
     },
     onAuthFailedRedirectTo: "/login",
-    onAuthSucceededRedirectTo: "/home",
+    onAuthSucceededRedirectTo: "/play",
   },
   client: {
     rootComponent: import MainLayoutV15 from "@src/components/layout/main-layout-v15",
@@ -46,9 +46,9 @@ page LandingPage {
   authRequired: false
 }
 
-route HomeRoute { path: "/home", to: HomePage }
-page HomePage {
-  component: import HomePage from "@src/features/home/index",
+route PlayRoute { path: "/play", to: PlayPage }
+page PlayPage {
+  component: import PlayPage from "@src/features/play/index",
   authRequired: true
 }
 
@@ -58,7 +58,7 @@ page Dashboard {
   authRequired: true
 }
 
-route PlayRecommendedRoute { path: "/play", to: PlayRecommendedPage }
+route PlayRecommendedRoute { path: "/play/recommended", to: PlayRecommendedPage }
 page PlayRecommendedPage {
   component: import PlayRecommendedPage from "@src/features/play/recommended",
   authRequired: true
