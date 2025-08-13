@@ -12,3 +12,4 @@ node_modules/
 
 # Keep AI planning and documentation private
 ai/
+summary/
