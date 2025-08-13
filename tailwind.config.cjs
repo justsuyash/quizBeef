@@ -93,6 +93,14 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        // Competitor's Edge Brand Colors
+        competitor: {
+          charcoal: 'hsl(210 11% 15%)', // Dark Charcoal
+          grey: 'hsl(210 8% 60%)', // Medium Grey
+          red: 'hsl(0 84% 50%)', // Energetic Red
+          gold: 'hsl(45 93% 55%)', // Gold/Yellow
+          white: 'hsl(0 0% 98%)', // Off-White
+        },
       },
     },
   },
