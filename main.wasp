@@ -56,7 +56,7 @@ page PlayPage {
 
 route DashboardRoute { path: "/dashboard", to: Dashboard }
 page Dashboard {
-  component: import Dashboard from "@src/features/dashboard/index",
+  component: import DashboardRedirect from "@src/features/dashboard/redirect-to-analytics",
   authRequired: true
 }
 
