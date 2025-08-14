@@ -46,6 +46,8 @@ page LandingPage {
   authRequired: false
 }
 
+
+
 route PlayRoute { path: "/play", to: PlayPage }
 page PlayPage {
   component: import PlayPage from "@src/features/play/index",
@@ -55,6 +57,12 @@ page PlayPage {
 route DashboardRoute { path: "/dashboard", to: Dashboard }
 page Dashboard {
   component: import Dashboard from "@src/features/dashboard/index",
+  authRequired: true
+}
+
+route AnalyticsRoute { path: "/analytics", to: AnalyticsPage }
+page AnalyticsPage {
+  component: import EnhancedAnalytics from "@src/features/dashboard/enhanced-analytics",
   authRequired: true
 }
 
@@ -154,6 +162,12 @@ route UserProfileRoute { path: "/user/:userId", to: UserProfilePage }
 page UserProfilePage {
   component: import UserProfilePage from "@src/features/profile/user-profile",
   authRequired: false
+}
+
+route AchievementsRoute { path: "/achievements", to: AchievementsPage }
+page AchievementsPage {
+  component: import AchievementsPage from "@src/features/achievements/achievements-page",
+  authRequired: true
 }
 
 route LeaderboardRoute { path: "/leaderboard", to: LeaderboardPage }
@@ -363,6 +377,33 @@ action deleteDocument {
   fn: import { deleteDocument } from "@src/features/documents/operations",
   entities: [User, Document, Question, Answer]
 }
+
+//#region Achievements
+action grantAchievement {
+  fn: import { grantAchievement } from "@src/features/achievements/operations",
+  entities: [User, Achievement, UserAchievement]
+}
+
+action checkAchievements {
+  fn: import { checkAchievements } from "@src/features/achievements/operations", 
+  entities: [User, Achievement, UserAchievement, QuizAttempt, BeefChallenge, BeefParticipant]
+}
+
+query getUserAchievements {
+  fn: import { getUserAchievements } from "@src/features/achievements/operations",
+  entities: [User, Achievement, UserAchievement]
+}
+
+query getAllAchievements {
+  fn: import { getAllAchievements } from "@src/features/achievements/operations",
+  entities: [Achievement]
+}
+
+action seedAchievements {
+  fn: import { seedAchievements } from "@src/features/achievements/operations",
+  entities: [Achievement]
+}
+//#endregion
 
 query searchDocuments {
   fn: import { searchDocuments } from "@src/features/documents/folder-operations",

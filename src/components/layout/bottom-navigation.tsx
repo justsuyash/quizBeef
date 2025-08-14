@@ -125,11 +125,11 @@ const desktopNavItems: NavItem[] = [
     color: 'text-accent',
   },
   {
-    id: 'dashboard',
+    id: 'analytics',
     label: 'Analytics',
     icon: LayoutDashboard,
     activeIcon: LayoutDashboard,
-    href: '/dashboard',
+    href: '/analytics',
     color: 'text-muted-foreground',
   },
 ];
@@ -158,7 +158,8 @@ export function BottomNavigation() {
   const getActiveItem = () => {
             if (currentPath === '/play') return 'play';
         if (currentPath.startsWith('/play')) return 'play';
-    if (currentPath === '/dashboard') return 'dashboard';
+    // Treat legacy /dashboard and new /analytics as the same Analytics section
+    if (currentPath === '/dashboard' || currentPath.startsWith('/analytics')) return 'analytics';
     if (currentPath.startsWith('/library')) return 'library';
     if (currentPath.startsWith('/documents')) return 'documents';
     if (currentPath.startsWith('/upload')) return 'upload';

@@ -30,6 +30,9 @@ model User {
   createdBeefs              BeefChallenge[] @relation("CreatedBeefs")
   beefParticipations        BeefParticipant[]
   
+  // Phase 3: Achievements Relations
+  achievements              UserAchievement[]
+  
   // Profile & Achievement fields
   email                     String?
   name                      String?
@@ -325,4 +328,79 @@ enum BeefStatus {
   IN_PROGRESS   // Game in progress
   COMPLETED     // Game finished
   CANCELLED     // Game cancelled
+}
+
+// Phase 3: Achievements & Rewards System
+model Achievement {
+  id                        Int           @id @default(autoincrement())
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  
+  // Achievement Definition
+  key                       String        @unique  // Unique identifier (e.g., "FIRST_QUIZ_COMPLETED")
+  name                      String                 // Display name (e.g., "Quiz Rookie")
+  description               String                 // Description (e.g., "Complete your first quiz")
+  category                  AchievementCategory    // Group achievements by type
+  
+  // Visual & UI
+  iconName                  String                 // Icon identifier for UI
+  iconColor                 String        @default("#3B82F6")  // Hex color for the icon
+  rarity                    AchievementRarity @default(COMMON)  // How rare/special this achievement is
+  
+  // Unlock Criteria (stored as JSON for flexibility)
+  criteria                  Json                   // { "type": "QUIZ_COUNT", "target": 1, "conditions": {} }
+  
+  // Rewards (optional)
+  pointsReward              Int           @default(0)          // Points awarded for unlocking
+  
+  // Status
+  isActive                  Boolean       @default(true)      // Can this achievement be earned?
+  isHidden                  Boolean       @default(false)     // Hidden until unlocked (secret achievements)
+  
+  // Relations
+  userAchievements          UserAchievement[]
+  
+  @@index([category])
+  @@index([rarity])
+  @@index([isActive])
+}
+
+model UserAchievement {
+  id                        Int           @id @default(autoincrement())
+  unlockedAt                DateTime      @default(now())
+  
+  // Progress tracking (for incremental achievements)
+  currentProgress           Int           @default(0)         // Current progress towards achievement
+  isCompleted               Boolean       @default(true)      // Whether fully unlocked
+  
+  // Additional unlock data
+  unlockData                Json?                             // Store context about how it was unlocked
+  
+  // Relations
+  userId                    Int
+  user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievementId             Int
+  achievement               Achievement   @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, achievementId])  // Each user can only unlock each achievement once
+  @@index([userId])
+  @@index([unlockedAt])
+}
+
+enum AchievementCategory {
+  QUIZ        // Quiz-related achievements (first quiz, perfect scores, etc.)
+  BEEF        // Beef challenge achievements (wins, streaks, etc.)  
+  LEARNING    // Learning milestones (topics mastered, hours studied)
+  SOCIAL      // Social achievements (challenges sent, friends made)
+  STREAK      // Activity streaks (daily login, weekly activity)
+  COLLECTION  // Collection achievements (documents uploaded, folders created)
+  SPECIAL     // Special/seasonal achievements
+}
+
+enum AchievementRarity {
+  COMMON      // Easy to get, most users will unlock these
+  UNCOMMON    // Moderate effort required
+  RARE        // Significant achievement, takes dedication  
+  EPIC        // Major milestone, few users achieve this
+  LEGENDARY   // Extremely rare, exceptional accomplishment
 }

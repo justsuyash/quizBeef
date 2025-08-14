@@ -18,6 +18,8 @@ import {
   IconUserCog,
   IconUserOff,
   IconUsers,
+  IconChartLine,
+  IconTrophy,
 } from '@tabler/icons-react'
 import { AudioWaveform, Command, GalleryVerticalEnd } from 'lucide-react'
 import { type SidebarData } from '../types'
@@ -50,9 +52,9 @@ export const sidebarData: SidebarData = {
       title: 'Learning',
       items: [
         {
-          title: 'Dashboard',
-          url: '/',
-          icon: IconLayoutDashboard,
+          title: 'Analytics & Progress',
+          url: '/analytics',
+          icon: IconChartLine,
         },
         {
           title: 'My Documents',
@@ -79,6 +81,11 @@ export const sidebarData: SidebarData = {
           title: 'Leaderboard',
           url: '/leaderboard',
           icon: IconUsers,
+        },
+        {
+          title: 'Achievements',
+          url: '/achievements',
+          icon: IconTrophy,
         },
       ],
     },

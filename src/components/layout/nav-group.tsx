@@ -171,12 +171,24 @@ const SidebarMenuCollapsedDropdown = ({
 }
 
 function checkIsActive(href: string, item: NavItem, mainNav = false) {
-  return (
-    href === item.url || // /endpint?search=param
-    href.split('?')[0] === item.url || // endpoint
-    !!item?.items?.filter((i) => i.url === href).length || // if child nav is active
-    (mainNav &&
-      href.split('/')[1] !== '' &&
-      href.split('/')[1] === item?.url?.split('/')[1])
-  )
+  // For NavLink items (with url property)
+  if ('url' in item && item.url) {
+    // Exact match first - this should be the primary check
+    if (href === item.url || href.split('?')[0] === item.url) {
+      return true;
+    }
+  }
+  
+  // For NavCollapsible items (with items property)
+  if ('items' in item && item.items) {
+    // Check if any sub-items are active
+    const hasActiveChild = item.items.some((subItem) => 
+      href === subItem.url || href.split('?')[0] === subItem.url
+    );
+    if (hasActiveChild) {
+      return true;
+    }
+  }
+  
+  return false;
 }

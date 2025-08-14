@@ -19,6 +19,8 @@ import { RecentSales } from './components/recent-sales'
 import { QuizStats } from './components/quiz-stats'
 import { LearningProgressChart } from './components/learning-progress-chart'
 import { PerformanceTrends } from './components/performance-trends'
+import { EnhancedProgressChart } from './components/enhanced-progress-chart'
+import { TopAchievements } from './components/top-achievements'
 
 export default function Dashboard() {
   return (
@@ -84,11 +86,18 @@ export default function Dashboard() {
           </TabsContent>
 
           <TabsContent value='progress' className='space-y-4'>
-            <LearningProgressChart />
+            <EnhancedProgressChart />
           </TabsContent>
 
           <TabsContent value='performance' className='space-y-4'>
-            <PerformanceTrends />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <div>
+                <PerformanceTrends />
+              </div>
+              <div>
+                <TopAchievements />
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
     </main>
