@@ -12,14 +12,14 @@ import { HttpError } from 'wasp/server'
  * Create a new folder for organizing documents
  */
 export const createFolder: CreateFolder<
-  { name: string; color?: string; description?: string },
+  { name: string; color?: string; description?: string; sampleQuestion?: string },
   any
 > = async (args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'User must be authenticated')
   }
 
-  const { name, color, description } = args
+  const { name, color, description, sampleQuestion } = args
 
   try {
     // Check if folder with this name already exists for the user
@@ -39,6 +39,7 @@ export const createFolder: CreateFolder<
         name,
         color: color || '#3B82F6', // Default blue color
         description,
+        sampleQuestion,
         userId: context.user.id
       }
     })
@@ -55,14 +56,14 @@ export const createFolder: CreateFolder<
  * Update an existing folder
  */
 export const updateFolder: UpdateFolder<
-  { id: number; name?: string; color?: string; description?: string },
+  { id: number; name?: string; color?: string; description?: string; sampleQuestion?: string },
   any
 > = async (args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'User must be authenticated')
   }
 
-  const { id, name, color, description } = args
+  const { id, name, color, description, sampleQuestion } = args
 
   try {
     // Verify folder belongs to user
@@ -97,7 +98,8 @@ export const updateFolder: UpdateFolder<
       data: {
         ...(name && { name }),
         ...(color && { color }),
-        ...(description !== undefined && { description })
+        ...(description !== undefined && { description }),
+        ...(sampleQuestion !== undefined && { sampleQuestion })
       }
     })
 

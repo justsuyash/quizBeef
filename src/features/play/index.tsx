@@ -115,7 +115,7 @@ export default function PlayPage() {
       // Map UI mode IDs to database mode types
       const modeMap: Record<string, string> = {
         'rapid-fire': 'RAPID_FIRE',
-        'brain-storm': 'FLASHCARD_FRENZY',
+        'flashcard-frenzy': 'FLASHCARD_FRENZY',
         'time-attack': 'TIME_ATTACK',
         'precision': 'PRECISION',
         'study-mode': 'STUDY_MODE',
@@ -509,9 +509,9 @@ const quizModes: QuizMode[] = [
     href: '/quiz/rapid-fire'
   },
   {
-    id: 'brain-storm',
-    title: 'Brain Storm',
-    description: 'Deep thinking challenges that push your cognitive limits.',
+    id: 'flashcard-frenzy',
+    title: 'Flashcard Frenzy',
+    description: 'Test your confidence with dynamic scoring and streak bonuses.',
     icon: Brain,
     gradient: 'bg-gradient-to-br from-purple-500 via-indigo-500 to-blue-500',
     textColor: 'text-white',

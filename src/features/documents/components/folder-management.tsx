@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery, useAction } from 'wasp/client/operations'
-import { getUserFolders, createFolder, updateFolder, deleteFolder } from 'wasp/client/operations'
+import { getUserFolders, createFolder, updateFolder, deleteFolder, updateDocumentFolder } from 'wasp/client/operations'
 import { Button } from '../../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../../components/ui/dialog'
@@ -15,7 +15,8 @@ import {
   Edit, 
   Trash2, 
   MoreVertical,
-  FileText
+  FileText,
+  PlayCircle
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -23,12 +24,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../../components/ui/dropdown-menu'
+import { MultiDocumentQuiz } from '../../quiz/components/multi-document-quiz'
 
 interface FolderData {
   id: number
   name: string
   color?: string
   description?: string
+  sampleQuestion?: string
   _count: {
     documents: number
   }
@@ -39,14 +42,17 @@ export function FolderManagement() {
   const createFolderFn = useAction(createFolder)
   const updateFolderFn = useAction(updateFolder)
   const deleteFolderFn = useAction(deleteFolder)
+  const updateDocumentFolderFn = useAction(updateDocumentFolder)
   const { toast } = useToast()
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [editingFolder, setEditingFolder] = useState<FolderData | null>(null)
+  const [dragOverFolder, setDragOverFolder] = useState<number | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     color: '#3B82F6',
-    description: ''
+    description: '',
+    sampleQuestion: ''
   })
 
   const colors = [
@@ -74,7 +80,8 @@ export function FolderManagement() {
       await createFolderFn({
         name: formData.name.trim(),
         color: formData.color,
-        description: formData.description.trim() || undefined
+        description: formData.description.trim() || undefined,
+        sampleQuestion: formData.sampleQuestion.trim() || undefined
       })
 
       toast({
@@ -83,7 +90,7 @@ export function FolderManagement() {
       })
 
       setIsCreateDialogOpen(false)
-      setFormData({ name: '', color: '#3B82F6', description: '' })
+      setFormData({ name: '', color: '#3B82F6', description: '', sampleQuestion: '' })
     } catch (error) {
       toast({
         title: 'Error',
@@ -108,7 +115,8 @@ export function FolderManagement() {
         id: editingFolder.id,
         name: formData.name.trim(),
         color: formData.color,
-        description: formData.description.trim() || undefined
+        description: formData.description.trim() || undefined,
+        sampleQuestion: formData.sampleQuestion.trim() || undefined
       })
 
       toast({
@@ -117,7 +125,7 @@ export function FolderManagement() {
       })
 
       setEditingFolder(null)
-      setFormData({ name: '', color: '#3B82F6', description: '' })
+      setFormData({ name: '', color: '#3B82F6', description: '', sampleQuestion: '' })
     } catch (error) {
       toast({
         title: 'Error',
@@ -156,8 +164,59 @@ export function FolderManagement() {
     setFormData({
       name: folder.name,
       color: folder.color || '#3B82F6',
-      description: folder.description || ''
+      description: folder.description || '',
+      sampleQuestion: folder.sampleQuestion || ''
     })
+  }
+
+  // Drag and drop handlers
+  const handleDragOver = (e: React.DragEvent, folderId: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOverFolder(folderId)
+  }
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    // Only clear if we're leaving the folder area completely
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX
+    const y = e.clientY
+    
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setDragOverFolder(null)
+    }
+  }
+
+  const handleDrop = async (e: React.DragEvent, folderId: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragOverFolder(null)
+
+    try {
+      const documentData = e.dataTransfer.getData('application/json')
+      if (!documentData) return
+
+      const document = JSON.parse(documentData)
+      
+      await updateDocumentFolderFn({
+        documentId: document.id,
+        folderId: folderId
+      })
+
+      toast({
+        title: 'Success',
+        description: `"${document.title}" moved to folder successfully`
+      })
+    } catch (error) {
+      console.error('Drop error:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to move document to folder',
+        variant: 'destructive'
+      })
+    }
   }
 
   if (isLoading) {
@@ -254,8 +313,24 @@ export function FolderManagement() {
                     rows={3}
                   />
                 </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="sampleQuestion">Sample Question (Optional)</Label>
+                  <Textarea
+                    id="sampleQuestion"
+                    value={formData.sampleQuestion}
+                    onChange={(e) => setFormData({ ...formData, sampleQuestion: e.target.value })}
+                    placeholder="Example: What is the main concept discussed in this material?"
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This will guide the AI when generating questions from documents in this folder
+                  </p>
+                </div>
                 <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  <Button variant="outline" onClick={() => {
+                    setIsCreateDialogOpen(false)
+                    setFormData({ name: '', color: '#3B82F6', description: '', sampleQuestion: '' })
+                  }}>
                     Cancel
                   </Button>
                   <Button onClick={handleCreateFolder}>
@@ -279,7 +354,15 @@ export function FolderManagement() {
             {folderList.map((folder) => (
               <div
                 key={folder.id}
-                className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                className={`border rounded-lg p-4 transition-all duration-200 cursor-pointer ${
+                  dragOverFolder === folder.id 
+                    ? 'border-primary bg-primary/10 border-2 shadow-lg' 
+                    : 'border-border hover:bg-muted/50 hover:shadow-md'
+                }`}
+                onDragOver={(e) => handleDragOver(e, folder.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, folder.id)}
+                onClick={() => window.location.href = `/documents/folder/${folder.id}`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -298,7 +381,12 @@ export function FolderManagement() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
@@ -317,12 +405,37 @@ export function FolderManagement() {
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex items-center justify-between gap-2">
                   <Badge variant="secondary" className="text-xs">
                     <FileText className="h-3 w-3 mr-1" />
                     {folder._count.documents} documents
                   </Badge>
+                  
+                  {folder._count.documents > 0 && (
+                    <MultiDocumentQuiz
+                      folderId={folder.id}
+                      folder={folder}
+                      trigger={
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-7 text-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <PlayCircle className="h-3 w-3 mr-1" />
+                          Quiz
+                        </Button>
+                      }
+                    />
+                  )}
                 </div>
+                
+                {/* Drop Zone Indicator */}
+                {dragOverFolder === folder.id && (
+                  <div className="mt-3 p-3 border-2 border-dashed border-primary bg-primary/5 rounded-lg text-center">
+                    <p className="text-sm text-primary font-medium">Drop document here</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -373,6 +486,19 @@ export function FolderManagement() {
                   placeholder="Enter folder description"
                   rows={3}
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-sampleQuestion">Sample Question (Optional)</Label>
+                <Textarea
+                  id="edit-sampleQuestion"
+                  value={formData.sampleQuestion}
+                  onChange={(e) => setFormData({ ...formData, sampleQuestion: e.target.value })}
+                  placeholder="Example: What is the main concept discussed in this material?"
+                  rows={2}
+                />
+                <p className="text-xs text-muted-foreground">
+                  This will guide the AI when generating questions from documents in this folder
+                </p>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setEditingFolder(null)}>

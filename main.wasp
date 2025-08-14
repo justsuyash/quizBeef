@@ -76,6 +76,12 @@ page DocumentsPage {
   authRequired: false
 }
 
+route FolderDetailRoute { path: "/documents/folder/:folderId", to: FolderDetailPage }
+page FolderDetailPage {
+  component: import FolderDetailPage from "@src/features/documents/folder-detail",
+  authRequired: false
+}
+
 route LibraryRoute { path: "/library", to: LibraryPage }
 page LibraryPage {
   component: import LibraryPage from "@src/features/library/index",
@@ -257,7 +263,7 @@ query getCurrentUser {
 // Document operations
 action processContent {
   fn: import { processContent } from "@src/features/documents/operations",
-  entities: [Document, User]
+  entities: [Document, User, Question, Answer]
 }
 
 query getMyDocuments {
@@ -353,9 +359,37 @@ action updateDocumentFolder {
   entities: [User, Document, Folder]
 }
 
+action deleteDocument {
+  fn: import { deleteDocument } from "@src/features/documents/operations",
+  entities: [User, Document, Question, Answer]
+}
+
 query searchDocuments {
   fn: import { searchDocuments } from "@src/features/documents/folder-operations",
   entities: [User, Document, Folder]
+}
+
+// Advanced Quiz Generation operations
+action generateQuizFromFolder {
+  fn: import { generateQuizFromFolder } from "@src/features/quiz/advanced-operations",
+  entities: [User, Document, Folder, Question, Answer, QuizAttempt]
+}
+
+query getSuggestedQuestionCount {
+  fn: import { getSuggestedQuestionCount } from "@src/features/quiz/advanced-operations",
+  entities: [User, Document, Folder]
+}
+
+// Helper action to generate questions for existing documents
+action generateQuestionsForDocument {
+  fn: import { generateQuestionsForDocument } from "@src/features/documents/operations",
+  entities: [User, Document, Question, Answer]
+}
+
+// Bulk question generation for multiple documents
+action generateQuestionsForMultipleDocuments {
+  fn: import { generateQuestionsForMultipleDocuments } from "@src/features/documents/operations",
+  entities: [User, Document, Question, Answer]
 }
 
 // Phase 4: Beef Challenge operations

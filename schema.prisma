@@ -77,6 +77,7 @@ model Folder {
   name                      String
   color                     String?       // Hex color for folder display
   description               String?
+  sampleQuestion            String?       // Style guide for quiz generation
   
   // Relations
   userId                    Int

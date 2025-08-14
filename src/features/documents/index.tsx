@@ -8,8 +8,9 @@ import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 import { Skeleton } from '../../components/ui/skeleton'
-import { FileText, Clock, Upload, PlayCircle, BarChart3, Calendar, Brain, Loader2, Flame } from 'lucide-react'
+import { FileText, Clock, Upload, PlayCircle, BarChart3, Calendar, Brain, Loader2, Flame, GripVertical } from 'lucide-react'
 import { toast } from '../../hooks/use-toast'
+import { FolderManagement } from './components/folder-management'
 
 export default function DocumentsPage() {
   const { data: user, isLoading: authLoading } = useAuth()
@@ -75,6 +76,11 @@ export default function DocumentsPage() {
         </Button>
       </div>
 
+      {/* Folder Management Section */}
+      <div className="mb-8">
+        <FolderManagement />
+      </div>
+
       {isLoading ? (
         <DocumentsLoading />
       ) : error ? (
@@ -88,7 +94,39 @@ export default function DocumentsPage() {
       ) : !documents || documents.length === 0 ? (
         <EmptyState />
       ) : (
-        <DocumentsList documents={documents} />
+        <>
+          {/* Unfiled Documents Section */}
+          {documents.filter(doc => !doc.folderId).length > 0 && (
+            <div className="mb-6">
+              <div className="mb-4">
+                <h2 className="text-xl font-semibold">Unfiled Documents</h2>
+                <p className="text-muted-foreground text-sm">
+                  Drag documents into folders above to organize them
+                </p>
+              </div>
+              <DocumentsList documents={documents.filter(doc => !doc.folderId)} />
+            </div>
+          )}
+          
+          {/* Show message if all documents are organized */}
+          {documents.filter(doc => !doc.folderId).length === 0 && (
+            <Card className="p-8 text-center">
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center">
+                    <FileText className="w-8 h-8 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">All Documents Organized! 🎉</h3>
+                    <p className="text-muted-foreground">
+                      Great job! All your documents are neatly organized in folders.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </main>
   )
@@ -177,17 +215,34 @@ function DocumentsList({ documents }: { documents: any[] }) {
   return (
     <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
       {documents.map((doc) => (
-        <Card key={doc.id} className='hover:shadow-md transition-shadow'>
+        <Card 
+          key={doc.id} 
+          className='hover:shadow-md transition-shadow cursor-move'
+          draggable={true}
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/json', JSON.stringify({
+              id: doc.id,
+              title: doc.title
+            }))
+            e.dataTransfer.effectAllowed = 'move'
+          }}
+          onDragEnd={(e) => {
+            e.preventDefault()
+          }}
+        >
           <CardHeader className='pb-3'>
             <div className='flex items-start justify-between'>
-              <div className='flex-1 min-w-0'>
-                <CardTitle className='text-lg line-clamp-2 mb-1'>
-                  {doc.title}
-                </CardTitle>
-                <CardDescription className='flex items-center text-sm'>
-                  <FileText className='h-4 w-4 mr-1' />
-                  {doc.type?.toUpperCase() || 'DOCUMENT'}
-                </CardDescription>
+              <div className='flex items-start gap-2 flex-1 min-w-0'>
+                <GripVertical className='h-4 w-4 text-muted-foreground mt-1 flex-shrink-0' />
+                <div className='flex-1 min-w-0'>
+                  <CardTitle className='text-lg line-clamp-2 mb-1'>
+                    {doc.title}
+                  </CardTitle>
+                  <CardDescription className='flex items-center text-sm'>
+                    <FileText className='h-4 w-4 mr-1' />
+                    {doc.type?.toUpperCase() || 'DOCUMENT'}
+                  </CardDescription>
+                </div>
               </div>
               <Badge variant='secondary' className='ml-2 text-xs'>
                 {doc.pages || '1'} pages
