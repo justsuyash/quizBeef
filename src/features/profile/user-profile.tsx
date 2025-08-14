@@ -373,7 +373,7 @@ export default function UserProfilePage() {
           </div>
 
           {/* Content Tabs */}
-          <Tabs defaultValue="overview" className="w-full">
+              <Tabs defaultValue="achievements" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>

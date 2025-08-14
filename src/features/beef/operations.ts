@@ -493,8 +493,71 @@ export const submitBeefAnswer: SubmitBeefAnswer<
     if (error instanceof HttpError) throw error
     throw new HttpError(500, 'Failed to submit answer')
   }
+  finally {
+    try {
+      await maybeFinalizeBeefAndGrantAchievements(challengeId, context)
+    } catch (e) {
+      console.warn('Finalize beef/achievements check failed:', e)
+    }
+  }
 }
 
+/**
+ * Helper: finalize a beef challenge and trigger achievements for winners
+ */
+async function maybeFinalizeBeefAndGrantAchievements(challengeId: number, context: any) {
+  // Determine if all rounds are answered; if so, compute winners
+  const challenge = await context.entities.BeefChallenge.findUnique({
+    where: { id: challengeId },
+    include: {
+      participants: true,
+      rounds: { include: { answers: true } }
+    }
+  })
+
+  if (!challenge) return
+
+  const allAnswered = challenge.rounds.every(r => r.answers.length >= challenge.participants.length)
+  if (!allAnswered) return
+
+  // Sort participants by finalScore desc
+  const participants = await context.entities.BeefParticipant.findMany({
+    where: { challengeId },
+    orderBy: { finalScore: 'desc' }
+  })
+  if (participants.length === 0) return
+
+  const winner = participants[0]
+
+  // Persist positions if not set
+  for (let i = 0; i < participants.length; i++) {
+    if (participants[i].position !== i + 1) {
+      await context.entities.BeefParticipant.update({
+        where: { id: participants[i].id },
+        data: { position: i + 1 }
+      })
+    }
+  }
+
+  // Mark challenge as completed
+  if (challenge.status !== 'COMPLETED') {
+    await context.entities.BeefChallenge.update({
+      where: { id: challengeId },
+      data: { status: 'COMPLETED' }
+    })
+  }
+
+  try {
+    const { checkAchievements } = await import('../achievements/operations')
+    await checkAchievements({
+      userId: winner.userId,
+      triggerType: 'BEEF_COMPLETED',
+      triggerData: { challengeId, position: 1, finalScore: winner.finalScore }
+    }, context as any)
+  } catch (e) {
+    console.warn('Failed to check achievements for beef winner:', e)
+  }
+}
 /**
  * Get a beef challenge with full details
  */

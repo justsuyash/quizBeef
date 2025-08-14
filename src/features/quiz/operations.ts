@@ -285,6 +285,29 @@ export const completeQuiz: CompleteQuiz<
       })
     }
 
+    // After completing the quiz, check for achievements
+    try {
+      await (async () => {
+        const triggerData: any = {
+          timeSpent: totalTimeSpent,
+          score,
+          totalQuestions,
+          documentId: quizAttempt.document.id
+        }
+        // Use the achievements checker if available
+        // Import lazily to avoid circular deps at build time
+        const { checkAchievements } = await import('../achievements/operations')
+        // Call with context by binding since our ops expect (args, context)
+        await checkAchievements({
+          userId: context.user!.id,
+          triggerType: 'QUIZ_COMPLETED',
+          triggerData
+        }, context as any)
+      })()
+    } catch (achErr) {
+      console.warn('Achievement check failed after quiz completion:', achErr)
+    }
+
     return {
       success: true,
       score,

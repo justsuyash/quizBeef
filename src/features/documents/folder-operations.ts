@@ -44,6 +44,18 @@ export const createFolder: CreateFolder<
       }
     })
 
+    // Achievement trigger: first folder created / folder thresholds
+    try {
+      const { checkAchievements } = await import('../achievements/operations')
+      await checkAchievements({
+        userId: context.user.id,
+        triggerType: 'FOLDER_CREATED',
+        triggerData: { folderId: folder.id }
+      }, context as any)
+    } catch (e) {
+      console.warn('Achievement check after folder creation failed:', e)
+    }
+
     return folder
   } catch (error) {
     console.error('Error creating folder:', error)

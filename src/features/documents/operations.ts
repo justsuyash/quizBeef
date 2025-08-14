@@ -102,6 +102,18 @@ Original error: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'
       },
     })
 
+    // Achievement trigger: first document uploaded / document count thresholds
+    try {
+      const { checkAchievements } = await import('../achievements/operations')
+      await checkAchievements({
+        userId: context.user.id,
+        triggerType: 'DOCUMENT_UPLOADED',
+        triggerData: { documentId: document.id }
+      }, context as any)
+    } catch (e) {
+      console.warn('Achievement check after document upload failed:', e)
+    }
+
     // Automatically generate questions for the document
     let questionCount = 0
     try {

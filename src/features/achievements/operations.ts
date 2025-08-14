@@ -361,7 +361,7 @@ export const seedAchievements: SeedAchievements<{}, { created: number }> = async
 // Helper Functions
 
 async function getUserStats(userId: number, context: any) {
-  const [quizAttempts, beefParticipations, documents, folders] = await Promise.all([
+  const [quizAttempts, beefParticipations, documents, folders, correctHistory] = await Promise.all([
     context.entities.QuizAttempt.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' }
@@ -371,16 +371,49 @@ async function getUserStats(userId: number, context: any) {
       include: { challenge: true }
     }),
     context.entities.Document.count({ where: { userId } }),
-    context.entities.Folder.count({ where: { userId } })
+    context.entities.Folder.count({ where: { userId } }),
+    context.entities.UserQuestionHistory.findMany({
+      where: { userId, wasCorrect: true },
+      include: { question: { select: { difficulty: true } } }
+    })
   ])
+
+  // Compute beef wins by position
+  const beefWins = beefParticipations.filter(bp => bp.position === 1).length
+
+  // Daily streak calculation (based on quiz attempts and beef activity days)
+  const daySet = new Set<string>()
+  quizAttempts.forEach((qa: any) => daySet.add(new Date(qa.createdAt).toISOString().slice(0,10)))
+  beefParticipations.forEach((bp: any) => {
+    if (bp.challenge?.createdAt) {
+      daySet.add(new Date(bp.challenge.createdAt).toISOString().slice(0,10))
+    }
+  })
+  let dailyStreakDays = 0
+  const today = new Date()
+  for (let i = 0; ; i++) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    const key = d.toISOString().slice(0,10)
+    if (daySet.has(key)) {
+      dailyStreakDays++
+    } else {
+      break
+    }
+  }
+
+  // Difficulty-based correct counts
+  const hardCorrect = correctHistory.filter((h: any) => h.question?.difficulty === 'HARD').length
 
   return {
     quizCount: quizAttempts.length,
     perfectScores: quizAttempts.filter(qa => qa.score === qa.totalQuestions).length,
     fastestQuiz: Math.min(...quizAttempts.map(qa => qa.timeSpent)),
-    beefWins: beefParticipations.filter(bp => bp.position === 1).length,
+    beefWins,
     documentCount: documents,
     folderCount: folders,
+    dailyStreakDays,
+    hardCorrect,
     userId
   }
 }
@@ -422,6 +455,12 @@ async function checkAchievementCriteria(
         return userStats.userId <= criteria.target
       }
       return false
+
+    case 'DAILY_STREAK':
+      return userStats.dailyStreakDays >= criteria.target
+
+    case 'HARD_CORRECT':
+      return userStats.hardCorrect >= criteria.target
 
     default:
       return false
