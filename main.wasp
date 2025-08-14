@@ -200,9 +200,15 @@ page AppsPage {
   authRequired: true
 }
 
+route ProfilePageRoute { path: "/profile", to: ProfilePageComponent }
+page ProfilePageComponent {
+  component: import ProfilePage from "@src/features/profile/profile-page",
+  authRequired: true
+}
+
 route SettingsRoute { path: "/settings", to: SettingsPage }
 page SettingsPage {
-  component: import SettingsPage from "@src/features/settings/index",
+  component: import SimpleSettings from "@src/features/settings/simple-settings",
   authRequired: true
 }
 

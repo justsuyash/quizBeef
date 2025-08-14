@@ -48,15 +48,9 @@ export function ProfileDropdown() {
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link to='/settings/profile'>
+            <Link to='/profile'>
               Profile
               <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link to='/settings/account'>
-              Account
-              <DropdownMenuShortcut>⌘A</DropdownMenuShortcut>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
@@ -65,7 +59,12 @@ export function ProfileDropdown() {
               <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem>New Team</DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to='/analytics'>
+              Analytics
+              <DropdownMenuShortcut>⌘A</DropdownMenuShortcut>
+            </Link>
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout}>
@@ -76,3 +75,4 @@ export function ProfileDropdown() {
     </DropdownMenu>
   )
 }
+
