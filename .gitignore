@@ -10,10 +10,6 @@ node_modules/
 !.env.example
 !.env.*.example
 
-# Keep AI planning private
+# Keep AI planning and personal summaries private
 ai/
-
-# Allow versioned release summaries
-!summary/
-summary/V1-LEGACY/
-summary/V1.5-ARCHIVED/
+summary/
