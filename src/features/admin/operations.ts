@@ -2,7 +2,6 @@ import { HttpError } from 'wasp/server'
 import { faker } from '@faker-js/faker'
 import type { SeedDatabase, BackfillMyAccount, GrantDemoAchievementsAll, SeedEloHistoryAll, RebuildLeaderboardStatsAll } from 'wasp/server/operations'
 import type { ResetMySeededData, AddRandomNinjas } from 'wasp/server/operations'
-import type { AddRandomNinjas, ResetMySeededData } from 'wasp/server/operations'
 import type { AchievementCategory, AchievementRarity, ProfileType, AccountType, QuizMode, Difficulty, SourceType } from '@prisma/client'
 
 export const seedDatabase: SeedDatabase<{}, { success: boolean; message: string; stats?: any }> = async (_args, context) => {
