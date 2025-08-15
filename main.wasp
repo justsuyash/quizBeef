@@ -563,6 +563,16 @@ action seedDatabase {
     entities: [User, Document, QuizAttempt, Achievement, UserAchievement, Folder, Question, Answer, UserQuestionHistory, EloHistory]
 }
 
+action resetMySeededData {
+  fn: import { resetMySeededData } from "@src/features/admin/operations",
+  entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory, UserAchievement, EloHistory]
+}
+
+action addRandomNinjas {
+  fn: import { addRandomNinjas } from "@src/features/admin/operations",
+  entities: [User]
+}
+
 action backfillMyAccount {
   fn: import { backfillMyAccount } from "@src/features/admin/operations",
   entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory, EloHistory, Achievement, UserAchievement]

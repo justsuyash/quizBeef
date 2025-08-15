@@ -1,6 +1,8 @@
 import { HttpError } from 'wasp/server'
 import { faker } from '@faker-js/faker'
 import type { SeedDatabase, BackfillMyAccount, GrantDemoAchievementsAll, SeedEloHistoryAll, RebuildLeaderboardStatsAll } from 'wasp/server/operations'
+import type { ResetMySeededData, AddRandomNinjas } from 'wasp/server/operations'
+import type { AddRandomNinjas, ResetMySeededData } from 'wasp/server/operations'
 import type { AchievementCategory, AchievementRarity, ProfileType, AccountType, QuizMode, Difficulty, SourceType } from '@prisma/client'
 
 export const seedDatabase: SeedDatabase<{}, { success: boolean; message: string; stats?: any }> = async (_args, context) => {
@@ -32,9 +34,8 @@ export const seedDatabase: SeedDatabase<{}, { success: boolean; message: string;
     quizAttemptCount: await prisma.QuizAttempt.count()
   }
 
-  if (before.userCount >= TOTAL_USERS / 2) {
-    return { success: true, message: `Database already has ${before.userCount} users. Skipping seeding to avoid duplicates.` }
-  }
+  // Delta seeding: always add a fresh batch of users/documents on each run
+  const BATCH_USERS = 100
 
   // 1) Achievements
   const achievementsExisting = await prisma.Achievement.count()
@@ -49,7 +50,7 @@ export const seedDatabase: SeedDatabase<{}, { success: boolean; message: string;
 
   // 2) Users
   const users: any[] = []
-  for (let i = 0; i < TOTAL_USERS; i++) {
+  for (let i = 0; i < BATCH_USERS; i++) {
     const loc = faker.helpers.arrayElement(POPULAR_COUNTRIES)
     const city = faker.helpers.arrayElement(loc.cities)
     const eloRating = Math.round(faker.number.int({ min: 800, max: 2000 }) * 0.3 + 1200 * 0.7)
@@ -288,4 +289,31 @@ export const rebuildLeaderboardStatsAll: RebuildLeaderboardStatsAll<{}, { succes
     await prisma.User.update({ where: { id: u.id }, data: { totalQuizzes, totalScore: Math.round(totalScore), averageAccuracy } })
   }
   return { success: true }
+}
+
+// Danger: remove seeded personal data for current user to allow clean reseeding
+export const resetMySeededData: ResetMySeededData<{}, { success: boolean }> = async (_args, context) => {
+  if (!context.user) throw new HttpError(401, 'Must be logged in')
+  const prisma = context.entities
+  const userId = context.user.id
+  await prisma.UserAchievement.deleteMany({ where: { userId } })
+  await prisma.UserQuestionHistory.deleteMany({ where: { userId } })
+  await prisma.QuizAttempt.deleteMany({ where: { userId } })
+  await prisma.EloHistory.deleteMany({ where: { userId } })
+  await prisma.Document.deleteMany({ where: { userId } })
+  await prisma.Folder.deleteMany({ where: { userId } })
+  // Optionally reset rolls
+  await prisma.User.update({ where: { id: userId }, data: { totalScore: 0, totalQuizzes: 0, averageAccuracy: null, totalBeefWins: 0 } })
+  try { const { emitStatsUpdate } = await import('../../server/events/stats'); emitStatsUpdate(userId, { type: 'refresh' }) } catch {}
+  return { success: true }
+}
+
+// Fun: add random number of ninjas to current user (assassins count stand-in)
+export const addRandomNinjas: AddRandomNinjas<{}, { success: boolean; count: number }> = async (_args, context) => {
+  if (!context.user) throw new HttpError(401, 'Must be logged in')
+  const count = Math.floor(Math.random() * 20) + 1
+  // We don't have a ninjas table; simulate by bumping totalBeefWins as a playful stat
+  await context.entities.User.update({ where: { id: context.user.id }, data: { totalBeefWins: { increment: count } } })
+  try { const { emitStatsUpdate } = await import('../../server/events/stats'); emitStatsUpdate(context.user.id, { type: 'refresh' }) } catch {}
+  return { success: true, count }
 }

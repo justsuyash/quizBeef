@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Loader2, Database, Users, FileText, Trophy, Brain } from 'lucide-react'
-import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedEloHistoryAll, rebuildLeaderboardStatsAll, getCurrentUser } from 'wasp/client/operations'
+import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedEloHistoryAll, rebuildLeaderboardStatsAll, getCurrentUser, resetMySeededData, addRandomNinjas } from 'wasp/client/operations'
 import { useQuery } from 'wasp/client/operations'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 
@@ -16,6 +16,8 @@ export default function AdminPage() {
   const [isRebuilding, setIsRebuilding] = useState(false)
   const [seedResult, setSeedResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isResetting, setIsResetting] = useState(false)
+  const [isAddingNinjas, setIsAddingNinjas] = useState(false)
   const { data: currentUser } = useQuery(getCurrentUser)
 
   const handleSeedDatabase = async () => {
@@ -162,6 +164,14 @@ export default function AdminPage() {
                       Run Seeder Pro
                     </>
                   )}
+                </Button>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={async ()=>{ try{ setIsResetting(true); await resetMySeededData({}); alert('Your seeded data has been reset.'); } catch(e:any){ setError(e.message||'Reset failed'); } finally{ setIsResetting(false);} }} disabled={isResetting}>
+                  {isResetting ? 'Resetting…' : 'Reset My Seeded Data'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={async ()=>{ try{ setIsAddingNinjas(true); const res = await addRandomNinjas({}); alert(`Added ${res.count} ninja(s).`); } catch(e:any){ setError(e.message||'Failed to add ninjas'); } finally{ setIsAddingNinjas(false);} }} disabled={isAddingNinjas}>
+                  {isAddingNinjas ? 'Summoning…' : 'Add Random Ninjas'}
                 </Button>
               </div>
             </div>
