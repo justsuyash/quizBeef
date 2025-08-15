@@ -1,7 +1,9 @@
 import type { 
   GetUserAnalytics,
   GetLearningProgress,
-  GetPerformanceTrends
+  GetPerformanceTrends,
+  GetCategoryMetrics,
+  GetOptimalLearningTime
 } from 'wasp/server/operations'
 import { HttpError } from 'wasp/server'
 
@@ -110,6 +112,16 @@ export const getUserAnalytics: GetUserAnalytics<void, any> = async (args, contex
       }
     })
 
+    const avgTimeToAnswer = await context.entities.UserQuestionHistory.aggregate({
+      where: { 
+        userId: context.user.id,
+        timeToAnswer: { not: null }
+      },
+      _avg: {
+        timeToAnswer: true
+      }
+    })
+
     return {
       totalDocuments,
       totalQuizAttempts,
@@ -124,7 +136,8 @@ export const getUserAnalytics: GetUserAnalytics<void, any> = async (args, contex
       weeklyGrowth: {
         quizzes: weeklyQuizzes,
         questions: weeklyQuestions
-      }
+      },
+      averageLearningSpeed: avgTimeToAnswer._avg.timeToAnswer
     }
   } catch (error) {
     console.error('Error fetching user analytics:', error)
@@ -303,5 +316,121 @@ export const getPerformanceTrends: GetPerformanceTrends<void, any> = async (args
   } catch (error) {
     console.error('Error fetching performance trends:', error)
     throw new HttpError(500, 'Failed to fetch performance trends')
+  }
+}
+
+/**
+ * NEW: Get category-based performance metrics
+ */
+export const getCategoryMetrics: GetCategoryMetrics<void, any> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  try {
+    const attemptsWithCategory = await context.entities.QuizAttempt.findMany({
+      where: {
+        userId: context.user.id,
+        document: {
+          category: { not: null }
+        }
+      },
+      select: {
+        score: true,
+        document: {
+          select: {
+            category: true
+          }
+        }
+      }
+    })
+
+    const categoryData: { [key: string]: { totalScore: number, count: number } } = {}
+
+    for (const attempt of attemptsWithCategory) {
+      const category = attempt.document.category!
+      if (!categoryData[category]) {
+        categoryData[category] = { totalScore: 0, count: 0 }
+      }
+      categoryData[category].totalScore += attempt.score
+      categoryData[category].count++
+    }
+
+    const categoryMetrics = Object.entries(categoryData).map(([category, data]) => ({
+      category,
+      depth: data.totalScore / data.count, // Average score as depth
+      quizzesTaken: data.count
+    })).sort((a, b) => b.depth - a.depth)
+
+
+    return {
+      breadth: categoryMetrics.length, // Number of unique categories
+      metrics: categoryMetrics
+    }
+  } catch (error) {
+    console.error('Error fetching category metrics:', error)
+    throw new HttpError(500, 'Failed to fetch category metrics')
+  }
+}
+
+/**
+ * NEW: Get user's optimal learning time based on performance
+ */
+export const getOptimalLearningTime: GetOptimalLearningTime<void, any> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  try {
+    const attempts = await context.entities.QuizAttempt.findMany({
+      where: {
+        userId: context.user.id,
+        completedAt: { not: null }
+      },
+      select: {
+        score: true,
+        completedAt: true
+      }
+    })
+
+    const performanceByHour: { [hour: number]: { totalScore: number, count: number } } = {}
+
+    for (const attempt of attempts) {
+      const hour = new Date(attempt.completedAt!).getHours()
+      if (!performanceByHour[hour]) {
+        performanceByHour[hour] = { totalScore: 0, count: 0 }
+      }
+      performanceByHour[hour].totalScore += attempt.score
+      performanceByHour[hour].count++
+    }
+
+    const hourlyAverages = Object.entries(performanceByHour).map(([hour, data]) => ({
+      hour: parseInt(hour, 10),
+      averageScore: data.totalScore / data.count,
+      quizzesTaken: data.count
+    }))
+
+    if (hourlyAverages.length === 0) {
+      return { optimalTime: 'Not enough data', details: [] }
+    }
+
+    const bestHour = hourlyAverages.reduce((prev, current) => (prev.averageScore > current.averageScore) ? prev : current)
+
+    // Format the hour for display
+    const formatHour = (h: number) => {
+      if (h === 0) return '12 AM'
+      if (h < 12) return `${h} AM`
+      if (h === 12) return '12 PM'
+      return `${h - 12} PM`
+    }
+
+    return {
+      optimalTime: `${formatHour(bestHour.hour)} - ${formatHour(bestHour.hour + 1)}`,
+      details: hourlyAverages.sort((a,b) => a.hour - b.hour)
+    }
+
+  } catch (error) {
+    console.error('Error fetching optimal learning time:', error)
+    throw new HttpError(500, 'Failed to fetch optimal learning time')
   }
 }

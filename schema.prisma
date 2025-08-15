@@ -105,6 +105,7 @@ model Document {
   // Organization
   folderId                  Int?          // Optional folder organization
   tags                      String[]      // Tags for categorization
+  category                  String?       // Topic/category (e.g., Science, History)
   
   // Relations
   userId                    Int
@@ -134,6 +135,8 @@ model QuizAttempt {
   id                        Int           @id @default(autoincrement())
   createdAt                 DateTime      @default(now())
   completedAt               DateTime?
+  startTime                 DateTime?     // When user started the quiz
+  endTime                   DateTime?     // When user ended the quiz
   
   score                     Float         // Percentage score
   totalQuestions            Int
@@ -216,6 +219,7 @@ model UserQuestionHistory {
   
   wasCorrect                Boolean
   timeSpent                 Int           // in seconds
+  timeToAnswer              Int?          // in milliseconds (fine-grained speed)
   selectedAnswerId          Int?          // Which answer they chose
   confidenceLevel           Int?          // 1-5 scale
   

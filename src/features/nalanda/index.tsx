@@ -1,68 +1,88 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Brain, TreePine, Sparkles } from 'lucide-react';
+import { BrainCircuit, BookOpen, Zap, ShieldCheck, Target, Award, GitMerge } from 'lucide-react';
 
+// Main component for the Nalanda showcase page
 export default function NalandaPage() {
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      {/* Header */}
-      <div className="text-center space-y-4">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Brain className="h-8 w-8 text-primary" />
-          <h1 className="text-4xl font-bold">Nalanda</h1>
-          <TreePine className="h-8 w-8 text-green-600" />
-        </div>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          The future of personalized learning journeys. Experience education the way it was meant to be.
-        </p>
-      </div>
-
-      {/* Coming Soon Card */}
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader className="text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Sparkles className="h-6 w-6 text-yellow-500" />
-            <CardTitle className="text-2xl">Coming Soon</CardTitle>
-            <Sparkles className="h-6 w-6 text-yellow-500" />
-          </div>
-          <CardDescription className="text-lg">
-            Interactive Learning Tree • Adaptive Pathways • Personalized Journey
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="text-center space-y-4">
-            <p className="text-muted-foreground">
-              We're building something extraordinary. Nalanda will transform how you learn with:
-            </p>
-            
-            <div className="grid gap-4 text-left">
-              <div className="flex items-start gap-3">
-                <div className="h-2 w-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <span>🌳 <strong>Tree of Life Learning Paths</strong> - Visual progress through interconnected knowledge</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="h-2 w-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <span>🎯 <strong>Adaptive AI Tutor</strong> - Personalized guidance that evolves with you</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <div className="h-2 w-2 bg-primary rounded-full mt-2 flex-shrink-0"></div>
-                <span>✨ <strong>Interactive Modules</strong> - Engage with content in revolutionary ways</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t">
-            <Button disabled className="w-full" size="lg">
-              <Brain className="h-5 w-5 mr-2" />
-              Launch Preview (V2)
+    <div className="bg-[#FAF6F0] text-[#3E2723] font-sans">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        
+        {/* Header Section */}
+        <header className="text-center mb-16">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#1A237E]">
+            Welcome to Nalanda
+          </h1>
+          <p className="mt-4 text-lg sm:text-xl text-[#3E2723]/80 max-w-3xl mx-auto">
+            A revolutionary AI-powered learning experience that adapts to you, inspired by ancient wisdom and modern science.
+          </p>
+          <div className="mt-8 flex justify-center gap-4">
+            <Button size="lg" className="bg-[#B7410E] hover:bg-[#93340c] text-white shadow-lg transform hover:scale-105 transition-transform">
+              Request a Demo
             </Button>
-            <p className="text-sm text-muted-foreground text-center mt-2">
-              Available in Quiz Beef V2.0
-            </p>
+            <Button size="lg" variant="outline" className="border-[#B7410E] text-[#B7410E] hover:bg-[#B7410E]/10 transform hover:scale-105 transition-transform">
+              Learn More
+            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </header>
+
+        {/* Core Capabilities Section */}
+        <section>
+          <h2 className="text-3xl font-bold text-center mb-12 text-[#1A237E]">What Makes Nalanda Different</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <FeatureCard
+              icon={<GitMerge className="h-10 w-10" />}
+              iconBgColor="bg-[#689F38]/20 text-[#689F38]"
+              title="The Tree of Life"
+              description="Your knowledge visualized as a living tree. It grows as you learn, revealing your path from foundational roots to expert mastery and helping you identify new areas to explore."
+            />
+            <FeatureCard
+              icon={<BrainCircuit className="h-10 w-10" />}
+              iconBgColor="bg-[#0288D1]/20 text-[#0288D1]"
+              title="The AI Guide (Ganesha)"
+              description="Your gentle teacher. The AI provides personalized hints, examples, and encouragement, preventing frustration and keeping you in a state of flow."
+            />
+            <FeatureCard
+              icon={<Zap className="h-10 w-10" />}
+              iconBgColor="bg-[#FF9933]/20 text-[#FF9933]"
+              title="Peak Performance Engine"
+              description="Learn smarter, not harder. Integrated tools like the Pomodoro timer and optimal learning time suggestions help prevent burnout and maximize retention."
+            />
+            <FeatureCard
+              icon={<ShieldCheck className="h-10 w-10" />}
+              iconBgColor="bg-[#C62828]/20 text-[#C62828]"
+              title="Science-Backed Methods"
+              description="Built on proven principles like Active Recall and Spaced Repetition to ensure long-term memory formation."
+            />
+            <FeatureCard
+              icon={<Target className="h-10 w-10" />}
+              iconBgColor="bg-[#1A237E]/20 text-[#1A237E]"
+              title="Teach-Back & Interleaving"
+              description="Go beyond memorization. Solidify your understanding by teaching concepts back to the AI and tackling mixed-topic challenges."
+            />
+            <FeatureCard
+              icon={<Award className="h-10 w-10" />}
+              iconBgColor="bg-[#D4AF37]/20 text-[#D4AF37]"
+              title="From Concepts to Mastery"
+              description="A complete journey from understanding individual concepts to applying them in complex, real-world scenarios."
+            />
+          </div>
+        </section>
+
+      </div>
+    </div>
+  );
+}
+
+// A reusable component for feature cards
+function FeatureCard({ icon, title, description, iconBgColor }: { icon: React.ReactNode; title: string; description: string; iconBgColor: string; }) {
+  return (
+    <div className="bg-white/50 dark:bg-gray-800/20 p-6 rounded-lg shadow-lg hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border border-black/5">
+      <div className={`flex items-center justify-center h-16 w-16 rounded-full ${iconBgColor} mb-4`}>
+        {icon}
+      </div>
+      <h3 className="text-xl font-bold mb-2 text-[#1A237E]">{title}</h3>
+      <p className="text-[#3E2723]/80">{description}</p>
     </div>
   );
 }

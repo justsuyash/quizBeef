@@ -60,6 +60,12 @@ page NalandaPage {
   authRequired: true
 }
 
+route NalandaModuleRoute { path: "/nalanda/module/:moduleId", to: NalandaModulePage }
+page NalandaModulePage {
+  component: import NalandaModulePage from "@src/features/nalanda/module",
+  authRequired: true
+}
+
 route DashboardRoute { path: "/dashboard", to: Dashboard }
 page Dashboard {
   component: import DashboardRedirect from "@src/features/dashboard/redirect-to-analytics",
@@ -357,6 +363,16 @@ query getLearningProgress {
 query getPerformanceTrends {
   fn: import { getPerformanceTrends } from "@src/features/dashboard/operations",
   entities: [User, Document, QuizAttempt, UserQuestionHistory]
+}
+
+query getCategoryMetrics {
+  fn: import { getCategoryMetrics } from "@src/features/dashboard/operations",
+  entities: [User, Document, QuizAttempt]
+}
+
+query getOptimalLearningTime {
+  fn: import { getOptimalLearningTime } from "@src/features/dashboard/operations",
+  entities: [User, QuizAttempt]
 }
 
 // Folder and Document Organization operations

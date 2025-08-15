@@ -1,6 +1,6 @@
 import React from 'react'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -77,6 +77,7 @@ export default function EnhancedAnalytics() {
   const { data: progressData, isLoading: progressLoading } = useQuery(getLearningProgress)
   const { data: performanceData, isLoading: performanceLoading } = useQuery(getPerformanceTrends)
   const { data: achievementsData, isLoading: achievementsLoading } = useQuery(getUserAchievements)
+  const { data: leaderboardData } = useQuery(getLeaderboard)
 
   if (!user) {
     return (
@@ -137,9 +138,10 @@ export default function EnhancedAnalytics() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="statistics">Statistics</TabsTrigger>
+          <TabsTrigger value="leaderboards">Leaderboards</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
@@ -335,6 +337,30 @@ export default function EnhancedAnalytics() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Leaderboards Tab */}
+        <TabsContent value="leaderboards" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Top Learners</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {(leaderboardData || []).slice(0, 10).map((u: any, i: number) => (
+                  <div key={u.id ?? i} className="flex items-center justify-between border rounded-md px-3 py-2">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 text-center font-semibold">{i + 1}</span>
+                      <span className="font-medium">{u.handle ?? `User ${i + 1}`}</span>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {u.totalScore ?? 0} pts • {u.totalQuizzes ?? 0} quizzes
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </main>
