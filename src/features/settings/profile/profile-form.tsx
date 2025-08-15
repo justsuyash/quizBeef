@@ -90,8 +90,9 @@ export default function ProfileForm() {
   }, [userData, form])
 
   async function onSubmit(data: ProfileFormValues) {
+    console.log('Submitting profile form with data:', data)
     try {
-      await updateProfileFn({
+      const result = await updateProfileFn({
         handle: data.handle || undefined,
         email: data.email || undefined,
         accountType: data.accountType,
@@ -101,6 +102,8 @@ export default function ProfileForm() {
         favoriteSubject: data.favoriteSubject || undefined,
         isPublicProfile: data.isPublicProfile,
       })
+
+      console.log('Profile update result:', result)
 
       // Invalidate and refetch the getCurrentUser query to update the UI
       await queryClient.invalidateQueries({ queryKey: ['getCurrentUser'] })
@@ -112,6 +115,7 @@ export default function ProfileForm() {
         description: 'Your profile information has been saved.',
       })
     } catch (error) {
+      console.error('Error updating profile:', error)
       toast({
         title: 'Error updating profile',
         description: error instanceof Error ? error.message : 'Something went wrong',
@@ -182,7 +186,14 @@ export default function ProfileForm() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8'>
+        <form onSubmit={form.handleSubmit(onSubmit, (errors) => {
+          console.log('Form validation errors:', errors)
+          toast({
+            title: 'Form validation failed',
+            description: 'Please check your inputs and try again.',
+            variant: 'destructive',
+          })
+        })} className='space-y-8'>
           <FormField
             control={form.control}
             name='handle'

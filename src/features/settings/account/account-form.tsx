@@ -102,13 +102,16 @@ export function AccountForm() {
   async function onSubmit(data: AccountFormValues) {
     if (isSubmitting) return
     
+    console.log('Submitting account form with data:', data)
     setIsSubmitting(true)
     try {
-      await updateProfileFn({
+      const result = await updateProfileFn({
         name: data.name,
         dateOfBirth: data.dob,
         language: data.language,
       })
+      
+      console.log('Update result:', result)
 
       // Invalidate and refetch the getCurrentUser query to update the UI
       await queryClient.invalidateQueries({ queryKey: ['getCurrentUser'] })
@@ -119,6 +122,7 @@ export function AccountForm() {
         description: 'Your account settings have been saved.',
       })
     } catch (error) {
+      console.error('Error updating account:', error)
       toast({
         title: 'Error updating account',
         description: error instanceof Error ? error.message : 'Something went wrong',

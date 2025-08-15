@@ -32,7 +32,13 @@ export const generateQuizFromFolder: GenerateQuizFromFolder<
         userId: context.user.id
       },
       include: {
-        questions: true,
+        questions: {
+          include: {
+            answers: {
+              orderBy: { orderIndex: 'asc' }
+            }
+          }
+        },
         folder: true
       }
     })
@@ -102,6 +108,22 @@ export const generateQuizFromFolder: GenerateQuizFromFolder<
         }
       }
     })
+
+    // Create user question history entries for all selected questions
+    // This is required for the quiz to be properly loaded in QuizTakePage
+    for (const question of shuffledQuestions) {
+      await context.entities.UserQuestionHistory.create({
+        data: {
+          wasCorrect: false, // Will be updated when answered
+          timeSpent: 0,
+          selectedAnswerId: null,
+          confidenceLevel: null,
+          userId: context.user.id,
+          questionId: question.id,
+          quizAttemptId: quizAttempt.id
+        }
+      })
+    }
 
     return {
       quizAttemptId: quizAttempt.id,

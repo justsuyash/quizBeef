@@ -1,6 +1,6 @@
-import { resolveProjectPath } from 'wasp/dev';
-import tailwindCssAnimate from 'tailwindcss-animate';
-import defaultTheme from 'tailwindcss/defaultTheme';
+const { resolveProjectPath } = require('wasp/dev');
+const tailwindCssAnimate = require('tailwindcss-animate');
+const defaultTheme = require('tailwindcss/defaultTheme');
 
 const fonts = ['inter', 'manrope', 'system'];
 
@@ -8,7 +8,7 @@ const fonts = ['inter', 'manrope', 'system'];
 const { fontFamily = { sans: ['sans-serif'] } } = defaultTheme || {};
 
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   darkMode: ['class'],
   content: [resolveProjectPath('./src/**/*.{js,jsx,ts,tsx}')],
   safelist: fonts.map((font) => `font-${font}`),

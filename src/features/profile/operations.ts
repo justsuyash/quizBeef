@@ -180,6 +180,9 @@ export const updateUserProfile: UpdateUserProfile<{
     throw new HttpError(401, 'User must be authenticated')
   }
 
+  console.log('updateUserProfile called with args:', args)
+  console.log('User ID:', context.user.id)
+
   try {
     const updatedUser = await context.entities.User.update({
       where: { id: context.user.id },
@@ -212,6 +215,7 @@ export const updateUserProfile: UpdateUserProfile<{
       }
     })
 
+    console.log('User profile updated successfully:', updatedUser)
     return updatedUser
   } catch (error) {
     console.error('Error updating user profile:', error)

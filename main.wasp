@@ -208,7 +208,7 @@ page ProfilePageComponent {
 
 route SettingsRoute { path: "/settings", to: SettingsPage }
 page SettingsPage {
-  component: import SimpleSettings from "@src/features/settings/simple-settings",
+  component: import UserSettings from "@src/features/settings/user-settings",
   authRequired: true
 }
 
@@ -419,7 +419,7 @@ query searchDocuments {
 // Advanced Quiz Generation operations
 action generateQuizFromFolder {
   fn: import { generateQuizFromFolder } from "@src/features/quiz/advanced-operations",
-  entities: [User, Document, Folder, Question, Answer, QuizAttempt]
+  entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory]
 }
 
 query getSuggestedQuestionCount {

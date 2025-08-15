@@ -193,8 +193,9 @@ export function MultiDocumentQuiz({ folderId, folder, trigger }: MultiDocumentQu
         description: `Created quiz with ${result.questionCount} questions`
       })
 
-      // Navigate to the quiz
-      navigate(`/quiz/${result.quizAttemptId}`)
+      // Navigate to the quiz using the primary document ID from the first selected document
+      const primaryDocumentId = selectedDocuments[0]
+      navigate(`/quiz/${primaryDocumentId}/take?attemptId=${result.quizAttemptId}`)
       setIsOpen(false)
     } catch (error) {
       console.error('Error generating quiz:', error)
