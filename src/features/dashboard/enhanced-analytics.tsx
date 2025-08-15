@@ -1,6 +1,7 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -51,6 +52,7 @@ import {
   BarChart3
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 
 const iconMap: Record<string, any> = {
   'graduation-cap': BookOpen,
@@ -73,6 +75,7 @@ const rarityColors: Record<string, string> = {
 }
 
 export default function EnhancedAnalytics() {
+  const navigate = useNavigate()
   const { data: user } = useAuth()
   const { data: analytics, isLoading: analyticsLoading } = useQuery(getUserAnalytics)
   const { data: progressData, isLoading: progressLoading } = useQuery(getLearningProgress)
@@ -87,6 +90,8 @@ export default function EnhancedAnalytics() {
     city: 'all'
   })
   const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery(getLeaderboard, leaderboardFilter)
+  const { data: historyData, isLoading: historyLoading } = useQuery(getQuizHistory)
+  const [retakeLoadingId, setRetakeLoadingId] = React.useState<number | null>(null)
 
 
   if (!user) {
@@ -97,7 +102,7 @@ export default function EnhancedAnalytics() {
     )
   }
 
-  const isLoading = analyticsLoading || progressLoading || performanceLoading || achievementsLoading || categoryLoading || optimalTimeLoading || enrichedLoading || leaderboardLoading
+  const isLoading = analyticsLoading || progressLoading || performanceLoading || achievementsLoading || categoryLoading || optimalTimeLoading || enrichedLoading || leaderboardLoading || historyLoading
 
   if (isLoading) {
     return (
@@ -137,6 +142,16 @@ export default function EnhancedAnalytics() {
     avgTime: Math.round(difficulty.averageTime / 1000) // Convert to seconds
   })) || []
 
+  // Compute Category Depth (overall average) to mirror Category Breadth style
+  const avgCategoryDepth = (() => {
+    const metrics: any[] | undefined = (categoryData as any)?.metrics || (enriched as any)?.depth
+    if (Array.isArray(metrics) && metrics.length > 0) {
+      const total = metrics.reduce((sum, m: any) => sum + (m.depth || 0), 0)
+      return Math.round(total / metrics.length)
+    }
+    return 0
+  })()
+
   return (
     <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header */}
@@ -148,14 +163,61 @@ export default function EnhancedAnalytics() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="statistics">Statistics</TabsTrigger>
           <TabsTrigger value="leaderboards">Leaderboards</TabsTrigger>
+          <TabsTrigger value="history">Quiz History</TabsTrigger>
+          <TabsTrigger value="statistics">Statistics</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
+          {/* Medal Case at top */}
+          <Card className="relative overflow-hidden">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-yellow-500" />
+                Medal Case
+              </CardTitle>
+              <CardDescription>Your 5 most prestigious achievements</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {topAchievements.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                  {topAchievements.map((achievement: any, index: number) => {
+                    const IconComponent = iconMap[achievement.iconName] || Award
+                    const color = rarityColors[achievement.rarity] || '#6B7280'
+                    return (
+                      <div key={achievement.id} className="group relative flex flex-col items-center text-center">
+                        <div 
+                          className="h-16 w-16 rounded-full flex items-center justify-center shadow-md ring-2 ring-offset-2"
+                          style={{ backgroundColor: color + '20', color, borderColor: color }}
+                        >
+                          <IconComponent className="h-7 w-7" />
+                        </div>
+                        <div className="mt-2 text-xs font-medium line-clamp-2">{achievement.name}</div>
+                        <Badge 
+                          variant="outline" 
+                          className="mt-1"
+                          style={{ borderColor: color, color }}
+                        >
+                          {achievement.rarity}
+                        </Badge>
+                        <div className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-yellow-400 text-white text-xs font-bold flex items-center justify-center shadow">
+                          {index + 1}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No achievements yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
           {/* KPIs */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -204,6 +266,15 @@ export default function EnhancedAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{enriched?.breadth ?? categoryData?.breadth ?? 0} Topics</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Category Depth</CardTitle>
+                <Brain className="h-4 w-4 text-indigo-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{avgCategoryDepth}%</div>
               </CardContent>
             </Card>
             <Card>
@@ -260,111 +331,13 @@ export default function EnhancedAnalytics() {
             </Card>
           </div>
 
-          <div>
-            <Button variant="outline" onClick={() => (window.location.href = '/quiz-history')}>Quiz History</Button>
-          </div>
-        </TabsContent>
-
-        {/* Statistics Tab */}
-        <TabsContent value="statistics" className="space-y-6">
+          {/* Achievements Section: Progress (left) • Gallery (right) */}
           <div className="grid gap-6 lg:grid-cols-2">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Category Performance (Depth)</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={categoryData?.metrics} layout="vertical">
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis type="number" />
-                            <YAxis dataKey="category" type="category" width={80} />
-                            <Tooltip />
-                            <Bar dataKey="depth" fill="#8884d8" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Optimal Learning Time</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-center">
-                        <p className="text-lg text-muted-foreground">Your peak performance time is:</p>
-                        <p className="text-4xl font-bold text-green-500">{optimalTimeData?.optimalTime}</p>
-                    </div>
-                </CardContent>
-            </Card>
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Medal Case</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Top 5 achievements (existing) */}
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Top 5 Achievements */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-yellow-500" />
-                  Your Top Achievements
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {topAchievements.length > 0 ? (
-                  topAchievements.map((achievement: any, index: number) => {
-                    const IconComponent = iconMap[achievement.iconName] || Award
-                    return (
-                      <div key={achievement.id} className="flex items-center gap-4 p-3 rounded-lg border bg-gradient-to-r from-yellow-50 to-orange-50">
-                        <div className="flex-shrink-0">
-                          <div 
-                            className="p-2 rounded-lg"
-                            style={{ 
-                              backgroundColor: achievement.iconColor + '20',
-                              color: achievement.iconColor
-                            }}
-                          >
-                            <IconComponent className="h-6 w-6" />
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium">{achievement.name}</h4>
-                            <Badge 
-                              variant="outline"
-                              style={{ 
-                                backgroundColor: rarityColors[achievement.rarity] + '20',
-                                borderColor: rarityColors[achievement.rarity],
-                                color: rarityColors[achievement.rarity]
-                              }}
-                            >
-                              {achievement.rarity}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="text-2xl font-bold text-yellow-500">
-                          #{index + 1}
-                        </div>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No achievements yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Achievement Progress */}
+            {/* Achievement Progress (left) */}
             <Card>
               <CardHeader>
                 <CardTitle>Achievement Progress</CardTitle>
+                <CardDescription>Your overall progress towards unlocking all achievements</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
@@ -383,7 +356,6 @@ export default function EnhancedAnalytics() {
                     />
                   </div>
                 </div>
-
                 <Button 
                   variant="outline" 
                   className="w-full"
@@ -393,7 +365,113 @@ export default function EnhancedAnalytics() {
                 </Button>
               </CardContent>
             </Card>
+
+            {/* Achievements Gallery (right) */}
+            <Card>
+              <CardHeader>
+                <CardTitle>All Achievements</CardTitle>
+                <CardDescription>Unlocked and locked achievements</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                  {(achievementsData?.achievements || []).map((a: any) => {
+                    const IconComponent = iconMap[a.iconName] || Award
+                    const color = rarityColors[a.rarity] || '#6B7280'
+                    return (
+                      <div key={a.id} className="flex items-center justify-between p-2 border rounded-md">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div 
+                            className="h-8 w-8 rounded-md flex items-center justify-center"
+                            style={{ backgroundColor: color + '20', color }}
+                          >
+                            <IconComponent className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{a.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">{a.description}</div>
+                          </div>
+                        </div>
+                        <Badge variant={a.isUnlocked ? 'default' : 'outline'}>
+                          {a.isUnlocked ? 'Unlocked' : 'Locked'}
+                        </Badge>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
           </div>
+
+          {/* Category Depth and Optimal Learning Time moved from Statistics */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Coach's Corner (replaces Category Performance card) */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-green-600" />
+                  Coach's Corner
+                </CardTitle>
+                <CardDescription>Personalized tips based on your recent activity</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="list-disc pl-5 space-y-2 text-sm">
+                  {(() => {
+                    const tips: string[] = []
+                    // Optimal hour insight
+                    if (enriched?.optimalHour !== undefined && enriched?.optimalHour !== -1) {
+                      const h = enriched.optimalHour as number
+                      const fmt = (hh: number) => {
+                        if (hh === 0) return '12 AM'
+                        if (hh < 12) return `${hh} AM`
+                        if (hh === 12) return '12 PM'
+                        return `${hh - 12} PM`
+                      }
+                      tips.push(`You're sharpest around ${fmt(h)}. Schedule a 20–30 min sprint then.`)
+                    }
+                    // Breadth insight
+                    if ((enriched?.breadth ?? categoryData?.breadth ?? 0) < 3) {
+                      tips.push('Broaden your topics this week to strengthen category breadth.')
+                    } else {
+                      tips.push('Nice breadth across topics. Consider deepening weaker areas for higher gains.')
+                    }
+                    // Learning speed insight
+                    const speed = (enriched?.averageLearningSpeed ?? analytics?.averageLearningSpeed ?? 0) as number
+                    if (speed && speed > 30000) {
+                      tips.push('Your average time per question is high. Try Rapid Fire for speed practice.')
+                    } else if (speed && speed < 12000) {
+                      tips.push('Great pace! Consider Precision mode to push accuracy even higher.')
+                    }
+                    return tips.map((t, i) => <li key={i}>{t}</li>)
+                  })()}
+                </ul>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Optimal Learning Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center">
+                  <p className="text-lg text-muted-foreground">Your peak performance time is:</p>
+                  <p className="text-4xl font-bold text-green-500">{optimalTimeData?.optimalTime}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Statistics Tab */}
+        <TabsContent value="statistics" className="space-y-6">
+          {/* (Category Depth, Optimal Learning, Medal Case moved to Overview tab) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Statistics</CardTitle>
+              <CardDescription>Drill-down stats and trends</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">More detailed analytics will appear here.</p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Leaderboards Tab */}
@@ -468,6 +546,80 @@ export default function EnhancedAnalytics() {
             </CardContent>
           </Card>
          </div>
+        </TabsContent>
+
+        {/* Quiz History Tab */}
+        <TabsContent value="history" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Quiz History</CardTitle>
+                  <CardDescription>Your recent completed quizzes</CardDescription>
+                </div>
+                <Button variant="outline" onClick={() => (window.location.href = '/quiz-history')}>View Full History</Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(!historyData || historyData.length === 0) ? (
+                <div className="text-center text-muted-foreground py-12">No quiz history yet.</div>
+              ) : (
+                <div className="w-full overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Document</TableHead>
+                        <TableHead className="text-right">Score</TableHead>
+                        <TableHead className="text-right">Questions</TableHead>
+                        <TableHead className="text-right">Time</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(historyData || []).slice(0, 10).map((row: any) => (
+                        <TableRow key={row.id} className="hover:bg-muted/50">
+                          <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleDateString() : '-'}</TableCell>
+                          <TableCell className="truncate max-w-[240px]">{row.documentTitle}</TableCell>
+                          <TableCell className="text-right font-medium">{Math.round(row.score)}%</TableCell>
+                          <TableCell className="text-right">{row.correctAnswers}/{row.totalQuestions}</TableCell>
+                          <TableCell className="text-right">{row.timeSpent}s</TableCell>
+                          <TableCell className="text-right space-x-2 whitespace-nowrap">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => (window.location.href = `/quiz/${row.id}/results`)}
+                            >
+                              Review
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={retakeLoadingId === row.id}
+                              onClick={async () => {
+                                try {
+                                  setRetakeLoadingId(row.id)
+                                  const defaultSettings = {
+                                    questionCount: 10,
+                                    difficultyDistribution: { easy: 40, medium: 40, hard: 20 },
+                                  }
+                                  const result = await startQuiz({ documentId: row.documentId, settings: defaultSettings })
+                                  navigate(`/quiz/${row.documentId}/take?attemptId=${result.quizAttemptId}`)
+                                } finally {
+                                  setRetakeLoadingId(null)
+                                }
+                              }}
+                            >
+                              {retakeLoadingId === row.id ? 'Starting…' : 'Retake'}
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </main>
