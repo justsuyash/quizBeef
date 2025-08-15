@@ -260,6 +260,12 @@ page ThemePreviewPage {
   authRequired: false
 }
 
+route AdminRoute { path: "/admin", to: AdminPage }
+page AdminPage {
+  component: import AdminPage from "@src/features/admin/index",
+  authRequired: true
+}
+
 // Error and utility routes
 route GeneralErrorRoute { path: "/general-error", to: GeneralError }
 page GeneralError {
@@ -526,6 +532,6 @@ query getLeaderboard {
 
 action seedDatabase {
     fn: import { seedDatabase } from "@src/features/admin/operations",
-    entities: [User, Document, QuizAttempt]
+    entities: [User, Document, QuizAttempt, Achievement, UserAchievement, Folder, Question, Answer, UserQuestionHistory]
 }
 

@@ -2,7 +2,8 @@ import React, { useState } from 'react'
 import { useQuery, useAction } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import { Link } from 'wasp/client/router'
-import { getMyDocuments, generateQuiz } from 'wasp/client/operations'
+import { useNavigate } from 'react-router-dom'
+import { getMyDocuments, startQuiz, generateQuestionsForDocument } from 'wasp/client/operations'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
@@ -191,22 +192,38 @@ function EmptyState() {
 // Documents list component
 function DocumentsList({ documents }: { documents: any[] }) {
   const [generatingQuiz, setGeneratingQuiz] = useState<number | null>(null)
-  const generateQuizAction = useAction(generateQuiz)
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const handleGenerateQuiz = async (documentId: number) => {
     setGeneratingQuiz(documentId)
     try {
-      await generateQuizAction({ documentId })
-      toast({
-        title: "Quiz Generated! 🎉",
-        description: "Your quiz is ready. Check the Quiz History to start playing.",
-      })
+      const defaultSettings = {
+        questionCount: 10,
+        difficultyDistribution: { easy: 40, medium: 40, hard: 20 },
+      }
+
+      let result: any
+      try {
+        // Try to start a quiz attempt immediately
+        result = await startQuiz({ documentId, settings: defaultSettings })
+      } catch (e: any) {
+        // If there are no questions yet, generate them, then start
+        if ((e?.message || '').includes('No questions available')) {
+          await generateQuestionsForDocument({ documentId })
+          result = await startQuiz({ documentId, settings: defaultSettings })
+        } else {
+          throw e
+        }
+      }
+
+      // Navigate directly to the quiz take page
+      navigate(`/quiz/${documentId}/take?attemptId=${result.quizAttemptId}`)
       queryClient.invalidateQueries(['quizzes'])
     } catch (error: any) {
       toast({
-        title: "Generation Failed",
-        description: error?.message || "Something went wrong. Please try again.",
+        title: "Unable to start quiz",
+        description: error?.message || "Please try again in a moment.",
         variant: "destructive",
       })
     } finally {
