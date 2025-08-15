@@ -1,7 +1,7 @@
-# Quiz Beef v1.6 Phase 1 Implementation Summary
+# Quiz Beef v1.6 Phase 1 + Phase 2.1 Implementation Summary
 
 ## 🎯 Overview
-This commit completes Phase 1 of Quiz Beef v1.6, focusing on fixing critical dependencies, implementing location features, and ensuring robust quiz generation functionality.
+This commit completes Phase 1 of Quiz Beef v1.6 and Phase 2.1 (Navigation Restructure), focusing on fixing critical dependencies, implementing location features, ensuring robust quiz generation functionality, and aligning navigation with the new information architecture.
 
 ## ✅ Major Features Implemented
 
@@ -21,7 +21,14 @@ This commit completes Phase 1 of Quiz Beef v1.6, focusing on fixing critical dep
 - **Question Loading**: Ensured proper question/answer data structure for quiz rendering
 - **End-to-End Flow**: Complete multi-document quiz generation now works seamlessly
 
-### 3. CSS/Styling Stability
+### 3. Navigation Restructure (Phase 2.1)
+- Renamed navigation component: `bottom-navigation.tsx` → `sidebar.tsx` and updated imports
+- Desktop nav now: Play, Nalanda, My Documents, Beef Challenges, Analytics, Achievements
+- Mobile nav now: My Documents, Play, Beef Challenges, Analytics
+- Removed from main nav: Upload Content, Quiz History, Leaderboard (to be consolidated into pages/tabs later)
+- Added `Nalanda` route and a minimal placeholder page at `/nalanda`
+
+### 4. CSS/Styling Stability
 - **Tailwind Configuration**: Converted problematic `@apply` directives to standard CSS for robustness
 - **PostCSS Setup**: Fixed `@tailwindcss/postcss` plugin configuration
 - **Module System**: Resolved ES module vs CommonJS conflicts in `tailwind.config.cjs`
@@ -44,6 +51,7 @@ This commit completes Phase 1 of Quiz Beef v1.6, focusing on fixing critical dep
 - **Loading States**: Proper loading indicators and error boundaries
 - **API Integration**: Real-time location search with OpenStreetMap
 - **User Experience**: Smooth transitions and responsive design
+- **Navigation**: Clear, minimal main nav matching Phase 2.1 IA
 
 ## 🚀 Performance Improvements
 - **Debounced API Calls**: Location search optimized with 300ms debouncing
@@ -64,9 +72,12 @@ This commit completes Phase 1 of Quiz Beef v1.6, focusing on fixing critical dep
 - `src/features/quiz/advanced-operations.ts`
 - `src/features/profile/operations.ts`
 - `main.wasp`
+- `src/components/layout/sidebar.tsx` (renamed from bottom-navigation)
 - `postcss.config.cjs`
 - `tailwind.config.cjs`
 - `src/index.css`
+### Added Files
+- `src/features/nalanda/index.tsx`
 
 ### Key Commits
 - Settings persistence and location API implementation
@@ -78,7 +89,7 @@ This commit completes Phase 1 of Quiz Beef v1.6, focusing on fixing critical dep
 With these critical dependencies resolved, the application is now ready for:
 - Advanced analytics implementation
 - Elo rating system integration
-- Enhanced navigation structure
+- Enhanced navigation structure (Phase 2.2–2.3)
 - Rich leaderboard features
 
 ## 🔍 Testing Notes
@@ -90,4 +101,4 @@ With these critical dependencies resolved, the application is now ready for:
 
 ---
 *Commit Date: $(date)*
-*Phase: Quiz Beef v1.6 Phase 1 Complete*
+*Phase: Quiz Beef v1.6 Phase 1 + Phase 2.1 Complete*
