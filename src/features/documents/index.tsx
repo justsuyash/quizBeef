@@ -61,19 +61,11 @@ export default function DocumentsPage() {
 
   return (
     <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-      <div className='mb-8 flex items-center justify-between'>
+      <div className='mb-8 flex items-center justify-start'>
         <div>
           <h1 className='text-3xl font-bold tracking-tight'>My Documents 📚</h1>
-          <p className='text-muted-foreground'>
-            Manage your uploaded content and track your learning progress
-          </p>
+          <p className='text-muted-foreground'>Manage your content</p>
         </div>
-        <Button asChild>
-          <Link to='/upload'>
-            <Upload className='h-4 w-4 mr-2' />
-            Upload Content
-          </Link>
-        </Button>
       </div>
 
       {/* Folder Management Section */}
@@ -128,6 +120,16 @@ export default function DocumentsPage() {
           )}
         </>
       )}
+
+      {/* Center Floating Upload FAB */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <Button asChild size='lg' className='px-6 py-6 text-base shadow-lg'>
+          <Link to='/upload'>
+            <Upload className='h-5 w-5 mr-2' />
+            Upload Content
+          </Link>
+        </Button>
+      </div>
     </main>
   )
 }

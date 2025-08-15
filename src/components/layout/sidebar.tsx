@@ -100,14 +100,6 @@ const desktopNavItems: NavItem[] = [
     href: '/analytics',
     color: 'text-muted-foreground',
   },
-  {
-    id: 'achievements',
-    label: 'Achievements',
-    icon: Trophy,
-    activeIcon: Trophy,
-    href: '/achievements',
-    color: 'text-accent',
-  },
 ];
 
 export function BottomNavigation() {
@@ -139,7 +131,6 @@ export function BottomNavigation() {
     if (currentPath.startsWith('/nalanda')) return 'nalanda';
     if (currentPath.startsWith('/documents')) return 'documents';
     if (currentPath.startsWith('/beef')) return 'beef';
-    if (currentPath.startsWith('/achievements')) return 'achievements';
     if (currentPath.startsWith('/user') || currentPath.startsWith('/settings')) return 'profile';
     return null; // No active item for landing page
   };

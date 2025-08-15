@@ -91,21 +91,9 @@ export default function EnhancedAnalytics() {
   if (isLoading) {
     return (
       <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">Analytics & Progress</h1>
-          <p className="text-muted-foreground">Loading your learning insights...</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="pt-6">
-                <div className="animate-pulse space-y-2">
-                  <div className="h-4 bg-muted rounded w-3/4" />
-                  <div className="h-8 bg-muted rounded w-1/2" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </main>
     )
@@ -141,26 +129,22 @@ export default function EnhancedAnalytics() {
   return (
     <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
           <BarChart3 className="h-8 w-8 text-blue-500" />
-          Analytics & Progress
+          Analytics
         </h1>
-        <p className="text-muted-foreground">
-          Comprehensive insights into your learning journey and achievements
-        </p>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="overview">Overview & Stats</TabsTrigger>
-          <TabsTrigger value="progress">Progress & Trends</TabsTrigger>
-          <TabsTrigger value="achievements">Top Achievements</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="statistics">Statistics</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
-          {/* Key Metrics */}
+          {/* KPIs */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -169,182 +153,54 @@ export default function EnhancedAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{analytics?.totalQuizAttempts || 0}</div>
-                <p className="text-xs text-muted-foreground">
-                  +{analytics?.weeklyQuizzes || 0} this week
-                </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Accuracy Rate</CardTitle>
+                <CardTitle className="text-sm font-medium">Accuracy</CardTitle>
                 <Target className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{Math.round(analytics?.accuracyRate || 0)}%</div>
-                <p className="text-xs text-muted-foreground">
-                  {analytics?.accuracyRate >= 80 ? 'Excellent' : analytics?.accuracyRate >= 60 ? 'Good' : 'Improving'}
-                </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Streak</CardTitle>
+                <CardTitle className="text-sm font-medium">Streak</CardTitle>
                 <Flame className="h-4 w-4 text-orange-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{analytics?.currentStreak || 0}</div>
-                <p className="text-xs text-muted-foreground">
-                  Best: {analytics?.bestStreak || 0} days
-                </p>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Achievements</CardTitle>
-                <Trophy className="h-4 w-4 text-yellow-500" />
+                <CardTitle className="text-sm font-medium">Questions</CardTitle>
+                <BarChart3 className="h-4 w-4 text-purple-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">
-                  {achievementsData?.unlockedCount || 0}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  of {achievementsData?.totalCount || 0} unlocked
-                </p>
+                <div className="text-2xl font-bold">{analytics?.totalQuestionsAnswered || 0}</div>
               </CardContent>
             </Card>
           </div>
 
-          {/* Difficulty Performance Chart */}
+          {/* Quizzes Over Time / Topics Over Time */}
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Performance by Difficulty</CardTitle>
-                <CardDescription>Your accuracy across different question difficulties</CardDescription>
+                <CardTitle>Quizzes Over Time</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={difficultyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="accuracy" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Learning Summary</CardTitle>
-                <CardDescription>Overview of your quiz activity</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Questions Answered</span>
-                  <span className="font-medium">{analytics?.totalQuestionsAnswered || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Average Score</span>
-                  <span className="font-medium">{Math.round(analytics?.averageScore || 0)}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Documents Studied</span>
-                  <span className="font-medium">{analytics?.totalDocuments || 0}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">This Week</span>
-                  <span className="font-medium">{analytics?.weeklyQuestions || 0} questions</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Progress Tab */}
-        <TabsContent value="progress" className="space-y-6">
-          {/* Progress Line Chart with Area */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Learning Progress Over Time</CardTitle>
-              <CardDescription>Your quiz performance and activity trends</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={400}>
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.05}/>
-                    </linearGradient>
-                    <linearGradient id="accuracyGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#10B981" stopOpacity={0.05}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis 
-                    dataKey="date" 
-                    stroke="#6B7280"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#6B7280"
-                    fontSize={12}
-                  />
-                  <Tooltip 
-                    contentStyle={{
-                      backgroundColor: 'white',
-                      border: '1px solid #E5E7EB',
-                      borderRadius: '8px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                    }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="score"
-                    stroke="#3B82F6"
-                    strokeWidth={2}
-                    fill="url(#scoreGradient)"
-                    name="Score %"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="accuracy"
-                    stroke="#10B981"
-                    strokeWidth={2}
-                    fill="url(#accuracyGradient)"
-                    name="Accuracy %"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          {/* Activity Metrics */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Study Time Trends</CardTitle>
-                <CardDescription>Daily time spent on quizzes (minutes)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
                   <LineChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
                     <Tooltip />
-                    <Line 
-                      type="monotone" 
-                      dataKey="timeSpent" 
-                      stroke="#F59E0B" 
-                      strokeWidth={2}
-                      dot={{ fill: '#F59E0B', strokeWidth: 2, r: 4 }}
-                    />
+                    <Line type="monotone" dataKey="score" stroke="#3B82F6" strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -352,30 +208,44 @@ export default function EnhancedAnalytics() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Question Activity</CardTitle>
-                <CardDescription>Questions answered per day</CardDescription>
+                <CardTitle>Topics Over Time</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartData}>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="topicsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.05}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
                     <Tooltip />
-                    <Bar 
-                      dataKey="questionsAnswered" 
-                      fill="#8B5CF6" 
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
+                    <Area type="monotone" dataKey="questionsAnswered" stroke="#10B981" fill="url(#topicsGrad)" />
+                  </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
           </div>
+
+          <div>
+            <Button variant="outline" onClick={() => (window.location.href = '/quiz-history')}>Quiz History</Button>
+          </div>
         </TabsContent>
 
-        {/* Achievements Tab */}
-        <TabsContent value="achievements" className="space-y-6">
+        {/* Statistics Tab */}
+        <TabsContent value="statistics" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Medal Case</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Top 5 achievements (existing) */}
+            </CardContent>
+          </Card>
+
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Top 5 Achievements */}
             <Card>
@@ -384,9 +254,6 @@ export default function EnhancedAnalytics() {
                   <Crown className="h-5 w-5 text-yellow-500" />
                   Your Top Achievements
                 </CardTitle>
-                <CardDescription>
-                  Your most impressive accomplishments (by rarity)
-                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {topAchievements.length > 0 ? (
@@ -419,14 +286,6 @@ export default function EnhancedAnalytics() {
                               {achievement.rarity}
                             </Badge>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {achievement.description}
-                          </p>
-                          {achievement.pointsReward > 0 && (
-                            <p className="text-xs text-yellow-600 mt-1">
-                              +{achievement.pointsReward} points
-                            </p>
-                          )}
                         </div>
                         <div className="text-2xl font-bold text-yellow-500">
                           #{index + 1}
@@ -437,8 +296,7 @@ export default function EnhancedAnalytics() {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Trophy className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No achievements unlocked yet</p>
-                    <p className="text-sm">Complete quizzes to start earning badges!</p>
+                    <p>No achievements yet</p>
                   </div>
                 )}
               </CardContent>
@@ -448,10 +306,8 @@ export default function EnhancedAnalytics() {
             <Card>
               <CardHeader>
                 <CardTitle>Achievement Progress</CardTitle>
-                <CardDescription>Your overall achievement collection</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Progress Bar */}
                 <div>
                   <div className="flex justify-between text-sm mb-2">
                     <span>Overall Progress</span>
@@ -467,46 +323,12 @@ export default function EnhancedAnalytics() {
                       }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {Math.round(((achievementsData?.unlockedCount || 0) / (achievementsData?.totalCount || 1)) * 100)}% complete
-                  </p>
                 </div>
 
-                {/* Category Breakdown */}
-                <div className="space-y-3">
-                  <h4 className="font-medium">Categories</h4>
-                  {['QUIZ', 'BEEF', 'LEARNING', 'COLLECTION'].map((category) => {
-                    const categoryAchievements = achievementsData?.achievements?.filter(
-                      (a: any) => a.category === category
-                    ) || []
-                    const unlockedInCategory = categoryAchievements.filter((a: any) => a.isUnlocked).length
-                    
-                    return (
-                      <div key={category} className="flex items-center justify-between">
-                        <span className="text-sm capitalize">{category.toLowerCase()}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {unlockedInCategory} / {categoryAchievements.length}
-                          </span>
-                          <div className="w-16 bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-blue-500 h-2 rounded-full transition-all"
-                              style={{ 
-                                width: `${(unlockedInCategory / Math.max(categoryAchievements.length, 1)) * 100}%` 
-                              }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* View All Button */}
                 <Button 
                   variant="outline" 
                   className="w-full"
-                  onClick={() => window.location.href = '/achievements'}
+                  onClick={() => (window.location.href = '/achievements')}
                 >
                   View All Achievements
                 </Button>
