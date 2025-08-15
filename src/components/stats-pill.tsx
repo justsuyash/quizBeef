@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
+import { useQueryClient } from '@tanstack/react-query'
 import { getStatsOverview, getCurrentUser } from 'wasp/client/operations'
 import { cn } from '../lib/cn'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
@@ -66,18 +67,23 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
   })
 
   const { data: stats, isLoading, error } = useQuery(getStatsOverview, { range: 30 })
+  const queryClient = useQueryClient()
 
   // SSE subscription for real-time updates
   useEffect(() => {
     const es = new EventSource('/api/stats-events')
+    let timeout: any
     es.onmessage = (ev) => {
       try {
         const payload = JSON.parse(ev.data || '{}')
         if (!payload) return
         // For now, on any stats-related event, trigger a soft pulse and refetch
         setPulseFlags((prev) => ({ ...prev, streak: true, elo: true, medals: true }))
-        // Let react-query refetch via window focus or we could manually invalidate; simple approach: close & reopen triggers
-        setTimeout(() => setPulseFlags({ streak: false, elo: false, medals: false, assassins: false }), 600)
+        clearTimeout(timeout)
+        timeout = setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: [getStatsOverview.key, { range: 30 }] as any })
+          setPulseFlags({ streak: false, elo: false, medals: false, assassins: false })
+        }, 300)
       } catch {}
     }
     es.onerror = () => {
@@ -85,6 +91,9 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
     }
     return () => {
       es.close()
+      // ensure timers cleared
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _ = timeout && clearTimeout(timeout)
     }
   }, [])
 

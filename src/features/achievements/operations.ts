@@ -61,6 +61,11 @@ export const grantAchievement: GrantAchievement<
     })
 
     console.log(`🏆 Achievement unlocked: ${achievement.name} for user ${userId}`)
+    // Emit stats update so the pill can refresh (non-fatal if emitter not present)
+    try {
+      const { emitStatsUpdate } = await import('../../server/events/stats')
+      emitStatsUpdate(userId, { type: 'achievement_granted' })
+    } catch {}
 
     return {
       success: true,
