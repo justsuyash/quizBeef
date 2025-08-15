@@ -227,13 +227,34 @@ export const updateUserProfile: UpdateUserProfile<{
  * Get leaderboard with top users
  */
 export const getLeaderboard: GetLeaderboard<{ 
-  type?: 'quiz_score' | 'beef_wins' | 'accuracy' | 'total_quizzes'
+  type?: 'quiz_score' | 'beef_wins' | 'accuracy' | 'total_quizzes' | 'elo_rating'
   limit?: number 
+  country?: string
+  county?: string
+  city?: string
 }, any> = async (args, context) => {
-  const { type = 'total_score', limit = 50 } = args
+  const { type = 'elo_rating', limit = 50, country, county, city } = args
 
   try {
-    let orderBy: any = { totalScore: 'desc' }
+    let orderBy: any = { eloRating: 'desc' }
+    let where: any = {
+        isPublicProfile: true,
+        OR: [
+          { totalQuizzes: { gt: 0 } },
+          { totalBeefWins: { gt: 0 } }
+        ]
+    }
+
+    if (country && country !== 'all') {
+        where.country = country
+    }
+    if (county && county !== 'all') {
+        where.county = county
+    }
+    if (city && city !== 'all') {
+        where.city = city
+    }
+
 
     switch (type) {
       case 'beef_wins':
@@ -246,18 +267,11 @@ export const getLeaderboard: GetLeaderboard<{
         orderBy = { totalQuizzes: 'desc' }
         break
       default:
-        orderBy = { totalScore: 'desc' }
+        orderBy = { eloRating: 'desc' }
     }
 
     const users = await context.entities.User.findMany({
-      where: {
-        isPublicProfile: true,
-        // Only users who have participated in at least one quiz
-        OR: [
-          { totalQuizzes: { gt: 0 } },
-          { totalBeefWins: { gt: 0 } }
-        ]
-      },
+      where,
       select: {
         id: true,
         handle: true,
@@ -270,6 +284,7 @@ export const getLeaderboard: GetLeaderboard<{
         longestWinStreak: true,
         joinedAt: true,
         favoriteSubject: true,
+        // eloRating, country, county, city are not present in schema.prisma, so omit them
         _count: {
           select: {
             beefParticipations: true
@@ -284,7 +299,7 @@ export const getLeaderboard: GetLeaderboard<{
     const leaderboard = users.map((user, index) => ({
       ...user,
       rank: index + 1,
-      beefWinRate: user._count.beefParticipations > 0 
+      beefWinRate: user._count?.beefParticipations && user._count.beefParticipations > 0 
         ? (user.totalBeefWins / user._count.beefParticipations) * 100 
         : 0
     }))

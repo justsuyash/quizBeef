@@ -513,3 +513,8 @@ query getLeaderboard {
   entities: [User, BeefParticipant]
 }
 
+action seedDatabase {
+    fn: import { seedDatabase } from "@src/features/admin/operations",
+    entities: [User, Document, QuizAttempt]
+}
+

@@ -8,10 +8,10 @@ export const users = Array.from({ length: 20 }, () => {
     firstName,
     lastName,
     username: faker.internet
-      .username({ firstName, lastName })
-      .toLocaleLowerCase(),
-    email: faker.internet.email({ firstName }).toLocaleLowerCase(),
-    phoneNumber: faker.phone.number({ style: 'international' }),
+      .userName({ firstName, lastName })
+      .toLowerCase(),
+    email: faker.internet.email({ firstName }).toLowerCase(),
+    phoneNumber: faker.phone.number(),
     status: faker.helpers.arrayElement([
       'active',
       'inactive',

@@ -1,6 +1,6 @@
 import React from 'react'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -50,6 +50,7 @@ import {
   Sparkles,
   BarChart3
 } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 
 const iconMap: Record<string, any> = {
   'graduation-cap': BookOpen,
@@ -77,7 +78,15 @@ export default function EnhancedAnalytics() {
   const { data: progressData, isLoading: progressLoading } = useQuery(getLearningProgress)
   const { data: performanceData, isLoading: performanceLoading } = useQuery(getPerformanceTrends)
   const { data: achievementsData, isLoading: achievementsLoading } = useQuery(getUserAchievements)
-  const { data: leaderboardData } = useQuery(getLeaderboard)
+  const { data: categoryData, isLoading: categoryLoading } = useQuery(getCategoryMetrics)
+  const { data: optimalTimeData, isLoading: optimalTimeLoading } = useQuery(getOptimalLearningTime)
+  const [leaderboardFilter, setLeaderboardFilter] = React.useState({
+    country: 'all',
+    county: 'all',
+    city: 'all'
+  })
+  const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery(getLeaderboard, leaderboardFilter)
+
 
   if (!user) {
     return (
@@ -87,7 +96,7 @@ export default function EnhancedAnalytics() {
     )
   }
 
-  const isLoading = analyticsLoading || progressLoading || performanceLoading || achievementsLoading
+  const isLoading = analyticsLoading || progressLoading || performanceLoading || achievementsLoading || categoryLoading || optimalTimeLoading || leaderboardLoading
 
   if (isLoading) {
     return (
@@ -187,6 +196,24 @@ export default function EnhancedAnalytics() {
                 <div className="text-2xl font-bold">{analytics?.totalQuestionsAnswered || 0}</div>
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Category Breadth</CardTitle>
+                <Brain className="h-4 w-4 text-indigo-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{categoryData?.breadth || 0} Topics</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg. Learning Speed</CardTitle>
+                <Clock className="h-4 w-4 text-teal-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{analytics?.averageLearningSpeed?.toFixed(2) || 0}s / Q</div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Quizzes Over Time / Topics Over Time */}
@@ -239,6 +266,35 @@ export default function EnhancedAnalytics() {
 
         {/* Statistics Tab */}
         <TabsContent value="statistics" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Category Performance (Depth)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={categoryData?.metrics} layout="vertical">
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis type="number" />
+                            <YAxis dataKey="category" type="category" width={80} />
+                            <Tooltip />
+                            <Bar dataKey="depth" fill="#8884d8" />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Optimal Learning Time</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="text-center">
+                        <p className="text-lg text-muted-foreground">Your peak performance time is:</p>
+                        <p className="text-4xl font-bold text-green-500">{optimalTimeData?.optimalTime}</p>
+                    </div>
+                </CardContent>
+            </Card>
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>Medal Case</CardTitle>
@@ -341,9 +397,58 @@ export default function EnhancedAnalytics() {
 
         {/* Leaderboards Tab */}
         <TabsContent value="leaderboards" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Learners</CardTitle>
+          <div className="grid gap-4 md:grid-cols-3">
+              <Select onValueChange={(value) => setLeaderboardFilter(prev => ({...prev, country: value, county: 'all', city: 'all'}))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by Country" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Countries</SelectItem>
+                  {[...new Set(leaderboardData?.map((u: any) => u.country).filter(Boolean))]
+                    .map((country: any) => <SelectItem key={country} value={country}>{country}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={(value) => setLeaderboardFilter(prev => ({...prev, county: value, city: 'all'}))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by County" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Counties</SelectItem>
+                  {[...new Set(leaderboardData?.filter((u: any) => leaderboardFilter.country === 'all' || u.country === leaderboardFilter.country).map((u: any) => u.county).filter(Boolean))]
+                    .map((county: any) => <SelectItem key={county} value={county}>{county}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select onValueChange={(value) => setLeaderboardFilter(prev => ({...prev, city: value}))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by City" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Cities</SelectItem>
+                   {[...new Set(leaderboardData?.filter((u: any) => (leaderboardFilter.county === 'all' || u.county === leaderboardFilter.county) && (leaderboardFilter.country === 'all' || u.country === leaderboardFilter.country)).map((u: any) => u.city).filter(Boolean))]
+                    .map((city: any) => <SelectItem key={city} value={city}>{city}</SelectItem>)}
+                </SelectContent>
+              </Select>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                  <CardTitle>Elo Rating Comparison</CardTitle>
+              </CardHeader>
+              <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={leaderboardData}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="username" />
+                          <YAxis />
+                          <Tooltip />
+                          <Bar dataKey="eloRating" fill="#82ca9d" />
+                      </BarChart>
+                  </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Learners</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
@@ -361,6 +466,7 @@ export default function EnhancedAnalytics() {
               </div>
             </CardContent>
           </Card>
+         </div>
         </TabsContent>
       </Tabs>
     </main>
