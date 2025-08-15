@@ -27,6 +27,12 @@ app quizBeef {
     middlewareConfigFn: import { serverMiddlewareFn } from "@src/config/serverSetup",
   },
 }
+// Real-time stats via SSE
+api statsEvents {
+  fn: import { statsEvents } from "@src/server/events/stats",
+  httpRoute: (GET, "/api/stats-events"),
+  entities: [User],
+}
 
 //#region Auth Routes
 route SignupRoute { path: "/sign-up", to: Signup }

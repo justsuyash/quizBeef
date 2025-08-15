@@ -190,7 +190,7 @@ export const submitQuizAnswer: SubmitQuizAnswer<
       }
     })
 
-    return {
+    const result = {
       success: true,
       isCorrect,
       correctAnswerId: correctAnswer?.id,
@@ -306,6 +306,14 @@ export const completeQuiz: CompleteQuiz<
       })()
     } catch (achErr) {
       console.warn('Achievement check failed after quiz completion:', achErr)
+    }
+
+    // Emit a lightweight stats refresh for this user (SSE)
+    try {
+      const { emitStatsUpdate } = await import('../../server/events/stats')
+      emitStatsUpdate(context.user.id, { type: 'quiz_completed' })
+    } catch (e) {
+      // Non-fatal if events module not available
     }
 
     return {

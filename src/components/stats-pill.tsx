@@ -67,6 +67,27 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
 
   const { data: stats, isLoading, error } = useQuery(getStatsOverview, { range: 30 })
 
+  // SSE subscription for real-time updates
+  useEffect(() => {
+    const es = new EventSource('/api/stats-events')
+    es.onmessage = (ev) => {
+      try {
+        const payload = JSON.parse(ev.data || '{}')
+        if (!payload) return
+        // For now, on any stats-related event, trigger a soft pulse and refetch
+        setPulseFlags((prev) => ({ ...prev, streak: true, elo: true, medals: true }))
+        // Let react-query refetch via window focus or we could manually invalidate; simple approach: close & reopen triggers
+        setTimeout(() => setPulseFlags({ streak: false, elo: false, medals: false, assassins: false }), 600)
+      } catch {}
+    }
+    es.onerror = () => {
+      es.close()
+    }
+    return () => {
+      es.close()
+    }
+  }, [])
+
   // Micro-animations when values change
   useEffect(() => {
     if (stats && previousStats) {
