@@ -1,21 +1,16 @@
 import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useAction } from 'wasp/client/operations'
-import { getUserProfile, createBeef } from 'wasp/client/operations'
+import { getUserProfile, createBeef, getStatsOverview, getUserAchievements, getQuizHistory } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
-import { Header } from '../../components/layout/header'
-import { Main } from '../../components/layout/main'
-import { TopNav } from '../../components/layout/top-nav'
-import { ProfileDropdown } from '../../components/profile-dropdown'
-import { Search } from '../../components/search'
-import { ThemeSwitch } from '../../components/theme-switch'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../../components/ui/dialog'
+import { Separator } from '../../components/ui/separator'
+import { Progress } from '../../components/ui/progress'
 import { useToast } from '../../hooks/use-toast'
+import { cn } from '../../lib/cn'
 import { 
   User, 
   Trophy, 
@@ -23,7 +18,7 @@ import {
   Calendar, 
   MapPin, 
   Globe, 
-  FileText, 
+  Edit3, 
   Zap, 
   Crown,
   TrendingUp,
@@ -33,7 +28,11 @@ import {
   Star,
   Medal,
   ArrowLeft,
-  MessageCircle
+  MessageCircle,
+  Lock,
+  CheckCircle,
+  Shield,
+  Award
 } from 'lucide-react'
 
 const topNav = [
@@ -49,6 +48,8 @@ interface UserProfile {
   bio?: string
   location?: string
   website?: string
+  avatarUrl?: string  // v1.7: Added for profile pictures
+  eloRating?: number  // v1.7: Added for Elo rating system
   joinedAt: string
   totalScore: number
   totalQuizzes: number
@@ -81,6 +82,12 @@ export default function UserProfilePage() {
   const { data: profile, isLoading, error } = useQuery(getUserProfile, { 
     userId: parseInt(userId || '0') 
   })
+  
+  // v1.7: Get additional data for Trophy Case layout
+  const { data: stats } = useQuery(getStatsOverview, { range: 30 })
+  const { data: achievements } = useQuery(getUserAchievements, {})
+  const { data: recentActivity } = useQuery(getQuizHistory, { limit: 10 })
+  
   const createBeefFn = useAction(createBeef)
   const { toast } = useToast()
 
@@ -142,479 +149,337 @@ export default function UserProfilePage() {
 
   if (isLoading) {
     return (
-      <>
-        <Header>
-          <TopNav links={topNav} />
-          <div className='ml-auto flex items-center space-x-4'>
-            <Search />
-            <ThemeSwitch />
-            <ProfileDropdown />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading profile...</p>
           </div>
-        </Header>
-
-        <Main>
-          <div className='text-center py-12'>
-            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4'></div>
-            <p className='text-muted-foreground'>Loading profile...</p>
-          </div>
-        </Main>
-      </>
+        </div>
+      </div>
     )
   }
 
   if (error || !profile) {
     return (
-      <>
-        <Header>
-          <TopNav links={topNav} />
-          <div className='ml-auto flex items-center space-x-4'>
-            <Search />
-            <ThemeSwitch />
-            <ProfileDropdown />
-          </div>
-        </Header>
-
-        <Main>
-          <div className='text-center py-12'>
-            <User className='h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50' />
-            <h3 className='text-lg font-medium mb-2'>Profile Not Found</h3>
-            <p className='text-muted-foreground mb-4'>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center py-12">
+            <User className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+            <h3 className="text-lg font-medium mb-2">Profile Not Found</h3>
+            <p className="text-muted-foreground mb-4">
               This user profile doesn't exist or is set to private.
             </p>
-            <Button onClick={() => navigate('/leaderboard')}>
-              <ArrowLeft className='h-4 w-4 mr-2' />
-              Back to Leaderboard
+            <Button onClick={() => navigate('/analytics')}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Analytics
             </Button>
           </div>
-        </Main>
-      </>
+        </div>
+      </div>
     )
   }
 
   const profileData = profile as UserProfile
 
-  return (
-    <>
-      <Header>
-        <TopNav links={topNav} />
-        <div className='ml-auto flex items-center space-x-4'>
-          <Search />
-          <ThemeSwitch />
-          <ProfileDropdown />
-        </div>
-      </Header>
+  // Get earned and locked achievements
+  const earnedAchievements = achievements?.filter(a => a.isCompleted) || []
+  const allPossibleAchievements = achievements || []
 
-      <Main>
-        <div className='mb-6'>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/leaderboard')} className='mb-4'>
-            <ArrowLeft className='h-4 w-4 mr-2' />
-            Back to Leaderboard
-          </Button>
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        {/* Back Button */}
+        <Button variant="ghost" size="sm" onClick={() => navigate('/analytics')} className="mb-4">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Analytics
+        </Button>
           
-          {/* Profile Header */}
-          <Card className='mb-6'>
-            <CardContent className='pt-6'>
-              <div className='flex flex-col md:flex-row items-start md:items-center gap-6'>
-                <div className='flex items-center gap-4'>
-                  <Avatar className='h-20 w-20'>
-                    <AvatarImage src={`/avatars/user-${profileData.id}.jpg`} alt={`@${profileData.handle}`} />
-                    <AvatarFallback className='text-2xl'>
-                      {(profileData.handle || 'U').substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  <div>
-                    <h1 className='text-3xl font-bold flex items-center gap-2'>
-                      @{profileData.handle || `user${profileData.id}`}
-                      {profileData.profileType === 'KID' && (
-                        <Badge variant="secondary" className='text-xs'>
-                          Kid
-                        </Badge>
-                      )}
-                    </h1>
-                    {profileData.bio && (
-                      <p className='text-muted-foreground mt-1'>{profileData.bio}</p>
+        {/* v1.7: Identity Header */}
+        <Card className="bg-white dark:bg-gray-800">
+          <CardContent className="pt-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-24 w-24 ring-2 ring-blue-500/20">
+                  <AvatarImage 
+                    src={profileData.avatarUrl || `/avatars/user-${profileData.id}.jpg`} 
+                    alt={`@${profileData.handle}`} 
+                  />
+                  <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                    {(profileData.handle || 'U').substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                
+                <div>
+                  <h1 className="text-3xl font-bold flex items-center gap-2">
+                    @{profileData.handle || `user${profileData.id}`}
+                    {profileData.profileType === 'KID' && (
+                      <Badge variant="secondary" className="text-xs">
+                        Kid
+                      </Badge>
                     )}
-                    
-                    <div className='flex items-center gap-4 mt-2 text-sm text-muted-foreground'>
-                      <div className='flex items-center gap-1'>
-                        <Calendar className='h-4 w-4' />
-                        <span>Joined {formatJoinDate(profileData.joinedAt)}</span>
-                      </div>
-                      {profileData.location && (
-                        <div className='flex items-center gap-1'>
-                          <MapPin className='h-4 w-4' />
-                          <span>{profileData.location}</span>
-                        </div>
-                      )}
-                      {profileData.website && (
-                        <div className='flex items-center gap-1'>
-                          <Globe className='h-4 w-4' />
-                          <a 
-                            href={profileData.website} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className='text-blue-600 hover:underline'
-                          >
-                            Website
-                          </a>
-                        </div>
-                      )}
+                  </h1>
+                  {profileData.bio && (
+                    <p className="text-muted-foreground mt-2 max-w-md">{profileData.bio}</p>
+                  )}
+                  
+                  <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      <span>Joined {formatJoinDate(profileData.joinedAt)}</span>
                     </div>
+                    {profileData.location && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        <span>{profileData.location}</span>
+                      </div>
+                    )}
+                    {profileData.website && (
+                      <div className="flex items-center gap-1">
+                        <Globe className="h-4 w-4" />
+                        <a 
+                          href={profileData.website} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline"
+                        >
+                          Website
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
+              </div>
 
-                <div className='ml-auto flex items-center gap-2'>
-                  {!profileData.isOwnProfile && user && (
-                    <>
-                      <Button variant="outline" size="sm">
-                        <MessageCircle className='h-4 w-4 mr-2' />
-                        Message
-                      </Button>
-                      <Dialog open={isChallengeDialogOpen} onOpenChange={setIsChallengeDialogOpen}>
-                        <DialogTrigger asChild>
-                          <Button size="sm">
-                            <Flame className='h-4 w-4 mr-2 text-orange-500' />
-                            Challenge to Beef
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Challenge @{profileData.handle} to a Beef</DialogTitle>
-                            <DialogDescription>
-                              Create a quiz challenge from one of your documents
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className='space-y-4'>
-                            <p className='text-sm text-muted-foreground'>
-                              To challenge this user, you'll need to create a beef from one of your documents. 
-                              They can then join using the challenge code.
-                            </p>
-                            <div className='flex gap-2'>
-                              <Button onClick={handleChallengeUser} className='flex-1'>
-                                <Flame className='h-4 w-4 mr-2' />
-                                Create Challenge
-                              </Button>
-                              <Button variant="outline" onClick={() => setIsChallengeDialogOpen(false)}>
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    </>
-                  )}
-                  
-                  {profileData.isOwnProfile && (
-                    <Button variant="outline" onClick={() => navigate('/settings/profile')}>
-                      Edit Profile
+              <div className="ml-auto flex items-center gap-2">
+                {!profileData.isOwnProfile && user && (
+                  <>
+                    <Button variant="outline" size="sm">
+                      <MessageCircle className="h-4 w-4 mr-2" />
+                      Message
                     </Button>
-                  )}
+                    <Button size="sm" onClick={handleChallengeUser}>
+                      <Flame className="h-4 w-4 mr-2 text-orange-500" />
+                      Challenge
+                    </Button>
+                  </>
+                )}
+                
+                {profileData.isOwnProfile && (
+                  <Button variant="outline" onClick={() => navigate('/settings')}>
+                    <Edit3 className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* v1.7: Core Stats Row */}
+        <div className="grid gap-4 md:grid-cols-5">
+          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Streak</p>
+                  <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
+                    {stats?.streak || 0}
+                  </p>
                 </div>
+                <Flame className="h-8 w-8 text-orange-500" />
               </div>
             </CardContent>
           </Card>
-
-          {/* Stats Cards */}
-          <div className='grid gap-4 md:grid-cols-4 mb-6'>
-            <Card>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                <CardTitle className='text-sm font-medium'>Total Score</CardTitle>
-                <Trophy className='h-4 w-4 text-yellow-500' />
-              </CardHeader>
-              <CardContent>
-                <div className='text-2xl font-bold'>{profileData.totalScore.toLocaleString()}</div>
-                <p className='text-xs text-muted-foreground'>
-                  {profileData.totalQuizzes} quizzes taken
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                <CardTitle className='text-sm font-medium'>Beef Record</CardTitle>
-                <Flame className='h-4 w-4 text-orange-500' />
-              </CardHeader>
-              <CardContent>
-                <div className='text-2xl font-bold'>{profileData.totalBeefWins}W</div>
-                <p className='text-xs text-muted-foreground'>
-                  {profileData.beefWinRate.toFixed(1)}% win rate
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                <CardTitle className='text-sm font-medium'>Accuracy</CardTitle>
-                <Target className='h-4 w-4 text-blue-500' />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${getAccuracyColor(profileData.averageAccuracy)}`}>
-                  {profileData.averageAccuracy?.toFixed(1) || '0'}%
+          
+          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Elo</p>
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+                    {profileData.eloRating || 1200}
+                  </p>
                 </div>
-                <p className='text-xs text-muted-foreground'>
-                  Average accuracy
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                <CardTitle className='text-sm font-medium'>Win Streak</CardTitle>
-                <TrendingUp className='h-4 w-4 text-green-500' />
-              </CardHeader>
-              <CardContent>
-                <div className='text-2xl font-bold'>{profileData.winStreak}</div>
-                <p className='text-xs text-muted-foreground'>
-                  Best: {profileData.longestWinStreak}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Content Tabs */}
-              <Tabs defaultValue="achievements" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
-              <TabsTrigger value="quizzes">Recent Quizzes</TabsTrigger>
-              <TabsTrigger value="achievements">Achievements</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="overview" className="space-y-4">
-              <div className='grid gap-6 md:grid-cols-2'>
-                {/* Recent Activity */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className='flex items-center gap-2'>
-                      <Clock className='h-5 w-5' />
-                      Recent Activity
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className='space-y-3'>
-                      {profileData.recentQuizAttempts.slice(0, 5).map((attempt) => (
-                        <div key={attempt.id} className='flex items-center justify-between p-2 bg-muted rounded'>
-                          <div>
-                            <p className='font-medium text-sm'>{attempt.document.title}</p>
-                            <p className='text-xs text-muted-foreground'>
-                              {formatDate(attempt.createdAt)}
-                            </p>
-                          </div>
-                          <Badge variant="outline">
-                            {attempt.score} pts
-                          </Badge>
-                        </div>
-                      ))}
-                      {profileData.recentQuizAttempts.length === 0 && (
-                        <p className='text-sm text-muted-foreground text-center py-4'>
-                          No recent quiz activity
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Recent Beef Wins */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className='flex items-center gap-2'>
-                      <Crown className='h-5 w-5 text-yellow-500' />
-                      Recent Beef Wins
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className='space-y-3'>
-                      {profileData.recentBeefWins.slice(0, 5).map((win) => (
-                        <div key={win.id} className='flex items-center justify-between p-2 bg-muted rounded'>
-                          <div>
-                            <p className='font-medium text-sm'>
-                              {win.challenge.title || win.challenge.document.title}
-                            </p>
-                            <p className='text-xs text-muted-foreground'>
-                              {formatDate(win.challenge.createdAt)}
-                            </p>
-                          </div>
-                          <Badge className='bg-yellow-500'>
-                            1st Place
-                          </Badge>
-                        </div>
-                      ))}
-                      {profileData.recentBeefWins.length === 0 && (
-                        <p className='text-sm text-muted-foreground text-center py-4'>
-                          No beef wins yet
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                <Shield className="h-8 w-8 text-blue-500" />
               </div>
-            </TabsContent>
-            
-            <TabsContent value="documents" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className='flex items-center gap-2'>
-                    <FileText className='h-5 w-5' />
-                    Recent Documents
-                  </CardTitle>
-                  <CardDescription>
-                    {profileData.isOwnProfile 
-                      ? 'Your recent documents' 
-                      : `Recent documents by @${profileData.handle}`
-                    }
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className='grid gap-4 md:grid-cols-2'>
-                    {profileData.recentDocuments.map((doc) => (
-                      <Card key={doc.id} className='hover:shadow-md transition-shadow'>
-                        <CardContent className='p-4'>
-                          <h4 className='font-semibold mb-2'>{doc.title}</h4>
-                          <div className='flex items-center justify-between text-sm text-muted-foreground'>
-                            <span>{doc.sourceType}</span>
-                            <span>{doc._count.questions} questions</span>
-                          </div>
-                          <p className='text-xs text-muted-foreground mt-1'>
-                            {formatDate(doc.createdAt)}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    ))}
-                    {profileData.recentDocuments.length === 0 && (
-                      <p className='text-sm text-muted-foreground text-center py-8 col-span-2'>
-                        No documents available
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="quizzes" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className='flex items-center gap-2'>
-                    <BarChart3 className='h-5 w-5' />
-                    Quiz History
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className='space-y-3'>
-                    {profileData.recentQuizAttempts.map((attempt) => (
-                      <div key={attempt.id} className='flex items-center justify-between p-3 border rounded-lg'>
-                        <div>
-                          <h4 className='font-medium'>{attempt.document.title}</h4>
-                          <p className='text-sm text-muted-foreground'>
-                            {formatDate(attempt.createdAt)}
-                          </p>
-                        </div>
-                        <div className='text-right'>
-                          <div className='font-bold text-lg'>{attempt.score}</div>
-                          <div className='text-xs text-muted-foreground'>points</div>
-                        </div>
-                      </div>
-                    ))}
-                    {profileData.recentQuizAttempts.length === 0 && (
-                      <p className='text-sm text-muted-foreground text-center py-8'>
-                        No quiz history available
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="achievements" className="space-y-4">
-              <div className='grid gap-4 md:grid-cols-2'>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className='flex items-center gap-2'>
-                      <Trophy className='h-5 w-5 text-yellow-500' />
-                      Achievements
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className='space-y-3'>
-                      {profileData.totalQuizzes >= 10 && (
-                        <div className='flex items-center gap-3 p-2 bg-yellow-50 dark:bg-yellow-950/20 rounded'>
-                          <Trophy className='h-6 w-6 text-yellow-500' />
-                          <div>
-                            <p className='font-medium'>Quiz Master</p>
-                            <p className='text-xs text-muted-foreground'>Completed 10+ quizzes</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {profileData.totalBeefWins >= 5 && (
-                        <div className='flex items-center gap-3 p-2 bg-orange-50 dark:bg-orange-950/20 rounded'>
-                          <Flame className='h-6 w-6 text-orange-500' />
-                          <div>
-                            <p className='font-medium'>Beef Champion</p>
-                            <p className='text-xs text-muted-foreground'>Won 5+ beef challenges</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {(profileData.averageAccuracy || 0) >= 90 && (
-                        <div className='flex items-center gap-3 p-2 bg-green-50 dark:bg-green-950/20 rounded'>
-                          <Target className='h-6 w-6 text-green-500' />
-                          <div>
-                            <p className='font-medium'>Accuracy Expert</p>
-                            <p className='text-xs text-muted-foreground'>90%+ average accuracy</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {profileData.longestWinStreak >= 5 && (
-                        <div className='flex items-center gap-3 p-2 bg-purple-50 dark:bg-purple-950/20 rounded'>
-                          <TrendingUp className='h-6 w-6 text-purple-500' />
-                          <div>
-                            <p className='font-medium'>Streak Master</p>
-                            <p className='text-xs text-muted-foreground'>5+ win streak</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Profile Stats</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className='space-y-3 text-sm'>
-                      <div className='flex justify-between'>
-                        <span className='text-muted-foreground'>Total Documents:</span>
-                        <span className='font-medium'>{profileData.stats.totalDocuments}</span>
-                      </div>
-                      <div className='flex justify-between'>
-                        <span className='text-muted-foreground'>Total Quiz Attempts:</span>
-                        <span className='font-medium'>{profileData.stats.totalQuizAttempts}</span>
-                      </div>
-                      <div className='flex justify-between'>
-                        <span className='text-muted-foreground'>Beef Challenges Created:</span>
-                        <span className='font-medium'>{profileData.stats.totalBeefChallengesCreated}</span>
-                      </div>
-                      <div className='flex justify-between'>
-                        <span className='text-muted-foreground'>Beef Participations:</span>
-                        <span className='font-medium'>{profileData.stats.totalBeefParticipations}</span>
-                      </div>
-                      {profileData.favoriteSubject && (
-                        <div className='flex justify-between'>
-                          <span className='text-muted-foreground'>Favorite Subject:</span>
-                          <span className='font-medium'>{profileData.favoriteSubject}</span>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950/20 dark:to-yellow-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Medals</p>
+                  <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
+                    {stats?.medalsCount || 0}
+                  </p>
+                </div>
+                <Trophy className="h-8 w-8 text-yellow-500" />
               </div>
-            </TabsContent>
-          </Tabs>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-600 dark:text-green-400">Quizzes</p>
+                  <p className="text-2xl font-bold text-green-700 dark:text-green-300">
+                    {stats?.totals?.totalQuizzes || 0}
+                  </p>
+                </div>
+                <BarChart3 className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Accuracy</p>
+                  <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
+                    {stats?.accuracy?.toFixed(1) || 0}%
+                  </p>
+                </div>
+                <Target className="h-8 w-8 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </Main>
-    </>
+
+        {/* v1.7: Achievements Grid */}
+        <Card className="bg-white dark:bg-gray-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-yellow-500" />
+              Trophy Case
+            </CardTitle>
+            <CardDescription>
+              {earnedAchievements.length} of {allPossibleAchievements.length} achievements unlocked
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {/* Earned Achievements */}
+              {earnedAchievements.slice(0, 8).map((achievement) => (
+                <div
+                  key={achievement.id}
+                  className="flex items-center p-3 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950/20 dark:to-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-yellow-500 rounded-full">
+                      <Award className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm text-yellow-800 dark:text-yellow-200">
+                        {achievement.achievement.name}
+                      </p>
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                        {achievement.achievement.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Locked Achievements (show a few) */}
+              {allPossibleAchievements
+                .filter(a => !a.isCompleted)
+                .slice(0, 4 - Math.min(earnedAchievements.length, 4))
+                .map((achievement) => (
+                  <div
+                    key={achievement.id}
+                    className="flex items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 opacity-60"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gray-400 rounded-full">
+                        <Lock className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm text-gray-600 dark:text-gray-400">
+                          {achievement.achievement.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
+                          Locked
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            
+            {allPossibleAchievements.length > 8 && (
+              <div className="mt-4 text-center">
+                <Button variant="outline" onClick={() => navigate('/achievements')}>
+                  View All Achievements
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* v1.7: Recent Activity */}
+        <Card className="bg-white dark:bg-gray-800">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-blue-500" />
+              Recent Activity
+            </CardTitle>
+            <CardDescription>
+              Latest 10 quiz attempts and results
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {recentActivity && recentActivity.length > 0 ? (
+                recentActivity.map((activity, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 rounded-full",
+                        activity.score >= 80 ? "bg-green-500" : 
+                        activity.score >= 60 ? "bg-yellow-500" : "bg-red-500"
+                      )}>
+                        {activity.score >= 80 ? 
+                          <CheckCircle className="h-4 w-4 text-white" /> :
+                          activity.score >= 60 ?
+                          <Clock className="h-4 w-4 text-white" /> :
+                          <Target className="h-4 w-4 text-white" />
+                        }
+                      </div>
+                      <div>
+                        <p className="font-medium text-sm">
+                          {activity.document?.title || 'Quiz'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(activity.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <div className="font-semibold text-sm">{activity.score}%</div>
+                      <div className="text-xs text-muted-foreground">
+                        {activity.correctAnswers}/{activity.totalQuestions}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No recent activity</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   )
 }

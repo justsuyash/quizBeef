@@ -27,7 +27,10 @@ export const getCurrentUser: GetCurrentUser<void, any> = async (args, context) =
         email: `user${context.user.id}@example.com`,
         createdAt: userWithAuth?.createdAt || new Date(),
         updatedAt: userWithAuth?.updatedAt || new Date(),
-        isActive: userWithAuth?.isActive || true
+        isActive: userWithAuth?.isActive || true,
+        // profile fields
+        handle: userWithAuth?.handle || null,
+        avatarUrl: userWithAuth?.avatarUrl || null
       }
     }
 
@@ -60,7 +63,8 @@ export const getCurrentUser: GetCurrentUser<void, any> = async (args, context) =
       totalScore: userWithAuth.totalScore || 0,
       totalQuizzes: userWithAuth.totalQuizzes || 0,
       totalBeefWins: userWithAuth.totalBeefWins || 0,
-      averageAccuracy: userWithAuth.averageAccuracy || null
+      averageAccuracy: userWithAuth.averageAccuracy || null,
+      avatarUrl: userWithAuth.avatarUrl || null
     }
   } catch (error) {
     // Fallback: return basic user info on any error
@@ -87,7 +91,8 @@ export const getCurrentUser: GetCurrentUser<void, any> = async (args, context) =
       totalScore: 0,
       totalQuizzes: 0,
       totalBeefWins: 0,
-      averageAccuracy: null
+      averageAccuracy: null,
+      avatarUrl: null
     }
   }
 }

@@ -47,12 +47,14 @@ model User {
   bio                       String?
   location                  String?
   website                   String?
+  avatarUrl                 String?       // v1.7: Profile picture URL
   joinedAt                  DateTime      @default(now())
   totalScore                Int           @default(0)
   totalQuizzes              Int           @default(0)
   totalBeefWins             Int           @default(0)
   winStreak                 Int           @default(0)
   longestWinStreak          Int           @default(0)
+  streakFreezeCount         Int           @default(1)  // v1.7: Allows users to "freeze" streak when taking breaks
   averageAccuracy           Float?
   favoriteSubject           String?
   isPublicProfile           Boolean       @default(true)

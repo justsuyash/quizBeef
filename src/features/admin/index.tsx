@@ -4,7 +4,9 @@ import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Loader2, Database, Users, FileText, Trophy, Brain } from 'lucide-react'
-import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedEloHistoryAll, rebuildLeaderboardStatsAll } from 'wasp/client/operations'
+import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedEloHistoryAll, rebuildLeaderboardStatsAll, getCurrentUser } from 'wasp/client/operations'
+import { useQuery } from 'wasp/client/operations'
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 
 export default function AdminPage() {
   const [isSeeding, setIsSeeding] = useState(false)
@@ -14,6 +16,7 @@ export default function AdminPage() {
   const [isRebuilding, setIsRebuilding] = useState(false)
   const [seedResult, setSeedResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
+  const { data: currentUser } = useQuery(getCurrentUser)
 
   const handleSeedDatabase = async () => {
     try {
@@ -80,11 +83,22 @@ export default function AdminPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
-        <p className="text-muted-foreground">
-          Manage Quiz Beef database and system operations
-        </p>
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Admin Panel</h1>
+          <p className="text-muted-foreground">Manage Quiz Beef database and system operations</p>
+        </div>
+        <div className="shrink-0">
+          <div className="flex items-center gap-3 bg-white/80 backdrop-blur rounded-full border border-black/10 px-3 py-1.5 shadow-sm">
+            <div className="text-sm font-medium hidden sm:block">{currentUser?.handle || currentUser?.username || 'You'}</div>
+            <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gray-100 border border-black/10 flex items-center justify-center">
+              <Avatar className="h-8 w-8 sm:h-9 sm:w-9 border border-black/10">
+                <AvatarImage src={currentUser?.avatarUrl || undefined} alt="Profile" />
+                <AvatarFallback>{(currentUser?.handle || currentUser?.username || 'U').toString().slice(0,2).toUpperCase()}</AvatarFallback>
+              </Avatar>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-6">

@@ -167,19 +167,19 @@ export default function PlayPage() {
   };
 
   return (
-    <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+    <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-10 max-w-7xl mx-auto">
       {/* Welcome Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="mb-8"
+        className="mb-10"
       >
         <div className="text-center space-y-4">
-          <h1 className="text-3xl md:text-4xl font-bold">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
             Ready to Play? 🎮
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto">
             Each mode offers a unique challenge to test your knowledge
           </p>
         </div>
@@ -190,9 +190,9 @@ export default function PlayPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="space-y-6 mb-8"
+        className="space-y-6 mb-10"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
           {quizModes.map((mode, index) => (
             <motion.div
               key={mode.id}
@@ -222,7 +222,7 @@ export default function PlayPage() {
           onClick={handlePlay}
           disabled={!selectedMode || isStarting}
           className={cn(
-            "text-2xl px-16 py-8 rounded-2xl shadow-2xl transition-all duration-300",
+            "text-xl px-10 py-6 rounded-xl shadow-xl transition-all duration-300",
             "bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90",
             "disabled:opacity-50 disabled:cursor-not-allowed",
             selectedMode && !isStarting && "animate-pulse"
@@ -253,10 +253,10 @@ export default function PlayPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 1.0 }}
-        className="mb-8 grid grid-cols-2 md:grid-cols-4 gap-4"
+        className="mb-12 grid grid-cols-2 md:grid-cols-4 gap-4"
       >
         {quickStats.map((stat, index) => (
-          <Card key={stat.label} className="p-4 text-center hover:shadow-md transition-shadow">
+          <Card key={stat.label} className="p-4 text-center hover:shadow-md transition-shadow rounded-xl">
             <CardContent className="space-y-2">
               <stat.icon className={cn("w-8 h-8 mx-auto", stat.color)} />
               <div className="text-2xl font-bold">{stat.value}</div>
@@ -408,7 +408,7 @@ function GrandQuizTile({ mode, isSelected, onSelect }: {
       <Card 
         className={cn(
           "group cursor-pointer transition-all duration-300 relative overflow-hidden",
-          "border-2 h-48 md:h-56",
+          "border h-52 md:h-60 rounded-3xl",
           isSelected 
             ? "border-primary shadow-2xl shadow-primary/25 ring-4 ring-primary/20" 
             : "border-transparent hover:border-primary/20 hover:shadow-xl"
@@ -419,7 +419,7 @@ function GrandQuizTile({ mode, isSelected, onSelect }: {
         <div className={cn(
           "absolute inset-0 transition-opacity duration-300",
           mode.gradient,
-          isSelected ? "opacity-100" : "opacity-80 group-hover:opacity-90"
+          isSelected ? "opacity-100" : "opacity-70 group-hover:opacity-90"
         )} />
         
         {/* Selection Indicator */}
@@ -453,7 +453,7 @@ function GrandQuizTile({ mode, isSelected, onSelect }: {
           <div className="flex justify-center mb-4">
             <div className={cn(
               "w-16 h-16 rounded-2xl flex items-center justify-center transition-transform duration-300",
-              "bg-white/20 backdrop-blur-sm",
+              "bg-white/10 backdrop-blur-sm",
               "group-hover:scale-110",
               isSelected && "scale-110"
             )}>
@@ -480,7 +480,7 @@ function GrandQuizTile({ mode, isSelected, onSelect }: {
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-4 border-t border-white/20">
+          <div className="flex items-center justify-between pt-4 border-t border-white/15">
             <Badge variant="outline" className="text-xs bg-white/20 border-white/30 text-white">
               {mode.difficulty}
             </Badge>

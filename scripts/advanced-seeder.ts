@@ -168,11 +168,18 @@ async function createUsers(): Promise<any[]> {
     // Create realistic Elo distribution (bell curve around 1200)
     const eloRating = Math.round(faker.number.int({ min: 800, max: 2000 }) * 0.3 + 1200 * 0.7)
     
+    // Choose avatar provider (DiceBear or Pravatar) for variety
+    const usernameForAvatar = faker.internet.userName().toLowerCase()
+    const diceBear = `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(usernameForAvatar)}&backgroundType=gradientLinear,solid&radius=50`
+    const pravatar = `https://i.pravatar.cc/150?u=${encodeURIComponent(usernameForAvatar)}@quizbeef`
+    const avatarUrl = Math.random() < 0.5 ? pravatar : diceBear
+
     const user = await prisma.user.create({
       data: {
         email: faker.internet.email(),
         name: faker.person.fullName(),
-        handle: faker.internet.userName().toLowerCase(),
+        handle: usernameForAvatar,
+        avatarUrl,
         profileType: faker.helpers.weightedArrayElement([
           { weight: 85, value: 'ADULT' as ProfileType },
           { weight: 15, value: 'KID' as ProfileType }

@@ -1,4 +1,4 @@
-import { type StartQuiz, type SubmitQuizAnswer, type CompleteQuiz, type GetQuizAttempt, type GetQuizHistory } from 'wasp/server/operations'
+import { type StartQuiz, type SubmitQuizAnswer, type CompleteQuiz, type GetQuizAttempt, type GetQuizHistory, type GetPlaySuggestions, type StartRandomQuiz } from 'wasp/server/operations'
 
 export interface QuizSettings {
   [key: string]: any  // Add index signature for SuperJSON compatibility
@@ -527,4 +527,144 @@ function calculateConfidenceAccuracy(questionHistory: any[]) {
   ).length
 
   return (accurateConfident / withConfidence.length) * 100
+}
+
+/**
+ * v1.7: Get smart suggestions for play again overlay
+ */
+export const getPlaySuggestions: GetPlaySuggestions<void, any> = async (args, context) => {
+  if (!context.user) {
+    throw new Error('User must be authenticated')
+  }
+
+  try {
+    // Get recent quiz performance to identify weak areas
+    const recentAttempts = await context.entities.QuizAttempt.findMany({
+      where: { userId: context.user.id },
+      include: {
+        document: { select: { id: true, title: true, category: true, folderId: true } }
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 20
+    })
+
+    // Identify categories with lower performance for targeted practice
+    const categoryPerformance: Record<string, { total: number, avgScore: number }> = {}
+    for (const attempt of recentAttempts) {
+      if (attempt.document.category) {
+        const cat = attempt.document.category
+        if (!categoryPerformance[cat]) {
+          categoryPerformance[cat] = { total: 0, avgScore: 0 }
+        }
+        categoryPerformance[cat].total++
+        categoryPerformance[cat].avgScore += attempt.score
+      }
+    }
+
+    // Calculate average scores and find weak categories
+    const weakCategories = Object.entries(categoryPerformance)
+      .map(([category, data]) => ({
+        category,
+        avgScore: data.avgScore / data.total
+      }))
+      .filter(c => c.avgScore < 75) // Below 75% average
+      .map(c => c.category)
+
+    // Get suggested folders (user's folders with weak categories)
+    const suggestedFolders = await context.entities.Folder.findMany({
+      where: { 
+        userId: context.user.id,
+        documents: {
+          some: {
+            category: { in: weakCategories }
+          }
+        }
+      },
+      include: {
+        _count: { select: { documents: true } }
+      },
+      take: 5
+    })
+
+    // Get suggested documents (from weak categories or recently active)
+    const suggestedDocuments = await context.entities.Document.findMany({
+      where: {
+        userId: context.user.id,
+        OR: [
+          { category: { in: weakCategories } },
+          { 
+            quizAttempts: {
+              some: {
+                userId: context.user.id,
+                completedAt: {
+                  gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
+                }
+              }
+            }
+          }
+        ]
+      },
+      include: {
+        _count: { select: { questions: true } }
+      },
+      take: 8,
+      orderBy: { updatedAt: 'desc' }
+    })
+
+    return {
+      folders: suggestedFolders,
+      documents: suggestedDocuments
+    }
+  } catch (error) {
+    console.error('Error getting play suggestions:', error)
+    throw new Error('Failed to get play suggestions')
+  }
+}
+
+/**
+ * v1.7: Start a random quiz for immediate play
+ */
+export const startRandomQuiz: StartRandomQuiz<{ mode?: string, settings?: QuizSettings }, any> = async (args, context) => {
+  if (!context.user) {
+    throw new Error('User must be authenticated')
+  }
+
+  try {
+    // Get user's documents with questions
+    const documents = await context.entities.Document.findMany({
+      where: { 
+        userId: context.user.id,
+        questions: { some: {} } // Only documents with questions
+      },
+      include: {
+        _count: { select: { questions: true } }
+      }
+    })
+
+    if (documents.length === 0) {
+      throw new Error('No documents with questions available')
+    }
+
+    // Pick a random document
+    const randomDocument = documents[Math.floor(Math.random() * documents.length)]
+
+    // Use default settings if none provided
+    const settings: QuizSettings = args.settings || {
+      questionCount: Math.min(10, randomDocument._count.questions),
+      difficultyDistribution: {
+        easy: 40,
+        medium: 40,
+        hard: 20
+      }
+    }
+
+    // Start quiz with the random document
+    return await startQuiz(
+      { documentId: randomDocument.id, settings },
+      context
+    )
+  } catch (error) {
+    console.error('Error starting random quiz:', error)
+    throw new Error('Failed to start random quiz')
+  }
 }

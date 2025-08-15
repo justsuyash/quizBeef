@@ -3,7 +3,8 @@ import type {
   GetLearningProgress,
   GetPerformanceTrends,
   GetCategoryMetrics,
-  GetOptimalLearningTime
+  GetOptimalLearningTime,
+  GetStatsOverview
 } from 'wasp/server/operations'
 import { HttpError } from 'wasp/server'
 import type { GetEnrichedAnalytics } from 'wasp/server/operations'
@@ -487,5 +488,206 @@ export const getOptimalLearningTime: GetOptimalLearningTime<void, any> = async (
   } catch (error) {
     console.error('Error fetching optimal learning time:', error)
     throw new HttpError(500, 'Failed to fetch optimal learning time')
+  }
+}
+
+/**
+ * v1.7: Get stats overview for the Stats Pill and analytics
+ */
+export const getStatsOverview: GetStatsOverview<{ range?: number }, any> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  try {
+    const range = args?.range || 30 // Default to 30 days
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - range)
+
+    // Get total counts
+    const totalQuizzes = await context.entities.QuizAttempt.count({
+      where: { userId: context.user.id }
+    })
+
+    const totalQuestions = await context.entities.UserQuestionHistory.count({
+      where: { userId: context.user.id }
+    })
+
+    // Calculate accuracy
+    const correctAnswers = await context.entities.UserQuestionHistory.count({
+      where: { 
+        userId: context.user.id,
+        wasCorrect: true
+      }
+    })
+    const accuracy = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0
+
+    // Calculate current streak
+    const recentAttempts = await context.entities.QuizAttempt.findMany({
+      where: { 
+        userId: context.user.id,
+        completedAt: { not: null }
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 30,
+      select: { completedAt: true }
+    })
+
+    let streak = 0
+    const today = new Date()
+    const recentDays = new Set()
+    
+    for (const attempt of recentAttempts) {
+      if (attempt.completedAt) {
+        const attemptDate = new Date(attempt.completedAt).toDateString()
+        recentDays.add(attemptDate)
+      }
+    }
+
+    const sortedDays = Array.from(recentDays).sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime())
+    
+    for (let i = 0; i < sortedDays.length; i++) {
+      const daysDiff = Math.floor((today.getTime() - new Date(sortedDays[i] as string).getTime()) / (1000 * 60 * 60 * 24))
+      
+      if (i === 0 && daysDiff <= 1) {
+        streak = 1
+      } else if (daysDiff === i) {
+        streak++
+      } else {
+        break
+      }
+    }
+
+    // Get medals count (achievements)
+    const medalsCount = await context.entities.UserAchievement.count({
+      where: { 
+        userId: context.user.id,
+        isCompleted: true
+      }
+    })
+
+    // Calculate assassins count (placeholder - will implement debt calculation later)
+    const assassinsCount = 0 // TODO: Implement debt-based calculation
+
+    // Category breadth
+    const categories = await context.entities.QuizAttempt.findMany({
+      where: { 
+        userId: context.user.id,
+        document: { category: { not: null } }
+      },
+      select: { document: { select: { category: true } } },
+      distinct: ['documentId']
+    })
+    const breadth = new Set(categories.map(c => c.document.category)).size
+
+    // Category depth (average performance across categories)
+    const categoryPerformance = await context.entities.QuizAttempt.findMany({
+      where: { 
+        userId: context.user.id,
+        document: { category: { not: null } }
+      },
+      select: { score: true, document: { select: { category: true } } }
+    })
+
+    const categoryScores: Record<string, number[]> = {}
+    for (const perf of categoryPerformance) {
+      const cat = perf.document.category!
+      if (!categoryScores[cat]) categoryScores[cat] = []
+      categoryScores[cat].push(perf.score)
+    }
+
+    const depth = Object.values(categoryScores).length > 0 
+      ? Object.values(categoryScores).reduce((sum, scores) => 
+          sum + scores.reduce((a, b) => a + b, 0) / scores.length, 0
+        ) / Object.values(categoryScores).length
+      : 0
+
+    // Average time per question
+    const avgTimePerQ = await context.entities.UserQuestionHistory.aggregate({
+      where: { 
+        userId: context.user.id,
+        timeToAnswer: { not: null }
+      },
+      _avg: { timeToAnswer: true }
+    })
+
+    // Generate chart series data (simplified for Phase 1)
+    const quizzesOverTime = await context.entities.QuizAttempt.findMany({
+      where: {
+        userId: context.user.id,
+        completedAt: {
+          gte: startDate
+        }
+      },
+      select: { completedAt: true },
+      orderBy: { completedAt: 'asc' }
+    })
+
+    // Group by date for chart
+    const dailyQuizzes: Record<string, number> = {}
+    for (const quiz of quizzesOverTime) {
+      if (quiz.completedAt) {
+        const dateStr = quiz.completedAt.toISOString().split('T')[0]
+        dailyQuizzes[dateStr] = (dailyQuizzes[dateStr] || 0) + 1
+      }
+    }
+
+    const quizChartData = Object.entries(dailyQuizzes).map(([date, count]) => ({ date, count }))
+
+    // Topics over time (using categories as topics)
+    const topicsOverTime = await context.entities.QuizAttempt.findMany({
+      where: {
+        userId: context.user.id,
+        completedAt: {
+          gte: startDate
+        },
+        document: { category: { not: null } }
+      },
+      select: { 
+        completedAt: true,
+        document: { select: { category: true } }
+      },
+      orderBy: { completedAt: 'asc' }
+    })
+
+    const dailyTopics: Record<string, Set<string>> = {}
+    for (const topic of topicsOverTime) {
+      if (topic.completedAt && topic.document.category) {
+        const dateStr = topic.completedAt.toISOString().split('T')[0]
+        if (!dailyTopics[dateStr]) dailyTopics[dateStr] = new Set()
+        dailyTopics[dateStr].add(topic.document.category)
+      }
+    }
+
+    const topicsChartData = Object.entries(dailyTopics).map(([date, topicsSet]) => ({ 
+      date, 
+      count: topicsSet.size 
+    }))
+
+    return {
+      totals: { totalQuizzes, totalQuestions },
+      accuracy: Math.round(accuracy * 100) / 100,
+      streak,
+      medalsCount,
+      assassinsCount,
+      breadth,
+      depth: Math.round(depth * 100) / 100,
+      avgTimePerQ: avgTimePerQ._avg.timeToAnswer || 0,
+      series: {
+        quizzesOverTime: quizChartData,
+        topicsOverTime: topicsChartData,
+        eloOverTime: [], // TODO: Implement from EloHistory
+        accuracyOverTime: [], // TODO: Implement 
+        beefsOverTime: [], // TODO: Implement from BeefChallenge
+        assassinsOverTime: [], // TODO: Implement
+        activityHeatmap: [], // TODO: Implement
+        categoryDonuts: [], // TODO: Implement
+        subCategoryBars: [], // TODO: Implement
+        assassinsDonut: [] // TODO: Implement
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching stats overview:', error)
+    throw new HttpError(500, 'Failed to fetch stats overview')
   }
 }

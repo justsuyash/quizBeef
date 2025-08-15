@@ -10,6 +10,7 @@ import { SearchProvider } from '../../context/search-context';
 import { Toaster } from '../ui/toaster';
 import { routes } from 'wasp/client/router';
 import SkipToMain from '../skip-to-main';
+import { StatsPill } from '../stats-pill';
 
 export default function MainLayoutV15() {
   const location = useLocation();
@@ -30,12 +31,20 @@ export default function MainLayoutV15() {
             {/* Navigation - Hide on auth and landing pages */}
             {!isAuthOrLandingPage && <BottomNavigation />}
 
+            {/* Top Header with Stats Pill - Hide on auth and landing pages */}
+            {!isAuthOrLandingPage && (
+              <div className="fixed top-0 right-0 z-40 p-4">
+                <StatsPill />
+              </div>
+            )}
+
       {/* Main Content Area */}
       <div className={cn(
         'relative',
         'min-h-screen',
         !isAuthOrLandingPage && 'md:ml-20 lg:ml-64', // Space for desktop side nav
-        !isAuthOrLandingPage && 'pb-16 md:pb-0' // Space for mobile bottom nav
+        !isAuthOrLandingPage && 'pb-16 md:pb-0', // Space for mobile bottom nav
+        !isAuthOrLandingPage && 'pt-16' // Space for top stats pill
       )}>
         {/* Page Transition Wrapper */}
         <AnimatePresence mode="wait">

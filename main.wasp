@@ -386,6 +386,23 @@ query getOptimalLearningTime {
   entities: [User, QuizAttempt]
 }
 
+// v1.7: Stats Pill and enhanced analytics
+query getStatsOverview {
+  fn: import { getStatsOverview } from "@src/features/dashboard/operations",
+  entities: [User, QuizAttempt, UserQuestionHistory, UserAchievement, Document]
+}
+
+// v1.7: Play flow suggestions and random quiz
+query getPlaySuggestions {
+  fn: import { getPlaySuggestions } from "@src/features/quiz/operations",
+  entities: [User, QuizAttempt, Document, Folder]
+}
+
+action startRandomQuiz {
+  fn: import { startRandomQuiz } from "@src/features/quiz/operations",
+  entities: [User, Document, Question, Answer, QuizAttempt, UserQuestionHistory]
+}
+
 // Folder and Document Organization operations
 action createFolder {
   fn: import { createFolder } from "@src/features/documents/folder-operations",
@@ -537,7 +554,7 @@ query getEloHistory {
 
 action seedDatabase {
     fn: import { seedDatabase } from "@src/features/admin/operations",
-    entities: [User, Document, QuizAttempt, Achievement, UserAchievement, Folder, Question, Answer, UserQuestionHistory]
+    entities: [User, Document, QuizAttempt, Achievement, UserAchievement, Folder, Question, Answer, UserQuestionHistory, EloHistory]
 }
 
 action backfillMyAccount {
