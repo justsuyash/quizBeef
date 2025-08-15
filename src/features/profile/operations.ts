@@ -236,7 +236,7 @@ export const getLeaderboard: GetLeaderboard<{
   const { type = 'elo_rating', limit = 50, country, county, city } = args
 
   try {
-    let orderBy: any = { eloRating: 'desc' }
+    let orderBy: any = { totalScore: 'desc' }
     let where: any = {
         isPublicProfile: true,
         OR: [
@@ -266,6 +266,9 @@ export const getLeaderboard: GetLeaderboard<{
       case 'total_quizzes':
         orderBy = { totalQuizzes: 'desc' }
         break
+      case 'elo_rating':
+        orderBy = { eloRating: 'desc' }
+        break
       default:
         orderBy = { eloRating: 'desc' }
     }
@@ -284,7 +287,10 @@ export const getLeaderboard: GetLeaderboard<{
         longestWinStreak: true,
         joinedAt: true,
         favoriteSubject: true,
-        // eloRating, country, county, city are not present in schema.prisma, so omit them
+        eloRating: true,
+        country: true,
+        county: true,
+        city: true,
         _count: {
           select: {
             beefParticipations: true
@@ -295,7 +301,6 @@ export const getLeaderboard: GetLeaderboard<{
       take: limit
     })
 
-    // Add ranking and additional calculations
     const leaderboard = users.map((user, index) => ({
       ...user,
       rank: index + 1,

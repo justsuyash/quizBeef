@@ -365,6 +365,11 @@ query getPerformanceTrends {
   entities: [User, Document, QuizAttempt, UserQuestionHistory]
 }
 
+query getEnrichedAnalytics {
+  fn: import { getEnrichedAnalytics } from "@src/features/dashboard/operations",
+  entities: [User, Document, QuizAttempt, UserQuestionHistory]
+}
+
 query getCategoryMetrics {
   fn: import { getCategoryMetrics } from "@src/features/dashboard/operations",
   entities: [User, Document, QuizAttempt]
@@ -505,6 +510,12 @@ query getUserProfile {
 
 action updateUserProfile {
   fn: import { updateUserProfile } from "@src/features/profile/operations",
+  entities: [User]
+}
+
+// Phase 1.1 – collect City/Country after signup
+action updateProfileLocation {
+  fn: import { updateProfileLocation } from "@src/features/auth/operations",
   entities: [User]
 }
 

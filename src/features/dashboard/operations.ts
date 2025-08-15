@@ -6,6 +6,7 @@ import type {
   GetOptimalLearningTime
 } from 'wasp/server/operations'
 import { HttpError } from 'wasp/server'
+import type { GetEnrichedAnalytics } from 'wasp/server/operations'
 
 /**
  * Get comprehensive user analytics for dashboard
@@ -316,6 +317,60 @@ export const getPerformanceTrends: GetPerformanceTrends<void, any> = async (args
   } catch (error) {
     console.error('Error fetching performance trends:', error)
     throw new HttpError(500, 'Failed to fetch performance trends')
+  }
+}
+
+// Phase 1.3: Enriched analytics endpoint
+export const getEnrichedAnalytics: GetEnrichedAnalytics<{ userId?: number }, any> = async (args, context) => {
+  const userId = args?.userId ?? context.user?.id
+  if (!userId) throw new HttpError(401, 'Not authenticated')
+
+  try {
+    // Breadth/Depth by category
+    const attempts = await context.entities.QuizAttempt.findMany({
+      where: { userId },
+      include: { document: { select: { category: true } } }
+    })
+
+    const byCategory: Record<string, { total: number; score: number }> = {}
+    for (const a of attempts) {
+      const cat = a.document?.category || 'Uncategorized'
+      if (!byCategory[cat]) byCategory[cat] = { total: 0, score: 0 }
+      byCategory[cat].total += 1
+      byCategory[cat].score += a.score
+    }
+    const breadth = Object.keys(byCategory).length
+    const depth = Object.entries(byCategory).map(([category, agg]) => ({ category, depth: agg.score / agg.total }))
+
+    // Average learning speed
+    const speedAgg = await context.entities.UserQuestionHistory.aggregate({
+      where: { userId, timeToAnswer: { not: null } },
+      _avg: { timeToAnswer: true }
+    })
+
+    // Optimal learning time (hour with best avg score)
+    const hours: Record<number, { sum: number; c: number }> = {}
+    for (const a of attempts) {
+      if (!a.completedAt) continue
+      const h = new Date(a.completedAt).getHours()
+      if (!hours[h]) hours[h] = { sum: 0, c: 0 }
+      hours[h].sum += a.score
+      hours[h].c += 1
+    }
+    const optimal = Object.entries(hours).reduce((best, [h, agg]) => {
+      const avg = agg.sum / agg.c
+      return avg > best.avg ? { hour: Number(h), avg } : best
+    }, { hour: -1, avg: -1 })
+
+    return {
+      breadth,
+      depth,
+      averageLearningSpeed: speedAgg._avg.timeToAnswer ?? null,
+      optimalHour: optimal.hour
+    }
+  } catch (e) {
+    console.error('getEnrichedAnalytics failed:', e)
+    throw new HttpError(500, 'Failed to compute analytics')
   }
 }
 

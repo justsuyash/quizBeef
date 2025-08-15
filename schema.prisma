@@ -19,6 +19,11 @@ model User {
   handle                    String?       @unique  // e.g., "quiz_master" (displayed as @quiz_master)
   profileType               ProfileType   @default(ADULT)
   accountType               AccountType   @default(FREE)
+  // Location & Rating
+  city                      String?
+  county                    String?
+  country                   String?
+  eloRating                 Int           @default(1200)
   
   // Relations
   folders                   Folder[]

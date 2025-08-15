@@ -1,6 +1,6 @@
 import React from 'react'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -80,6 +80,7 @@ export default function EnhancedAnalytics() {
   const { data: achievementsData, isLoading: achievementsLoading } = useQuery(getUserAchievements)
   const { data: categoryData, isLoading: categoryLoading } = useQuery(getCategoryMetrics)
   const { data: optimalTimeData, isLoading: optimalTimeLoading } = useQuery(getOptimalLearningTime)
+  const { data: enriched, isLoading: enrichedLoading } = useQuery(getEnrichedAnalytics)
   const [leaderboardFilter, setLeaderboardFilter] = React.useState({
     country: 'all',
     county: 'all',
@@ -96,7 +97,7 @@ export default function EnhancedAnalytics() {
     )
   }
 
-  const isLoading = analyticsLoading || progressLoading || performanceLoading || achievementsLoading || categoryLoading || optimalTimeLoading || leaderboardLoading
+  const isLoading = analyticsLoading || progressLoading || performanceLoading || achievementsLoading || categoryLoading || optimalTimeLoading || enrichedLoading || leaderboardLoading
 
   if (isLoading) {
     return (
@@ -202,7 +203,7 @@ export default function EnhancedAnalytics() {
                 <Brain className="h-4 w-4 text-indigo-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{categoryData?.breadth || 0} Topics</div>
+                <div className="text-2xl font-bold">{enriched?.breadth ?? categoryData?.breadth ?? 0} Topics</div>
               </CardContent>
             </Card>
             <Card>
@@ -211,7 +212,7 @@ export default function EnhancedAnalytics() {
                 <Clock className="h-4 w-4 text-teal-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{analytics?.averageLearningSpeed?.toFixed(2) || 0}s / Q</div>
+                <div className="text-2xl font-bold">{(enriched?.averageLearningSpeed ?? analytics?.averageLearningSpeed ?? 0).toFixed ? (enriched?.averageLearningSpeed ?? analytics?.averageLearningSpeed ?? 0).toFixed(2) : (enriched?.averageLearningSpeed ?? analytics?.averageLearningSpeed ?? 0)}s / Q</div>
               </CardContent>
             </Card>
           </div>

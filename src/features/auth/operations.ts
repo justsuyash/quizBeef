@@ -1,4 +1,5 @@
-import { type GetCurrentUser } from 'wasp/server/operations'
+import { type GetCurrentUser, type UpdateUserProfile } from 'wasp/server/operations'
+import { HttpError } from 'wasp/server'
 
 export const getCurrentUser: GetCurrentUser<void, any> = async (args, context) => {
   if (!context.user) {
@@ -89,4 +90,26 @@ export const getCurrentUser: GetCurrentUser<void, any> = async (args, context) =
       averageAccuracy: null
     }
   }
+}
+
+// Phase 1.1: Require City/Country post-signup profile completion
+export const updateProfileLocation: UpdateUserProfile<{ city: string; country: string; county?: string }, any> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  const city = (args.city || '').trim()
+  const country = (args.country || '').trim()
+  const county = (args.county || '').trim() || null
+
+  if (!city || !country) {
+    throw new HttpError(400, 'City and Country are required')
+  }
+
+  const user = await context.entities.User.update({
+    where: { id: context.user.id },
+    data: { city, country, county }
+  })
+
+  return { id: user.id, city: user.city, country: user.country, county: user.county }
 }
