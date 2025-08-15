@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
-import { Loader2, Database, Users, FileText, Trophy, Brain } from 'lucide-react'
+import { Loader2, Database, Users, FileText, Trophy, Brain, RefreshCcw, Medal, TrendingUp, BarChart3, Swords, Undo2 } from 'lucide-react'
 import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedEloHistoryAll, rebuildLeaderboardStatsAll, getCurrentUser, resetMySeededData, addRandomNinjas } from 'wasp/client/operations'
 import { useQuery } from 'wasp/client/operations'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
@@ -166,14 +166,7 @@ export default function AdminPage() {
                   )}
                 </Button>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={async ()=>{ try{ setIsResetting(true); await resetMySeededData({}); alert('Your seeded data has been reset.'); } catch(e:any){ setError(e.message||'Reset failed'); } finally{ setIsResetting(false);} }} disabled={isResetting}>
-                  {isResetting ? 'Resetting…' : 'Reset My Seeded Data'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={async ()=>{ try{ setIsAddingNinjas(true); const res = await addRandomNinjas({}); alert(`Added ${res.count} ninja(s).`); } catch(e:any){ setError(e.message||'Failed to add ninjas'); } finally{ setIsAddingNinjas(false);} }} disabled={isAddingNinjas}>
-                  {isAddingNinjas ? 'Summoning…' : 'Add Random Ninjas'}
-                </Button>
-              </div>
+              {/* Note: bulk seeding for all accounts only. Dev utilities live in Backfill section below. */}
             </div>
 
             {/* Environment Badge */}
@@ -205,17 +198,62 @@ export default function AdminPage() {
                   Backfilling...
                 </>
               ) : (
-                'Backfill My Account'
+                <>
+                  <RefreshCcw className="mr-2 h-4 w-4" />
+                  Backfill My Account
+                </>
               )}
             </Button>
             <Button variant="outline" onClick={handleGrantAchievementsAll} disabled={isGranting}>
-              {isGranting ? 'Granting…' : 'Grant Demo Achievements (All Users)'}
+              {isGranting ? (
+                'Granting…'
+              ) : (
+                <>
+                  <Medal className="mr-2 h-4 w-4" />
+                  Grant Demo Achievements (All Users)
+                </>
+              )}
             </Button>
             <Button variant="outline" onClick={handleSeedEloAll} disabled={isSeedingElo}>
-              {isSeedingElo ? 'Seeding…' : 'Seed Elo History (All Users)'}
+              {isSeedingElo ? (
+                'Seeding…'
+              ) : (
+                <>
+                  <TrendingUp className="mr-2 h-4 w-4" />
+                  Seed Elo History (All Users)
+                </>
+              )}
             </Button>
             <Button variant="outline" onClick={async ()=>{ setIsRebuilding(true); setError(null); try { await rebuildLeaderboardStatsAll({}); alert('Recomputed leaderboard stats'); } catch(e:any){ setError(e.message||'Failed to rebuild'); } finally { setIsRebuilding(false); } }} disabled={isRebuilding}>
-              {isRebuilding ? 'Recomputing…' : 'Rebuild Leaderboard Stats'}
+              {isRebuilding ? (
+                'Recomputing…'
+              ) : (
+                <>
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Rebuild Leaderboard Stats
+                </>
+              )}
+            </Button>
+            {/* Dev-only utilities targeting the current account */}
+            <Button variant="outline" size="sm" onClick={async ()=>{ try{ setIsAddingNinjas(true); const res = await addRandomNinjas({}); alert(`Ninja Seeder added ${res.count} ninja(s) to your account.`); } catch(e:any){ setError(e.message||'Failed to add ninjas'); } finally{ setIsAddingNinjas(false);} }} disabled={isAddingNinjas}>
+              {isAddingNinjas ? (
+                'Summoning…'
+              ) : (
+                <>
+                  <Swords className="mr-2 h-4 w-4" />
+                  Ninja Seeder
+                </>
+              )}
+            </Button>
+            <Button variant="outline" size="sm" onClick={async ()=>{ try{ setIsResetting(true); await resetMySeededData({}); alert('Your seeded data has been reset.'); } catch(e:any){ setError(e.message||'Reset failed'); } finally{ setIsResetting(false);} }} disabled={isResetting}>
+              {isResetting ? (
+                'Resetting…'
+              ) : (
+                <>
+                  <Undo2 className="mr-2 h-4 w-4" />
+                  Reset My Seeded Data
+                </>
+              )}
             </Button>
             </div>
           </CardContent>

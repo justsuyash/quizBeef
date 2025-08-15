@@ -504,6 +504,12 @@ export const getStatsOverview: GetStatsOverview<{ range?: number }, any> = async
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - range)
 
+    // Lightweight user fetch for demo assassinsCount via totalBeefWins
+    const me = await context.entities.User.findUnique({
+      where: { id: context.user.id },
+      select: { totalBeefWins: true }
+    })
+
     // Get total counts
     const totalQuizzes = await context.entities.QuizAttempt.count({
       where: { userId: context.user.id }
@@ -566,8 +572,8 @@ export const getStatsOverview: GetStatsOverview<{ range?: number }, any> = async
       }
     })
 
-    // Calculate assassins count (placeholder - will implement debt calculation later)
-    const assassinsCount = 0 // TODO: Implement debt-based calculation
+    // Calculate assassins count (demo): reuse totalBeefWins as a stand-in until rivalry is implemented
+    const assassinsCount = me?.totalBeefWins ?? 0
 
     // Category breadth
     const categories = await context.entities.QuizAttempt.findMany({
