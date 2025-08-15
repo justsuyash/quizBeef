@@ -150,6 +150,11 @@ export const seedDatabase: SeedDatabase<{}, { success: boolean; message: string;
   }
 
   const stats = { before, after, added: { users: after.userCount - before.userCount, documents: after.documentCount - before.documentCount, quizAttempts: after.quizAttemptCount - before.quizAttemptCount } }
+  // Notify current user to refresh stats via SSE
+  try {
+    const { emitStatsUpdate } = await import('../../server/events/stats')
+    if (context.user?.id) emitStatsUpdate(context.user.id, { type: 'refresh' })
+  } catch {}
   return { success: true, message: 'Database seeded with advanced demo data.', stats }
 }
 
@@ -221,6 +226,11 @@ export const backfillMyAccount: BackfillMyAccount<{}, { success: boolean }> = as
       await prisma.EloHistory.create({ data: { userId: user.id, elo, changedAt: new Date(), source: 'backfill' } })
     }
 
+    // Emit refresh for current user
+    try {
+      const { emitStatsUpdate } = await import('../../server/events/stats')
+      emitStatsUpdate(context.user.id, { type: 'refresh' })
+    } catch {}
     return { success: true }
   } catch (e) {
     console.error(e)
