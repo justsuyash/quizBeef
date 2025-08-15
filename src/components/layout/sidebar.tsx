@@ -2,20 +2,12 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/cn';
 import {
-  Home,
-  FileText,
   Trophy,
-  User,
   Gamepad2,
   BookOpen,
-  Medal,
-  UserCircle,
   LayoutDashboard,
-  Upload,
-  History,
   Zap,
   Settings,
-  MessageSquare,
   Brain,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -30,7 +22,7 @@ interface NavItem {
   color: string; // Accent color for active state
 }
 
-// Mobile Navigation (4 main items)
+// Mobile Navigation (4 main items) - aligned with Phase 2.1 IA
 const mobileNavItems: NavItem[] = [
   {
     id: 'documents',
@@ -41,20 +33,12 @@ const mobileNavItems: NavItem[] = [
     color: 'text-primary',
   },
   {
-    id: 'upload',
-    label: 'Upload Content',
-    icon: Upload,
-    activeIcon: Upload,
-    href: '/upload',
+    id: 'play',
+    label: 'Play',
+    icon: Gamepad2,
+    activeIcon: Gamepad2,
+    href: '/play',
     color: 'text-secondary',
-  },
-  {
-    id: 'quiz-history',
-    label: 'Quiz History',
-    icon: History,
-    activeIcon: History,
-    href: '/quiz-history',
-    color: 'text-accent',
   },
   {
     id: 'beef',
@@ -64,9 +48,17 @@ const mobileNavItems: NavItem[] = [
     href: '/beef',
     color: 'text-orange-500',
   },
+  {
+    id: 'analytics',
+    label: 'Analytics',
+    icon: LayoutDashboard,
+    activeIcon: LayoutDashboard,
+    href: '/analytics',
+    color: 'text-accent',
+  },
 ];
 
-// Desktop Navigation (comprehensive)
+// Desktop Navigation (aligned with Phase 2.1 IA)
 const desktopNavItems: NavItem[] = [
   {
     id: 'play',
@@ -77,11 +69,11 @@ const desktopNavItems: NavItem[] = [
     color: 'text-primary',
   },
   {
-    id: 'library',
+    id: 'nalanda',
     label: 'Nalanda',
     icon: Brain,
     activeIcon: Brain,
-    href: '/library',
+    href: '/nalanda',
     color: 'text-secondary',
   },
   {
@@ -93,22 +85,6 @@ const desktopNavItems: NavItem[] = [
     color: 'text-muted-foreground',
   },
   {
-    id: 'upload',
-    label: 'Upload Content',
-    icon: Upload,
-    activeIcon: Upload,
-    href: '/upload',
-    color: 'text-muted-foreground',
-  },
-  {
-    id: 'quiz-history',
-    label: 'Quiz History',
-    icon: History,
-    activeIcon: History,
-    href: '/quiz-history',
-    color: 'text-muted-foreground',
-  },
-  {
     id: 'beef',
     label: 'Beef Challenges',
     icon: Zap,
@@ -117,20 +93,20 @@ const desktopNavItems: NavItem[] = [
     color: 'text-orange-500',
   },
   {
-    id: 'leaderboard',
-    label: 'Leaderboard',
-    icon: Trophy,
-    activeIcon: Trophy,
-    href: '/leaderboard',
-    color: 'text-accent',
-  },
-  {
     id: 'analytics',
     label: 'Analytics',
     icon: LayoutDashboard,
     activeIcon: LayoutDashboard,
     href: '/analytics',
     color: 'text-muted-foreground',
+  },
+  {
+    id: 'achievements',
+    label: 'Achievements',
+    icon: Trophy,
+    activeIcon: Trophy,
+    href: '/achievements',
+    color: 'text-accent',
   },
 ];
 
@@ -160,12 +136,10 @@ export function BottomNavigation() {
         if (currentPath.startsWith('/play')) return 'play';
     // Treat legacy /dashboard and new /analytics as the same Analytics section
     if (currentPath === '/dashboard' || currentPath.startsWith('/analytics')) return 'analytics';
-    if (currentPath.startsWith('/library')) return 'library';
+    if (currentPath.startsWith('/nalanda')) return 'nalanda';
     if (currentPath.startsWith('/documents')) return 'documents';
-    if (currentPath.startsWith('/upload')) return 'upload';
-    if (currentPath.startsWith('/quiz-history')) return 'quiz-history';
     if (currentPath.startsWith('/beef')) return 'beef';
-    if (currentPath.startsWith('/leaderboard')) return 'leaderboard';
+    if (currentPath.startsWith('/achievements')) return 'achievements';
     if (currentPath.startsWith('/user') || currentPath.startsWith('/settings')) return 'profile';
     return null; // No active item for landing page
   };

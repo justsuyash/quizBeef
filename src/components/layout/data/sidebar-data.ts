@@ -20,6 +20,8 @@ import {
   IconUsers,
   IconChartLine,
   IconTrophy,
+  IconPlayerPlay,
+  IconBrain,
 } from '@tabler/icons-react'
 import { AudioWaveform, Command, GalleryVerticalEnd } from 'lucide-react'
 import { type SidebarData } from '../types'
@@ -52,24 +54,19 @@ export const sidebarData: SidebarData = {
       title: 'Learning',
       items: [
         {
-          title: 'Analytics & Progress',
-          url: '/analytics',
-          icon: IconChartLine,
+          title: 'Play',
+          url: '/play',
+          icon: IconPlayerPlay,
+        },
+        {
+          title: 'Nalanda',
+          url: '/nalanda',
+          icon: IconBrain,
         },
         {
           title: 'My Documents',
           url: '/documents',
           icon: IconChecklist,
-        },
-        {
-          title: 'Upload Content',
-          url: '/upload',
-          icon: IconTool,
-        },
-        {
-          title: 'Quiz History',
-          url: '/quiz-history',
-          icon: IconPackages,
         },
         {
           title: 'Beef Challenges',
@@ -78,9 +75,9 @@ export const sidebarData: SidebarData = {
           icon: IconMessages,
         },
         {
-          title: 'Leaderboard',
-          url: '/leaderboard',
-          icon: IconUsers,
+          title: 'Analytics',
+          url: '/analytics',
+          icon: IconChartLine,
         },
         {
           title: 'Achievements',

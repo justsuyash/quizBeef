@@ -2,7 +2,7 @@ import '../../index.css';
 import React, { useMemo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/cn';
-import { BottomNavigation } from './bottom-navigation';
+import { BottomNavigation } from './sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FontProvider } from '../../context/font-context';
 import { ThemeProvider } from '../../context/theme-context';

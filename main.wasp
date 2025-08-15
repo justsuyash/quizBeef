@@ -54,6 +54,12 @@ page PlayPage {
   authRequired: true
 }
 
+route NalandaRoute { path: "/nalanda", to: NalandaPage }
+page NalandaPage {
+  component: import NalandaPage from "@src/features/nalanda/index",
+  authRequired: true
+}
+
 route DashboardRoute { path: "/dashboard", to: Dashboard }
 page Dashboard {
   component: import DashboardRedirect from "@src/features/dashboard/redirect-to-analytics",
