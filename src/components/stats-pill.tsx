@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
-import { useQueryClient } from '@tanstack/react-query'
+import { useToast } from '../hooks/use-toast'
 import { getStatsOverview, getCurrentUser } from 'wasp/client/operations'
 import { cn } from '../lib/cn'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
@@ -66,8 +66,8 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
     assassins: false
   })
 
-  const { data: stats, isLoading, error } = useQuery(getStatsOverview, { range: 30 })
-  const queryClient = useQueryClient()
+  const { data: stats, isLoading, error, refetch } = useQuery(getStatsOverview, { range: 30 })
+  const { toast } = useToast()
 
   // SSE subscription for real-time updates
   useEffect(() => {
@@ -81,7 +81,13 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
         setPulseFlags((prev) => ({ ...prev, streak: true, elo: true, medals: true }))
         clearTimeout(timeout)
         timeout = setTimeout(() => {
-          queryClient.invalidateQueries({ queryKey: [getStatsOverview.key, { range: 30 }] as any })
+          // Refetch the overview query to get the latest values
+          refetch()
+          // Friendly toast to simulate live update
+          try {
+            const message = payload.type === 'achievement_granted' ? 'New achievement unlocked!' : payload.type === 'quiz_completed' ? 'Quiz completed — stats updated.' : 'Stats updated.'
+            toast({ description: message })
+          } catch {}
           setPulseFlags({ streak: false, elo: false, medals: false, assassins: false })
         }, 300)
       } catch {}
