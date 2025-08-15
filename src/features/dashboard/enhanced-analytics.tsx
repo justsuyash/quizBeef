@@ -1,7 +1,7 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getEloHistory } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -92,6 +92,7 @@ export default function EnhancedAnalytics() {
   const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery(getLeaderboard, leaderboardFilter)
   const { data: historyData, isLoading: historyLoading } = useQuery(getQuizHistory)
   const [retakeLoadingId, setRetakeLoadingId] = React.useState<number | null>(null)
+  const { data: eloSeries } = useQuery(getEloHistory)
 
 
   if (!user) {
@@ -515,13 +516,33 @@ export default function EnhancedAnalytics() {
               </CardHeader>
               <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={leaderboardData}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="username" />
-                          <YAxis />
-                          <Tooltip />
-                          <Bar dataKey="eloRating" fill="#82ca9d" />
-                      </BarChart>
+                    <LineChart>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="t" tickFormatter={(v) => new Date(v).toLocaleDateString()} type="number" domain={['dataMin', 'dataMax']} scale="time" />
+                      <YAxis />
+                      <Tooltip labelFormatter={(v) => new Date(v as number).toLocaleString()} />
+                      {/* Current user series */}
+                      {eloSeries?.currentUserId && eloSeries?.series?.[eloSeries.currentUserId] && (
+                        <Line dataKey="elo" data={eloSeries.series[eloSeries.currentUserId]} name="You" stroke="#3B82F6" dot={false} />
+                      )}
+                      {/* Top users average (simple average across series per timestamp if aligned) */}
+                      {(() => {
+                        if (!eloSeries?.series) return null
+                        const others = Object.entries(eloSeries.series).filter(([uid]) => Number(uid) !== eloSeries.currentUserId)
+                        if (others.length === 0) return null
+                        // Flatten and group by timestamp (coarse by day)
+                        const points: Record<string, number[]> = {}
+                        for (const [, arr] of others) {
+                          for (const p of arr as any[]) {
+                            const day = new Date(p.t).toISOString().split('T')[0]
+                            if (!points[day]) points[day] = []
+                            points[day].push(p.elo)
+                          }
+                        }
+                        const avg = Object.entries(points).map(([day, list]) => ({ t: new Date(day).getTime(), elo: Math.round(list.reduce((a, b) => a + b, 0) / list.length) }))
+                        return <Line dataKey="elo" data={avg} name="Top Avg" stroke="#10B981" dot={false} />
+                      })()}
+                    </LineChart>
                   </ResponsiveContainer>
               </CardContent>
             </Card>
@@ -535,7 +556,16 @@ export default function EnhancedAnalytics() {
                   <div key={u.id ?? i} className="flex items-center justify-between border rounded-md px-3 py-2">
                     <div className="flex items-center gap-3">
                       <span className="w-6 text-center font-semibold">{i + 1}</span>
-                      <span className="font-medium">{u.handle ?? `User ${i + 1}`}</span>
+                      {u.id ? (
+                        <span
+                          onClick={() => navigate(`/user/${u.id}`)}
+                          className="font-medium hover:underline cursor-pointer"
+                        >
+                          {u.handle ?? `User ${i + 1}`}
+                        </span>
+                      ) : (
+                        <span className="font-medium">{u.handle ?? `User ${i + 1}`}</span>
+                      )}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {u.totalScore ?? 0} pts • {u.totalQuizzes ?? 0} quizzes

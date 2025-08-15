@@ -60,6 +60,12 @@ async function main() {
   console.log(`🥇 Updating Elo ratings and user stats...`)
   await updateUserStats(users)
 
+  console.log(`🏅 Designating top performers with high Elo & rare achievements...`)
+  await designateTopPerformers(users)
+
+  console.log(`📈 Seeding Elo rating history time-series for charts...`)
+  await seedEloHistory(users)
+
   console.log('✅ Database seeded successfully with realistic data!')
   console.log(`   - ${users.length} users across ${POPULAR_COUNTRIES.length} countries`)
   console.log(`   - ${documents.length} documents with questions`)
@@ -211,15 +217,29 @@ async function createDocumentsAndFolders(users: any[]): Promise<any[]> {
   for (let i = 0; i < users.length; i++) {
     const user = users[i]
     
-    // Create 1-3 folders per user
+    // Create 1-3 folders per user with unique names per user
     const folderCount = faker.number.int({ min: 1, max: 3 })
     const folders = []
-    
+    const shuffledCategories = faker.helpers.shuffle([...CATEGORIES])
+    const usedNames = new Set<string>()
+
     for (let f = 0; f < folderCount; f++) {
+      let name = shuffledCategories[f % shuffledCategories.length]
+      // Ensure uniqueness per user
+      let attempt = 0
+      while (usedNames.has(name) && attempt < 5) {
+        name = shuffledCategories[(f + attempt) % shuffledCategories.length]
+        attempt++
+      }
+      if (usedNames.has(name)) {
+        name = `${name}-${f}`
+      }
+      usedNames.add(name)
+
       const folder = await prisma.folder.create({
         data: {
           userId: user.id,
-          name: faker.helpers.arrayElement(CATEGORIES),
+          name,
           description: faker.lorem.sentence(),
           color: faker.color.rgb()
         }
@@ -541,6 +561,117 @@ async function updateUserStats(users: any[]) {
   }
   
   console.log('   ✅ Updated user statistics')
+}
+
+// Promote a subset of users to "top performers" with high Elo and rare achievements
+async function designateTopPerformers(users: any[]) {
+  // Pick top 15 by current Elo, or random if Elo ties
+  const sorted = [...users].sort((a, b) => (b.eloRating ?? 0) - (a.eloRating ?? 0))
+  const topCount = Math.min(15, sorted.length)
+  const topUsers = sorted.slice(0, topCount)
+
+  // Fetch rare/legendary achievements we want to grant
+  const achievements = await prisma.achievement.findMany({
+    where: { key: { in: ['QUIZ_MASTER_100', 'QUIZ_PERFECTIONIST', 'EARLY_ADOPTER'] } }
+  })
+  const byKey: Record<string, any> = {}
+  for (const a of achievements) byKey[a.key] = a
+
+  for (let i = 0; i < topUsers.length; i++) {
+    const u = topUsers[i]
+
+    // Assign a strong Elo distribution 1800-2200 with slight variance
+    const boostedElo = 1800 + Math.floor((topCount - i) * 10) + Math.floor(Math.random() * 100)
+
+    await prisma.user.update({
+      where: { id: u.id },
+      data: {
+        eloRating: boostedElo,
+        totalBeefWins: { increment: Math.floor(10 + Math.random() * 40) },
+        longestWinStreak: { increment: Math.floor(3 + Math.random() * 10) }
+      }
+    })
+
+    // Grant rare achievements where available
+    const grantIfExists = async (key: string) => {
+      const ach = byKey[key]
+      if (!ach) return
+      const already = await prisma.userAchievement.findFirst({ where: { userId: u.id, achievementId: ach.id } })
+      if (!already) {
+        await prisma.userAchievement.create({
+          data: {
+            userId: u.id,
+            achievementId: ach.id,
+            unlockedAt: new Date()
+          }
+        })
+      }
+    }
+
+    await grantIfExists('QUIZ_MASTER_100')
+    await grantIfExists('QUIZ_PERFECTIONIST')
+    // Early adopter stays limited to first 100; only grant if applicable by ID
+    if (u.id <= 100) {
+      await grantIfExists('EARLY_ADOPTER')
+    }
+  }
+
+  console.log(`   ✅ Marked ${topUsers.length} users as top performers`)
+}
+
+// Generate synthetic EloHistory for users to populate comparative charts
+async function seedEloHistory(users: any[]) {
+  const now = new Date()
+
+  // If EloHistory already exists, skip to avoid duplicates
+  const anyHistory = await prisma.eloHistory.count()
+  if (anyHistory > 0) {
+    console.log('   ℹ️ EloHistory already present, skipping time-series seeding...')
+    return
+  }
+
+  // Create a small time-series for each user (~15-25 points over last 90 days)
+  for (let i = 0; i < users.length; i++) {
+    const u = users[i]
+    const currentElo = u.eloRating ?? 1200
+    const points = 15 + Math.floor(Math.random() * 10)
+    let elo = Math.max(800, Math.min(2000, currentElo - 150 + Math.floor(Math.random() * 100)))
+
+    for (let p = points; p >= 1; p--) {
+      const daysAgo = Math.floor((90 / points) * p) + Math.floor(Math.random() * 2)
+      const changedAt = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000)
+      // Random walk
+      const delta = Math.floor((Math.random() - 0.5) * 30)
+      elo = Math.max(800, Math.min(2200, elo + delta))
+
+      await prisma.eloHistory.create({
+        data: {
+          userId: u.id,
+          elo,
+          changedAt,
+          source: 'seed',
+          note: 'Synthetic history'
+        }
+      })
+    }
+
+    // Ensure last point close to current elo
+    await prisma.eloHistory.create({
+      data: {
+        userId: u.id,
+        elo: currentElo,
+        changedAt: now,
+        source: 'seed',
+        note: 'Current'
+      }
+    })
+
+    if (i % 50 === 0) {
+      console.log(`   Seeded Elo history for ${i + 1}/${users.length} users...`)
+    }
+  }
+
+  console.log('   ✅ Seeded EloHistory time-series for users')
 }
 
 main()

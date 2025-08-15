@@ -21,6 +21,15 @@ export async function updateEloRatings(winnerId: number, loserId: number, contex
   await context.entities.User.update({ where: { id: winnerId }, data: { eloRating: newRa } })
   await context.entities.User.update({ where: { id: loserId }, data: { eloRating: newRb } })
 
+  // Record history for comparative analytics
+  try {
+    await context.entities.EloHistory.create({ data: { userId: winnerId, elo: newRa, source: 'beef', note: 'Win' } })
+    await context.entities.EloHistory.create({ data: { userId: loserId, elo: newRb, source: 'beef', note: 'Loss' } })
+  } catch (e) {
+    // Non-fatal
+    console.warn('Failed to record EloHistory:', e)
+  }
+
   return { winner: newRa, loser: newRb }
 }
 

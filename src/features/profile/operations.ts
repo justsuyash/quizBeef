@@ -1,7 +1,8 @@
 import type { 
   GetUserProfile,
   UpdateUserProfile,
-  GetLeaderboard
+  GetLeaderboard,
+  GetEloHistory
 } from 'wasp/server/operations'
 import { HttpError } from 'wasp/server'
 
@@ -313,6 +314,47 @@ export const getLeaderboard: GetLeaderboard<{
   } catch (error) {
     console.error('Error fetching leaderboard:', error)
     throw new HttpError(500, 'Failed to fetch leaderboard')
+  }
+}
+
+/**
+ * Get Elo history for current user and top users
+ */
+export const getEloHistory: GetEloHistory<{ limit?: number }, any> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  const { limit = 10 } = args || {}
+
+  // Top users by Elo
+  const topUsers = await context.entities.User.findMany({
+    where: { isPublicProfile: true },
+    select: { id: true, handle: true, eloRating: true },
+    orderBy: { eloRating: 'desc' },
+    take: limit
+  })
+
+  // Ensure current user included
+  const userIds = Array.from(new Set([context.user.id, ...topUsers.map(u => u.id)]))
+
+  // Fetch history for each user
+  const histories = await context.entities.EloHistory.findMany({
+    where: { userId: { in: userIds } },
+    orderBy: { changedAt: 'asc' }
+  })
+
+  // Group by user
+  const byUser: Record<number, any[]> = {}
+  for (const h of histories) {
+    if (!byUser[h.userId]) byUser[h.userId] = []
+    byUser[h.userId].push({ t: h.changedAt, elo: h.elo })
+  }
+
+  return {
+    users: topUsers.map(u => ({ id: u.id, handle: u.handle, elo: u.eloRating })),
+    currentUserId: context.user.id,
+    series: byUser
   }
 }
 

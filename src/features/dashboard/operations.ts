@@ -209,7 +209,7 @@ export const getLearningProgress: GetLearningProgress<void, any> = async (args, 
       }
     }
 
-    return Object.values(progressByDate).sort((a: any, b: any) => a.date.localeCompare(b.date))
+    return { dailyProgress: Object.values(progressByDate).sort((a: any, b: any) => a.date.localeCompare(b.date)) }
   } catch (error) {
     console.error('Error fetching learning progress:', error)
     throw new HttpError(500, 'Failed to fetch learning progress')

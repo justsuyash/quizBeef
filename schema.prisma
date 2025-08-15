@@ -37,6 +37,7 @@ model User {
   
   // Phase 3: Achievements Relations
   achievements              UserAchievement[]
+  eloHistory                EloHistory[]
   
   // Profile & Achievement fields
   email                     String?
@@ -412,4 +413,17 @@ enum AchievementRarity {
   RARE        // Significant achievement, takes dedication  
   EPIC        // Major milestone, few users achieve this
   LEGENDARY   // Extremely rare, exceptional accomplishment
+}
+
+// Phase 3.2: Elo rating history for comparative charts
+model EloHistory {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  elo        Int
+  changedAt  DateTime @default(now())
+  source     String?
+  note       String?
+
+  @@index([userId, changedAt])
 }

@@ -4,10 +4,14 @@ import { Button } from '../../components/ui/button'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Loader2, Database, Users, FileText, Trophy, Brain } from 'lucide-react'
-import { seedDatabase } from 'wasp/client/operations'
+import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedEloHistoryAll, rebuildLeaderboardStatsAll } from 'wasp/client/operations'
 
 export default function AdminPage() {
   const [isSeeding, setIsSeeding] = useState(false)
+  const [isBackfilling, setIsBackfilling] = useState(false)
+  const [isGranting, setIsGranting] = useState(false)
+  const [isSeedingElo, setIsSeedingElo] = useState(false)
+  const [isRebuilding, setIsRebuilding] = useState(false)
   const [seedResult, setSeedResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,6 +32,49 @@ export default function AdminPage() {
       setError(err.message || 'Failed to seed database')
     } finally {
       setIsSeeding(false)
+    }
+  }
+
+  const handleBackfill = async () => {
+    try {
+      setIsBackfilling(true)
+      setError(null)
+      console.log('🧪 Backfilling current account...')
+      await backfillMyAccount({})
+      alert('Backfill complete! Check your Analytics tabs.')
+    } catch (err: any) {
+      console.error('Backfill error:', err)
+      setError(err.message || 'Failed to backfill account')
+    } finally {
+      setIsBackfilling(false)
+    }
+  }
+
+  const handleGrantAchievementsAll = async () => {
+    try {
+      setIsGranting(true)
+      setError(null)
+      const res = await grantDemoAchievementsAll({})
+      alert(`Granted achievements: ${res.count}`)
+    } catch (err: any) {
+      console.error('Grant error:', err)
+      setError(err.message || 'Failed to grant achievements')
+    } finally {
+      setIsGranting(false)
+    }
+  }
+
+  const handleSeedEloAll = async () => {
+    try {
+      setIsSeedingElo(true)
+      setError(null)
+      await seedEloHistoryAll({})
+      alert('Seeded Elo history for all users')
+    } catch (err: any) {
+      console.error('Seed Elo error:', err)
+      setError(err.message || 'Failed to seed Elo history')
+    } finally {
+      setIsSeedingElo(false)
     }
   }
 
@@ -113,6 +160,39 @@ export default function AdminPage() {
               {process.env.NODE_ENV === 'production' && (
                 <span className="text-xs text-red-600">Seeding disabled in production</span>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Backfill My Account (Dev-only) */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Backfill My Account (Dev)</CardTitle>
+            <CardDescription>
+              Populate your user with recent quiz attempts, per-question timings, and Elo history. Remove before production.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-3 flex-wrap">
+            <Button onClick={handleBackfill} disabled={isBackfilling}>
+              {isBackfilling ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Backfilling...
+                </>
+              ) : (
+                'Backfill My Account'
+              )}
+            </Button>
+            <Button variant="outline" onClick={handleGrantAchievementsAll} disabled={isGranting}>
+              {isGranting ? 'Granting…' : 'Grant Demo Achievements (All Users)'}
+            </Button>
+            <Button variant="outline" onClick={handleSeedEloAll} disabled={isSeedingElo}>
+              {isSeedingElo ? 'Seeding…' : 'Seed Elo History (All Users)'}
+            </Button>
+            <Button variant="outline" onClick={async ()=>{ setIsRebuilding(true); setError(null); try { await rebuildLeaderboardStatsAll({}); alert('Recomputed leaderboard stats'); } catch(e:any){ setError(e.message||'Failed to rebuild'); } finally { setIsRebuilding(false); } }} disabled={isRebuilding}>
+              {isRebuilding ? 'Recomputing…' : 'Rebuild Leaderboard Stats'}
+            </Button>
             </div>
           </CardContent>
         </Card>

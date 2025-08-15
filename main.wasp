@@ -530,8 +530,33 @@ query getLeaderboard {
   entities: [User, BeefParticipant]
 }
 
+query getEloHistory {
+  fn: import { getEloHistory } from "@src/features/profile/operations",
+  entities: [User, EloHistory]
+}
+
 action seedDatabase {
     fn: import { seedDatabase } from "@src/features/admin/operations",
     entities: [User, Document, QuizAttempt, Achievement, UserAchievement, Folder, Question, Answer, UserQuestionHistory]
+}
+
+action backfillMyAccount {
+  fn: import { backfillMyAccount } from "@src/features/admin/operations",
+  entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory, EloHistory, Achievement, UserAchievement]
+}
+
+action grantDemoAchievementsAll {
+  fn: import { grantDemoAchievementsAll } from "@src/features/admin/operations",
+  entities: [User, Achievement, UserAchievement]
+}
+
+action seedEloHistoryAll {
+  fn: import { seedEloHistoryAll } from "@src/features/admin/operations",
+  entities: [User, EloHistory]
+}
+
+action rebuildLeaderboardStatsAll {
+  fn: import { rebuildLeaderboardStatsAll } from "@src/features/admin/operations",
+  entities: [User, QuizAttempt]
 }
 
