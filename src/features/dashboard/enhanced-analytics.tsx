@@ -1,7 +1,7 @@
 import React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getEloHistory, getStatsOverview } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getEloHistory, getStatsOverview, startCategoryPractice } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -17,6 +17,7 @@ import {
   TabsTrigger,
 } from '../../components/ui/tabs'
 import { Badge } from '../../components/ui/badge'
+import { Tooltip as UITooltip, TooltipTrigger as UITooltipTrigger, TooltipContent as UITooltipContent, TooltipProvider as UITooltipProvider } from '../../components/ui/tooltip'
 import { Button } from '../../components/ui/button'
 import { 
   AreaChart, 
@@ -24,7 +25,7 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
+  Tooltip as RechartsTooltip, 
   ResponsiveContainer,
   LineChart,
   Line,
@@ -75,6 +76,23 @@ const rarityColors: Record<string, string> = {
   'LEGENDARY': '#F59E0B'
 }
 
+// Shared KPI title with unified tooltip behavior
+function KpiTitle({ title, info }: { title: string; info?: string }) {
+  return (
+    <CardTitle className="text-sm font-medium flex items-center gap-1">
+      {title}
+      {info ? (
+        <UITooltip>
+          <UITooltipTrigger asChild>
+            <span className="inline-flex items-center justify-center h-4 w-4 rounded-full bg-muted text-[10px] font-semibold cursor-default">i</span>
+          </UITooltipTrigger>
+          <UITooltipContent>{info}</UITooltipContent>
+        </UITooltip>
+      ) : null}
+    </CardTitle>
+  )
+}
+
 export default function EnhancedAnalytics() {
   const navigate = useNavigate()
   const { data: user } = useAuth()
@@ -107,6 +125,8 @@ export default function EnhancedAnalytics() {
   const { data: historyData, isLoading: historyLoading } = useQuery(getQuizHistory)
   const [retakeLoadingId, setRetakeLoadingId] = React.useState<number | null>(null)
   const { data: eloSeries } = useQuery(getEloHistory)
+  // Keep active tab stable when query params change (e.g., chart range buttons)
+  const [tab, setTab] = React.useState('overview')
   // Legend toggles for Statistics charts
   const [showQuizzesCurrent, setShowQuizzesCurrent] = React.useState(true)
   const [showQuizzesPrev, setShowQuizzesPrev] = React.useState(true)
@@ -157,6 +177,16 @@ export default function EnhancedAnalytics() {
     return []
   })()
 
+  const eloChartData = (() => {
+    if (overview?.series?.eloOverTime) {
+      return overview.series.eloOverTime.map((p: any) => ({
+        date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: p.value
+      }))
+    }
+    return []
+  })()
+
   const topicsChartData = (() => {
     if (overview?.series?.topicsOverTime) {
       return overview.series.topicsOverTime.map((p: any, idx: number) => ({
@@ -174,6 +204,20 @@ export default function EnhancedAnalytics() {
   // Colors for deltas
   const deltaGreen = '#228B22' // forest green
   const deltaRed = '#800000'   // maroon
+
+  const renderDelta = (curr: number, prev: number | undefined | null, label: string) => {
+    const previous = typeof prev === 'number' ? prev : 0
+    if (previous === 0) {
+      if (curr === 0) return <div className="text-xs mt-1 text-gray-500">--</div>
+      // Baseline case: show absolute improvement when no previous data
+      return <div className="text-xs mt-1" style={{ color: deltaGreen }}>{`▲ +${Math.round(curr)} vs prev 0`}</div>
+    }
+    const delta = Math.round(((curr - previous) / previous) * 100)
+    if (delta === 0) return <div className="text-xs mt-1 text-gray-500">--</div>
+    const color = delta > 0 ? deltaGreen : deltaRed
+    const content = `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
+    return <div className="text-xs mt-1" style={{ color }}>{content}</div>
+  }
 
   const difficultyData = performanceData?.difficultyPerformance?.map((difficulty: any) => ({
     name: difficulty.level,
@@ -202,7 +246,7 @@ export default function EnhancedAnalytics() {
         </h1>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={tab} onValueChange={setTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="leaderboards">Leaderboards</TabsTrigger>
@@ -269,42 +313,27 @@ export default function EnhancedAnalytics() {
             ))}
           </div>
 
+          <UITooltipProvider>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Quizzes</CardTitle>
+                <KpiTitle title="Total Quizzes" info="Delta compares current period to the immediately previous equal window." />
                 <BookOpen className="h-4 w-4 text-blue-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{analytics?.totalQuizAttempts || 0}</div>
-                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
-                  const curr = overview.kpi.quizzes || 0
-                  const prev = overview.kpiPrev.quizzes || 0
-                  if (prev === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
-                  const delta = Math.round(((curr - prev) / prev) * 100)
-                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
-                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
-                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
-                })()}
+                {periodParam !== 'all' && renderDelta(overview?.kpi?.quizzes || 0, overview?.kpiPrev?.quizzes, 'quizzes')}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Accuracy</CardTitle>
+                <KpiTitle title="Accuracy" info="Percentage of correct answers; delta vs previous window." />
                 <Target className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{Math.round(analytics?.accuracyRate || 0)}%</div>
-                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
-                  const curr = overview.kpi.accuracy || 0
-                  const prev = overview.kpiPrev.accuracy || 0
-                  if (prev === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
-                  const delta = Math.round(((curr - prev) / prev) * 100)
-                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
-                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
-                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
-                })()}
+                {periodParam !== 'all' && renderDelta(overview?.kpi?.accuracy || 0, overview?.kpiPrev?.accuracy, 'accuracy')}
               </CardContent>
             </Card>
 
@@ -320,43 +349,27 @@ export default function EnhancedAnalytics() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Questions</CardTitle>
+                <KpiTitle title="Questions" info="Total questions answered; delta vs previous window." />
                 <BarChart3 className="h-4 w-4 text-purple-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{analytics?.totalQuestionsAnswered || 0}</div>
-                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
-                  const curr = overview.kpi.questions || 0
-                  const prev = overview.kpiPrev.questions || 0
-                  if (prev === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
-                  const delta = Math.round(((curr - prev) / prev) * 100)
-                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
-                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
-                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
-                })()}
+                {periodParam !== 'all' && renderDelta(overview?.kpi?.questions || 0, overview?.kpiPrev?.questions, 'questions')}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Category Breadth</CardTitle>
+                <KpiTitle title="Category Breadth" info="Unique topics covered in the period; delta vs previous window." />
                 <Brain className="h-4 w-4 text-indigo-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{enriched?.breadth ?? categoryData?.breadth ?? 0} Topics</div>
-                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
-                  const curr = overview.kpi.breadth || 0
-                  const prev = overview.kpiPrev.breadth || 0
-                  if (prev === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
-                  const delta = Math.round(((curr - prev) / prev) * 100)
-                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
-                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
-                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
-                })()}
+                {periodParam !== 'all' && renderDelta(overview?.kpi?.breadth || 0, overview?.kpiPrev?.breadth, 'breadth')}
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Category Depth</CardTitle>
+                <KpiTitle title="Category Depth" info="Average mastery depth across topics; informational metric." />
                 <Brain className="h-4 w-4 text-indigo-500" />
               </CardHeader>
               <CardContent>
@@ -365,7 +378,7 @@ export default function EnhancedAnalytics() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Avg. Learning Speed</CardTitle>
+                <KpiTitle title="Avg. Learning Speed" info="Questions per minute (derived from avg time per question); delta vs previous window." />
                 <Clock className="h-4 w-4 text-teal-500" />
               </CardHeader>
               <CardContent>
@@ -374,20 +387,17 @@ export default function EnhancedAnalytics() {
                   const qpm = avgMs > 0 ? 60000 / avgMs : 0
                   return <div className="text-2xl font-bold">{qpm.toFixed(1)} Q/Min</div>
                 })()}
-                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
-                  const currMs: number = (overview.kpi.avgTimePerQ || 0) as number
-                  const prevMs: number = (overview.kpiPrev.avgTimePerQ || 0) as number
+                {periodParam !== 'all' && (() => {
+                  const currMs: number = (overview?.kpi?.avgTimePerQ || 0) as number
+                  const prevMs: number | undefined = (overview?.kpiPrev?.avgTimePerQ || 0) as number
                   const currQpm = currMs > 0 ? 60000 / currMs : 0
-                  const prevQpm = prevMs > 0 ? 60000 / prevMs : 0
-                  if (prevQpm === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
-                  const delta = Math.round(((currQpm - prevQpm) / prevQpm) * 100)
-                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
-                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
-                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
+                  const prevQpm = prevMs && prevMs > 0 ? 60000 / prevMs : 0
+                  return renderDelta(currQpm, prevQpm, 'qpm')
                 })()}
               </CardContent>
             </Card>
           </div>
+          </UITooltipProvider>
 
           {/* Charts moved to Statistics tab */}
 
@@ -504,6 +514,23 @@ export default function EnhancedAnalytics() {
                     return tips.map((t, i) => <li key={i}>{t}</li>)
                   })()}
                 </ul>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {['Science','History','Math','Geography'].map((cat) => (
+                    <Button key={cat} size="sm" variant="outline" onClick={async () => {
+                      try {
+                        const defaultSettings = { questionCount: 10, difficultyDistribution: { easy: 40, medium: 40, hard: 20 } }
+                        const res = await startCategoryPractice({ category: cat })
+                        if (res?.quizAttemptId) {
+                          navigate(`/quiz/${res.documentId ?? ''}/take?attemptId=${res.quizAttemptId}`)
+                        }
+                      } catch (e) {
+                        console.warn('startCategoryPractice failed', e)
+                      }
+                    }}>
+                      Practice {cat}
+                    </Button>
+                  ))}
+                </div>
               </CardContent>
             </Card>
             <Card>
@@ -562,13 +589,46 @@ export default function EnhancedAnalytics() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip />
+                    <RechartsTooltip />
                     {showQuizzesCurrent && (
                       <Line type="monotone" dataKey="count" name="Quizzes" stroke="#3B82F6" strokeWidth={2} dot={false} />
                     )}
                     {showQuizzesPrev && (
                       <Line type="monotone" dataKey="prev" name="Previous" stroke="#9CA3AF" strokeDasharray="4 4" dot={false} />
                     )}
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Elo Over Time</CardTitle>
+                    <CardDescription>Last {chartsRange} days</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {[7, 30, 90].map((r) => (
+                      <Button
+                        key={r}
+                        size="sm"
+                        variant={chartsRange === r ? 'default' : 'outline'}
+                        onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
+                      >
+                        {r}d
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={eloChartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <RechartsTooltip />
+                    <Line type="monotone" dataKey="value" name="Elo" stroke="#8B5CF6" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -620,7 +680,7 @@ export default function EnhancedAnalytics() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="date" />
                       <YAxis />
-                      <Tooltip />
+                      <RechartsTooltip />
                       {showTopicsCurrent && (
                         <Area type="monotone" dataKey="count" name="Topics" stroke="#10B981" fill="url(#topicsGrad)" />
                       )}
@@ -663,7 +723,7 @@ export default function EnhancedAnalytics() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis domain={[0,100]} />
-                    <Tooltip />
+                    <RechartsTooltip />
                     <Line type="monotone" dataKey="acc" name="Accuracy %" stroke="#16A34A" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -696,7 +756,7 @@ export default function EnhancedAnalytics() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
-                    <Tooltip />
+                    <RechartsTooltip />
                     <Line type="monotone" dataKey="qpm" name="Q/Min" stroke="#0EA5E9" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -750,7 +810,7 @@ export default function EnhancedAnalytics() {
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="t" tickFormatter={(v) => new Date(v).toLocaleDateString()} type="number" domain={['dataMin', 'dataMax']} scale="time" />
                       <YAxis />
-                      <Tooltip labelFormatter={(v) => new Date(v as number).toLocaleString()} />
+                      <RechartsTooltip labelFormatter={(v) => new Date(v as number).toLocaleString()} />
                       {/* Current user series */}
                       {eloSeries?.currentUserId && eloSeries?.series?.[eloSeries.currentUserId] && (
                         <Line dataKey="elo" data={eloSeries.series[eloSeries.currentUserId]} name="You" stroke="#3B82F6" dot={false} />

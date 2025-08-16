@@ -395,7 +395,7 @@ query getOptimalLearningTime {
 // v1.7: Stats Pill and enhanced analytics
 query getStatsOverview {
   fn: import { getStatsOverview } from "@src/features/dashboard/operations",
-  entities: [User, QuizAttempt, UserQuestionHistory, UserAchievement, Document]
+  entities: [User, QuizAttempt, UserQuestionHistory, UserAchievement, Document, EloHistory]
 }
 
 // v1.7: Play flow suggestions and random quiz
@@ -406,6 +406,11 @@ query getPlaySuggestions {
 
 action startRandomQuiz {
   fn: import { startRandomQuiz } from "@src/features/quiz/operations",
+  entities: [User, Document, Question, Answer, QuizAttempt, UserQuestionHistory]
+}
+
+action startCategoryPractice {
+  fn: import { startCategoryPractice } from "@src/features/quiz/operations",
   entities: [User, Document, Question, Answer, QuizAttempt, UserQuestionHistory]
 }
 

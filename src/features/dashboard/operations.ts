@@ -508,6 +508,7 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
     prevStartDate.setDate(prevStartDate.getDate() - range)
     const prevEndDate = new Date(startDate)
     prevEndDate.setDate(prevEndDate.getDate() - 1)
+    prevEndDate.setHours(23, 59, 59, 999) // Include the entire last day
 
     // Overview KPI period window (optional)
     const periodDays = args?.periodDays
@@ -515,11 +516,16 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
     if (periodStart && periodDays) {
       periodStart.setDate(periodStart.getDate() - periodDays + 1)
     }
-    const prevPeriodStart = periodStart ? new Date(periodStart) : null
-    const prevPeriodEnd = periodStart ? new Date(periodStart) : null
-    if (prevPeriodStart && prevPeriodEnd && periodDays) {
+    
+    // Calculate previous period: window immediately preceding the current one (works for YTD too)
+    let prevPeriodStart: Date | null = null
+    let prevPeriodEnd: Date | null = null
+    if (periodStart && periodDays) {
+      prevPeriodStart = new Date(periodStart)
+      prevPeriodEnd = new Date(periodStart)
       prevPeriodStart.setDate(prevPeriodStart.getDate() - periodDays)
       prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1)
+      prevPeriodEnd.setHours(23, 59, 59, 999)
     }
     const nowTs = new Date()
 
@@ -780,6 +786,16 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
       }
     }
 
+    // Elo over time for the selected range
+    // Compute endDate for range upper bound
+    const endDate = new Date()
+    endDate.setHours(23,59,59,999)
+    const eloHistory = await (context.entities as any).EloHistory.findMany({
+      where: { userId: context.user.id, changedAt: { gte: startDate, lte: endDate } },
+      orderBy: { changedAt: 'asc' }
+    })
+    const eloOverTime = eloHistory.map(e => ({ date: e.changedAt.toISOString().split('T')[0], value: e.elo }))
+
     return {
       periodDays,
       totals: { totalQuizzes, totalQuestions },
@@ -797,7 +813,7 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
         quizzesOverTimePrev: quizPrevCounts,
         topicsOverTime: topicsChartData,
         topicsOverTimePrev: topicsPrevCounts,
-        eloOverTime: [], // TODO: Implement from EloHistory
+        eloOverTime,
         accuracyOverTime: perDayAccuracy,
         qpmOverTime: perDayQpm,
         beefsOverTime: [], // TODO: Implement from BeefChallenge

@@ -1,4 +1,4 @@
-import { type StartQuiz, type SubmitQuizAnswer, type CompleteQuiz, type GetQuizAttempt, type GetQuizHistory, type GetPlaySuggestions, type StartRandomQuiz } from 'wasp/server/operations'
+import { type StartQuiz, type SubmitQuizAnswer, type CompleteQuiz, type GetQuizAttempt, type GetQuizHistory, type GetPlaySuggestions, type StartRandomQuiz, type StartCategoryPractice } from 'wasp/server/operations'
 
 export interface QuizSettings {
   [key: string]: any  // Add index signature for SuperJSON compatibility
@@ -675,4 +675,34 @@ export const startRandomQuiz: StartRandomQuiz<{ mode?: string, settings?: QuizSe
     console.error('Error starting random quiz:', error)
     throw new Error('Failed to start random quiz')
   }
+}
+
+/**
+ * v1.7: Start targeted practice by category (optionally filter by difficulty)
+ */
+export const startCategoryPractice: StartCategoryPractice<{ category: string, difficulty?: 'EASY'|'MEDIUM'|'HARD', questionCount?: number }, any> = async (args, context) => {
+  if (!context.user) { throw new Error('User must be authenticated') }
+  const { category, difficulty, questionCount } = args
+
+  // Find a document for this user in the given category with questions
+  const doc = await context.entities.Document.findFirst({
+    where: {
+      userId: context.user.id,
+      category: category,
+      questions: { some: difficulty ? { difficulty } : {} }
+    },
+    include: { _count: { select: { questions: true } } }
+  })
+  if (!doc) { throw new Error('No content found for selected category.') }
+
+  const settings: QuizSettings = {
+    questionCount: Math.min(questionCount ?? 10, doc._count.questions),
+    difficultyDistribution: difficulty
+      ? (difficulty === 'EASY' ? { easy: 100, medium: 0, hard: 0 }
+        : difficulty === 'MEDIUM' ? { easy: 0, medium: 100, hard: 0 }
+        : { easy: 0, medium: 0, hard: 100 })
+      : { easy: 40, medium: 40, hard: 20 }
+  }
+
+  return startQuiz({ documentId: doc.id, settings }, context)
 }
