@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
+import { Switch } from '../../components/ui/switch'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Loader2, Database, Users, FileText, Trophy, Brain, RefreshCcw, Medal, TrendingUp, BarChart3, Swords, Undo2 } from 'lucide-react'
@@ -15,6 +16,7 @@ export default function AdminPage() {
   const [isSeedingElo, setIsSeedingElo] = useState(false)
   const [isRebuilding, setIsRebuilding] = useState(false)
   const [seedResult, setSeedResult] = useState<any>(null)
+  const [recentBoost, setRecentBoost] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isResetting, setIsResetting] = useState(false)
   const [isAddingNinjas, setIsAddingNinjas] = useState(false)
@@ -27,7 +29,7 @@ export default function AdminPage() {
       setSeedResult(null)
       
       console.log('🌱 Starting database seeding from admin panel...')
-      const result = await seedDatabase({})
+      const result = await seedDatabase({ recentBoost })
       
       setSeedResult(result)
       console.log('Seeding result:', result)
@@ -146,6 +148,13 @@ export default function AdminPage() {
                   <p className="text-sm text-muted-foreground">
                     Creates realistic data with proper geographic distribution, Elo ratings, and 3 months of activity
                   </p>
+                </div>
+                <div className="flex items-center gap-3 mr-4">
+                  <div className="text-right">
+                    <div className="text-sm font-medium">Recent Activity Boost</div>
+                    <div className="text-xs text-muted-foreground">Bias towards last 30–90 days</div>
+                  </div>
+                  <Switch checked={recentBoost} onCheckedChange={setRecentBoost} />
                 </div>
                 <Button 
                   onClick={handleSeedDatabase}

@@ -494,15 +494,34 @@ export const getOptimalLearningTime: GetOptimalLearningTime<void, any> = async (
 /**
  * v1.7: Get stats overview for the Stats Pill and analytics
  */
-export const getStatsOverview: GetStatsOverview<{ range?: number }, any> = async (args, context) => {
+export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: number }, any> = async (args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'User must be authenticated')
   }
 
   try {
-    const range = args?.range || 30 // Default to 30 days
+    const range = args?.range || 30 // For charts
     const startDate = new Date()
-    startDate.setDate(startDate.getDate() - range)
+    startDate.setHours(0,0,0,0)
+    startDate.setDate(startDate.getDate() - range + 1)
+    const prevStartDate = new Date(startDate)
+    prevStartDate.setDate(prevStartDate.getDate() - range)
+    const prevEndDate = new Date(startDate)
+    prevEndDate.setDate(prevEndDate.getDate() - 1)
+
+    // Overview KPI period window (optional)
+    const periodDays = args?.periodDays
+    const periodStart = periodDays && periodDays > 0 ? new Date(new Date().setHours(0,0,0,0)) : null
+    if (periodStart && periodDays) {
+      periodStart.setDate(periodStart.getDate() - periodDays + 1)
+    }
+    const prevPeriodStart = periodStart ? new Date(periodStart) : null
+    const prevPeriodEnd = periodStart ? new Date(periodStart) : null
+    if (prevPeriodStart && prevPeriodEnd && periodDays) {
+      prevPeriodStart.setDate(prevPeriodStart.getDate() - periodDays)
+      prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1)
+    }
+    const nowTs = new Date()
 
     // Lightweight user fetch for demo assassinsCount via totalBeefWins
     const me = await context.entities.User.findUnique({
@@ -510,22 +529,12 @@ export const getStatsOverview: GetStatsOverview<{ range?: number }, any> = async
       select: { totalBeefWins: true }
     })
 
-    // Get total counts
-    const totalQuizzes = await context.entities.QuizAttempt.count({
-      where: { userId: context.user.id }
-    })
+    // All-time totals (for context)
+    const totalQuizzes = await context.entities.QuizAttempt.count({ where: { userId: context.user.id } })
+    const totalQuestions = await context.entities.UserQuestionHistory.count({ where: { userId: context.user.id } })
 
-    const totalQuestions = await context.entities.UserQuestionHistory.count({
-      where: { userId: context.user.id }
-    })
-
-    // Calculate accuracy
-    const correctAnswers = await context.entities.UserQuestionHistory.count({
-      where: { 
-        userId: context.user.id,
-        wasCorrect: true
-      }
-    })
+    // All-time accuracy
+    const correctAnswers = await context.entities.UserQuestionHistory.count({ where: { userId: context.user.id, wasCorrect: true } })
     const accuracy = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0
 
     // Calculate current streak
@@ -629,16 +638,43 @@ export const getStatsOverview: GetStatsOverview<{ range?: number }, any> = async
       orderBy: { completedAt: 'asc' }
     })
 
-    // Group by date for chart
-    const dailyQuizzes: Record<string, number> = {}
+    // Current period daily counts (fixed length)
+    const dailyQuizzesMap: Record<string, number> = {}
     for (const quiz of quizzesOverTime) {
       if (quiz.completedAt) {
         const dateStr = quiz.completedAt.toISOString().split('T')[0]
-        dailyQuizzes[dateStr] = (dailyQuizzes[dateStr] || 0) + 1
+        dailyQuizzesMap[dateStr] = (dailyQuizzesMap[dateStr] || 0) + 1
       }
     }
+    const quizChartData: { date: string; count: number }[] = []
+    const quizPrevCounts: number[] = []
+    for (let i = 0; i < range; i++) {
+      const d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+      const k = d.toISOString().split('T')[0]
+      quizChartData.push({ date: k, count: dailyQuizzesMap[k] || 0 })
+    }
 
-    const quizChartData = Object.entries(dailyQuizzes).map(([date, count]) => ({ date, count }))
+    // Previous period daily counts aligned by index
+    const prevQuizzes = await context.entities.QuizAttempt.findMany({
+      where: {
+        userId: context.user.id,
+        completedAt: { gte: prevStartDate, lte: prevEndDate }
+      },
+      select: { completedAt: true }
+    })
+    const prevDailyMap: Record<string, number> = {}
+    for (const qa of prevQuizzes) {
+      if (!qa.completedAt) continue
+      const k = qa.completedAt.toISOString().split('T')[0]
+      prevDailyMap[k] = (prevDailyMap[k] || 0) + 1
+    }
+    for (let i = 0; i < range; i++) {
+      const d = new Date(prevStartDate)
+      d.setDate(prevStartDate.getDate() + i)
+      const k = d.toISOString().split('T')[0]
+      quizPrevCounts.push(prevDailyMap[k] || 0)
+    }
 
     // Topics over time (using categories as topics)
     const topicsOverTime = await context.entities.QuizAttempt.findMany({
@@ -656,21 +692,96 @@ export const getStatsOverview: GetStatsOverview<{ range?: number }, any> = async
       orderBy: { completedAt: 'asc' }
     })
 
-    const dailyTopics: Record<string, Set<string>> = {}
+    const dailyTopicsMap: Record<string, Set<string>> = {}
     for (const topic of topicsOverTime) {
       if (topic.completedAt && topic.document.category) {
         const dateStr = topic.completedAt.toISOString().split('T')[0]
-        if (!dailyTopics[dateStr]) dailyTopics[dateStr] = new Set()
-        dailyTopics[dateStr].add(topic.document.category)
+        if (!dailyTopicsMap[dateStr]) dailyTopicsMap[dateStr] = new Set()
+        dailyTopicsMap[dateStr].add(topic.document.category)
+      }
+    }
+    const topicsChartData: { date: string; count: number }[] = []
+    const topicsPrevCounts: number[] = []
+    for (let i = 0; i < range; i++) {
+      const d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+      const k = d.toISOString().split('T')[0]
+      topicsChartData.push({ date: k, count: (dailyTopicsMap[k]?.size || 0) })
+    }
+
+    const prevTopics = await context.entities.QuizAttempt.findMany({
+      where: {
+        userId: context.user.id,
+        completedAt: { gte: prevStartDate, lte: prevEndDate },
+        document: { category: { not: null } }
+      },
+      select: { completedAt: true, document: { select: { category: true } } }
+    })
+    const prevTopicsMap: Record<string, Set<string>> = {}
+    for (const t of prevTopics) {
+      if (!t.completedAt || !t.document.category) continue
+      const k = t.completedAt.toISOString().split('T')[0]
+      if (!prevTopicsMap[k]) prevTopicsMap[k] = new Set()
+      prevTopicsMap[k].add(t.document.category)
+    }
+    for (let i = 0; i < range; i++) {
+      const d = new Date(prevStartDate)
+      d.setDate(prevStartDate.getDate() + i)
+      const k = d.toISOString().split('T')[0]
+      topicsPrevCounts.push(prevTopicsMap[k]?.size || 0)
+    }
+
+    // Build KPI windows if requested
+    let kpi: any = null
+    let kpiPrev: any = null
+    if (periodStart) {
+      const pQuizzes = await context.entities.QuizAttempt.count({ where: { userId: context.user.id, completedAt: { gte: periodStart, lte: nowTs } } })
+      const pQAgg = await context.entities.UserQuestionHistory.aggregate({ where: { userId: context.user.id, createdAt: { gte: periodStart, lte: nowTs } }, _count: { _all: true } })
+      const pCorrect = await context.entities.UserQuestionHistory.count({ where: { userId: context.user.id, createdAt: { gte: periodStart, lte: nowTs }, wasCorrect: true } })
+      const pAcc = pQAgg._count._all > 0 ? (pCorrect / pQAgg._count._all) * 100 : 0
+      const pCats = await context.entities.QuizAttempt.findMany({ where: { userId: context.user.id, completedAt: { gte: periodStart, lte: nowTs }, document: { category: { not: null } } }, select: { document: { select: { category: true } } }, distinct: ['documentId'] })
+      const pBreadth = new Set(pCats.map(c => c.document.category)).size
+      const pAvg = await context.entities.UserQuestionHistory.aggregate({ where: { userId: context.user.id, createdAt: { gte: periodStart, lte: nowTs }, timeToAnswer: { not: null } }, _avg: { timeToAnswer: true } })
+      kpi = { quizzes: pQuizzes, questions: pQAgg._count._all, accuracy: pAcc, breadth: pBreadth, avgTimePerQ: pAvg._avg.timeToAnswer || 0 }
+
+      if (prevPeriodStart && prevPeriodEnd) {
+        const pvQuizzes = await context.entities.QuizAttempt.count({ where: { userId: context.user.id, completedAt: { gte: prevPeriodStart, lte: prevPeriodEnd } } })
+        const pvQAgg = await context.entities.UserQuestionHistory.aggregate({ where: { userId: context.user.id, createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd } }, _count: { _all: true } })
+        const pvCorrect = await context.entities.UserQuestionHistory.count({ where: { userId: context.user.id, createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd }, wasCorrect: true } })
+        const pvAcc = pvQAgg._count._all > 0 ? (pvCorrect / pvQAgg._count._all) * 100 : 0
+        const pvCats = await context.entities.QuizAttempt.findMany({ where: { userId: context.user.id, completedAt: { gte: prevPeriodStart, lte: prevPeriodEnd }, document: { category: { not: null } } }, select: { document: { select: { category: true } } }, distinct: ['documentId'] })
+        const pvBreadth = new Set(pvCats.map(c => c.document.category)).size
+        const pvAvg = await context.entities.UserQuestionHistory.aggregate({ where: { userId: context.user.id, createdAt: { gte: prevPeriodStart, lte: prevPeriodEnd }, timeToAnswer: { not: null } }, _avg: { timeToAnswer: true } })
+        kpiPrev = { quizzes: pvQuizzes, questions: pvQAgg._count._all, accuracy: pvAcc, breadth: pvBreadth, avgTimePerQ: pvAvg._avg.timeToAnswer || 0 }
       }
     }
 
-    const topicsChartData = Object.entries(dailyTopics).map(([date, topicsSet]) => ({ 
-      date, 
-      count: topicsSet.size 
-    }))
+    // Build daily accuracy and QPM series
+    const perDayAccuracy: { date: string; acc: number }[] = []
+    const perDayQpm: { date: string; qpm: number }[] = []
+    for (const item of quizChartData) {
+      const dayStart = new Date(item.date)
+      const dayEnd = new Date(item.date)
+      dayEnd.setDate(dayEnd.getDate() + 1)
+      const answers = await context.entities.UserQuestionHistory.findMany({
+        where: { userId: context.user.id, createdAt: { gte: dayStart, lt: dayEnd } },
+        select: { wasCorrect: true, timeToAnswer: true }
+      })
+      if (answers.length === 0) {
+        perDayAccuracy.push({ date: item.date, acc: 0 })
+        perDayQpm.push({ date: item.date, qpm: 0 })
+      } else {
+        const correct = answers.filter(a => a.wasCorrect).length
+        const acc = Math.round((correct / answers.length) * 100)
+        const avgMs = answers.reduce((s, a) => s + (a.timeToAnswer || 0), 0) / answers.length
+        const qpm = avgMs > 0 ? +(60000 / avgMs).toFixed(2) : 0
+        perDayAccuracy.push({ date: item.date, acc })
+        perDayQpm.push({ date: item.date, qpm })
+      }
+    }
 
     return {
+      periodDays,
       totals: { totalQuizzes, totalQuestions },
       accuracy: Math.round(accuracy * 100) / 100,
       streak,
@@ -679,11 +790,16 @@ export const getStatsOverview: GetStatsOverview<{ range?: number }, any> = async
       breadth,
       depth: Math.round(depth * 100) / 100,
       avgTimePerQ: avgTimePerQ._avg.timeToAnswer || 0,
+      kpi,
+      kpiPrev,
       series: {
         quizzesOverTime: quizChartData,
+        quizzesOverTimePrev: quizPrevCounts,
         topicsOverTime: topicsChartData,
+        topicsOverTimePrev: topicsPrevCounts,
         eloOverTime: [], // TODO: Implement from EloHistory
-        accuracyOverTime: [], // TODO: Implement 
+        accuracyOverTime: perDayAccuracy,
+        qpmOverTime: perDayQpm,
         beefsOverTime: [], // TODO: Implement from BeefChallenge
         assassinsOverTime: [], // TODO: Implement
         activityHeatmap: [], // TODO: Implement

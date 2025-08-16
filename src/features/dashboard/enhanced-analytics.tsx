@@ -1,7 +1,7 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getEloHistory } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getEloHistory, getStatsOverview } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -53,6 +53,7 @@ import {
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
+import { Checkbox } from '../../components/ui/checkbox'
 
 const iconMap: Record<string, any> = {
   'graduation-cap': BookOpen,
@@ -84,6 +85,19 @@ export default function EnhancedAnalytics() {
   const { data: categoryData, isLoading: categoryLoading } = useQuery(getCategoryMetrics)
   const { data: optimalTimeData, isLoading: optimalTimeLoading } = useQuery(getOptimalLearningTime)
   const { data: enriched, isLoading: enrichedLoading } = useQuery(getEnrichedAnalytics)
+  // Overview range switcher (7/30/90) with URL persistence
+  const [searchParams, setSearchParams] = useSearchParams()
+  const chartsRangeParam = Number(searchParams.get('chartsRange') || 30)
+  const chartsRange = [7, 30, 90].includes(chartsRangeParam) ? chartsRangeParam : 30
+  // Overview KPI selector (7d, 30d, 90d, YTD, all)
+  const rawOverviewParam = (searchParams.get('overviewRange') || '30d')
+  const periodParam = rawOverviewParam === '1y' ? 'ytd' : rawOverviewParam
+  const nowForYtd = new Date()
+  const startOfYear = new Date(nowForYtd.getFullYear(), 0, 1)
+  const ytdDays = Math.floor((nowForYtd.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1
+  const periodDaysMap: Record<string, number | null> = { '7d': 7, '30d': 30, '90d': 90, 'ytd': ytdDays, 'all': null }
+  const periodDays = periodDaysMap[periodParam] ?? 30
+  const { data: overview, isLoading: overviewLoading } = useQuery(getStatsOverview, { range: chartsRange, periodDays: periodDays ?? undefined })
   const [leaderboardFilter, setLeaderboardFilter] = React.useState({
     country: 'all',
     county: 'all',
@@ -93,6 +107,11 @@ export default function EnhancedAnalytics() {
   const { data: historyData, isLoading: historyLoading } = useQuery(getQuizHistory)
   const [retakeLoadingId, setRetakeLoadingId] = React.useState<number | null>(null)
   const { data: eloSeries } = useQuery(getEloHistory)
+  // Legend toggles for Statistics charts
+  const [showQuizzesCurrent, setShowQuizzesCurrent] = React.useState(true)
+  const [showQuizzesPrev, setShowQuizzesPrev] = React.useState(true)
+  const [showTopicsCurrent, setShowTopicsCurrent] = React.useState(true)
+  const [showTopicsPrev, setShowTopicsPrev] = React.useState(true)
 
 
   if (!user) {
@@ -103,7 +122,7 @@ export default function EnhancedAnalytics() {
     )
   }
 
-  const isLoading = analyticsLoading || progressLoading || performanceLoading || achievementsLoading || categoryLoading || optimalTimeLoading || enrichedLoading || leaderboardLoading || historyLoading
+  const isLoading = analyticsLoading || progressLoading || performanceLoading || achievementsLoading || categoryLoading || optimalTimeLoading || enrichedLoading || leaderboardLoading || historyLoading || overviewLoading
 
   if (isLoading) {
     return (
@@ -127,14 +146,34 @@ export default function EnhancedAnalytics() {
     ?.slice(0, 5) || []
 
   // Prepare chart data
-  const chartData = progressData?.dailyProgress?.map((day: any, index: number) => ({
-    date: new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    score: day.averageScore || 0,
-    accuracy: day.accuracy || 0,
-    questionsAnswered: day.questionsAnswered || 0,
-    timeSpent: Math.round((day.timeSpent || 0) / 60), // Convert to minutes
-    streak: day.streak || 0
-  })) || []
+  const chartData = (() => {
+    if (overview?.series?.quizzesOverTime) {
+      return overview.series.quizzesOverTime.map((p: any, idx: number) => ({
+        date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        count: p.count,
+        prev: overview.series.quizzesOverTimePrev?.[idx] ?? null
+      }))
+    }
+    return []
+  })()
+
+  const topicsChartData = (() => {
+    if (overview?.series?.topicsOverTime) {
+      return overview.series.topicsOverTime.map((p: any, idx: number) => ({
+        date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        count: p.count,
+        prev: overview.series.topicsOverTimePrev?.[idx] ?? null
+      }))
+    }
+    return []
+  })()
+
+  // KPI delta (charts-only): Quizzes vs previous period
+  const quizzesCurr = chartData.reduce((s: number, p: any) => s + (p.count || 0), 0)
+  const quizzesPrev = chartData.reduce((s: number, p: any) => s + (p.prev || 0), 0)
+  // Colors for deltas
+  const deltaGreen = '#228B22' // forest green
+  const deltaRed = '#800000'   // maroon
 
   const difficultyData = performanceData?.difficultyPerformance?.map((difficulty: any) => ({
     name: difficulty.level,
@@ -173,6 +212,7 @@ export default function EnhancedAnalytics() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6">
+          {/* Range switcher moved into each chart header (charts-only) */}
           {/* Medal Case at top */}
           <Card className="relative overflow-hidden">
             <CardHeader>
@@ -220,6 +260,15 @@ export default function EnhancedAnalytics() {
             </CardContent>
           </Card>
           {/* KPIs */}
+          {/* Overview period selector (applies to KPI deltas only) */}
+          <div className="flex items-center gap-2">
+            {['7d','30d','90d','ytd','all'].map((key) => (
+              <Button key={key} size="sm" variant={periodParam === key ? 'default' : 'outline'} onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('overviewRange', key); return p })}>
+                {key.toUpperCase()}
+              </Button>
+            ))}
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -228,6 +277,15 @@ export default function EnhancedAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{analytics?.totalQuizAttempts || 0}</div>
+                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
+                  const curr = overview.kpi.quizzes || 0
+                  const prev = overview.kpiPrev.quizzes || 0
+                  if (prev === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
+                  const delta = Math.round(((curr - prev) / prev) * 100)
+                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
+                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
+                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
+                })()}
               </CardContent>
             </Card>
 
@@ -238,6 +296,15 @@ export default function EnhancedAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{Math.round(analytics?.accuracyRate || 0)}%</div>
+                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
+                  const curr = overview.kpi.accuracy || 0
+                  const prev = overview.kpiPrev.accuracy || 0
+                  if (prev === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
+                  const delta = Math.round(((curr - prev) / prev) * 100)
+                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
+                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
+                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
+                })()}
               </CardContent>
             </Card>
 
@@ -258,6 +325,15 @@ export default function EnhancedAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{analytics?.totalQuestionsAnswered || 0}</div>
+                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
+                  const curr = overview.kpi.questions || 0
+                  const prev = overview.kpiPrev.questions || 0
+                  if (prev === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
+                  const delta = Math.round(((curr - prev) / prev) * 100)
+                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
+                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
+                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
+                })()}
               </CardContent>
             </Card>
             <Card>
@@ -267,6 +343,15 @@ export default function EnhancedAnalytics() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{enriched?.breadth ?? categoryData?.breadth ?? 0} Topics</div>
+                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
+                  const curr = overview.kpi.breadth || 0
+                  const prev = overview.kpiPrev.breadth || 0
+                  if (prev === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
+                  const delta = Math.round(((curr - prev) / prev) * 100)
+                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
+                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
+                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
+                })()}
               </CardContent>
             </Card>
             <Card>
@@ -284,53 +369,27 @@ export default function EnhancedAnalytics() {
                 <Clock className="h-4 w-4 text-teal-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{(enriched?.averageLearningSpeed ?? analytics?.averageLearningSpeed ?? 0).toFixed ? (enriched?.averageLearningSpeed ?? analytics?.averageLearningSpeed ?? 0).toFixed(2) : (enriched?.averageLearningSpeed ?? analytics?.averageLearningSpeed ?? 0)}s / Q</div>
+                {(() => {
+                  const avgMs: number = (enriched?.averageLearningSpeed ?? analytics?.averageLearningSpeed ?? 0) as number
+                  const qpm = avgMs > 0 ? 60000 / avgMs : 0
+                  return <div className="text-2xl font-bold">{qpm.toFixed(1)} Q/Min</div>
+                })()}
+                {overview?.kpi && overview?.kpiPrev && periodParam !== 'all' && (() => {
+                  const currMs: number = (overview.kpi.avgTimePerQ || 0) as number
+                  const prevMs: number = (overview.kpiPrev.avgTimePerQ || 0) as number
+                  const currQpm = currMs > 0 ? 60000 / currMs : 0
+                  const prevQpm = prevMs > 0 ? 60000 / prevMs : 0
+                  if (prevQpm === 0) return <div className="text-xs mt-1 text-muted-foreground">--</div>
+                  const delta = Math.round(((currQpm - prevQpm) / prevQpm) * 100)
+                  const color = delta > 0 ? deltaGreen : delta < 0 ? deltaRed : undefined
+                  const content = delta === 0 ? '--' : `${delta > 0 ? '▲' : '▼'} ${Math.abs(delta)}% vs prev ${periodParam}`
+                  return <div className="text-xs mt-1" style={{ color: color }}>{content}</div>
+                })()}
               </CardContent>
             </Card>
           </div>
 
-          {/* Quizzes Over Time / Topics Over Time */}
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Quizzes Over Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="score" stroke="#3B82F6" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Topics Over Time</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="topicsGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.05}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area type="monotone" dataKey="questionsAnswered" stroke="#10B981" fill="url(#topicsGrad)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Charts moved to Statistics tab */}
 
           {/* Achievements Section: Progress (left) • Gallery (right) */}
           <div className="grid gap-6 lg:grid-cols-2">
@@ -463,16 +522,187 @@ export default function EnhancedAnalytics() {
 
         {/* Statistics Tab */}
         <TabsContent value="statistics" className="space-y-6">
-          {/* (Category Depth, Optimal Learning, Medal Case moved to Overview tab) */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Statistics</CardTitle>
-              <CardDescription>Drill-down stats and trends</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">More detailed analytics will appear here.</p>
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Quizzes Over Time</CardTitle>
+                    <CardDescription>Last {chartsRange} days</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="hidden sm:flex items-center gap-3 mr-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={showQuizzesCurrent} onCheckedChange={(v) => setShowQuizzesCurrent(v === true)} />
+                        Quizzes
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={showQuizzesPrev} onCheckedChange={(v) => setShowQuizzesPrev(v === true)} />
+                        Previous
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {[7, 30, 90].map((r) => (
+                        <Button
+                          key={r}
+                          size="sm"
+                          variant={chartsRange === r ? 'default' : 'outline'}
+                          onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
+                        >
+                          {r}d
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    {showQuizzesCurrent && (
+                      <Line type="monotone" dataKey="count" name="Quizzes" stroke="#3B82F6" strokeWidth={2} dot={false} />
+                    )}
+                    {showQuizzesPrev && (
+                      <Line type="monotone" dataKey="prev" name="Previous" stroke="#9CA3AF" strokeDasharray="4 4" dot={false} />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Topics Over Time</CardTitle>
+                    <CardDescription>Last {chartsRange} days</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="hidden sm:flex items-center gap-3 mr-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={showTopicsCurrent} onCheckedChange={(v) => setShowTopicsCurrent(v === true)} />
+                        Topics
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={showTopicsPrev} onCheckedChange={(v) => setShowTopicsPrev(v === true)} />
+                        Previous
+                      </label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {[7, 30, 90].map((r) => (
+                        <Button
+                          key={r}
+                          size="sm"
+                          variant={chartsRange === r ? 'default' : 'outline'}
+                          onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
+                        >
+                          {r}d
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {topicsChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={topicsChartData}>
+                      <defs>
+                        <linearGradient id="topicsGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#10B981" stopOpacity={0.05}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" />
+                      <YAxis />
+                      <Tooltip />
+                      {showTopicsCurrent && (
+                        <Area type="monotone" dataKey="count" name="Topics" stroke="#10B981" fill="url(#topicsGrad)" />
+                      )}
+                      {showTopicsPrev && (
+                        <Line type="monotone" dataKey="prev" name="Previous" stroke="#9CA3AF" strokeDasharray="4 4" dot={false} />
+                      )}
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-center text-muted-foreground py-12">
+                    No topic activity in the selected range.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Accuracy Over Time</CardTitle>
+                    <CardDescription>Rolling daily accuracy (past {chartsRange} days)</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {[7, 30, 90].map((r) => (
+                      <Button
+                        key={r}
+                        size="sm"
+                        variant={chartsRange === r ? 'default' : 'outline'}
+                        onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
+                      >
+                        {r}d
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={(overview?.series?.accuracyOverTime || [])}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis domain={[0,100]} />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="acc" name="Accuracy %" stroke="#16A34A" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Questions Per Minute</CardTitle>
+                    <CardDescription>Estimated from average time per question</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {[7, 30, 90].map((r) => (
+                      <Button
+                        key={r}
+                        size="sm"
+                        variant={chartsRange === r ? 'default' : 'outline'}
+                        onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
+                      >
+                        {r}d
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={(overview?.series?.qpmOverTime || [])}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="qpm" name="Q/Min" stroke="#0EA5E9" dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Leaderboards Tab */}

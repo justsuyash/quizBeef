@@ -4,15 +4,16 @@ import type { SeedDatabase, BackfillMyAccount, GrantDemoAchievementsAll, SeedElo
 import type { ResetMySeededData, AddRandomNinjas } from 'wasp/server/operations'
 import type { AchievementCategory, AchievementRarity, ProfileType, AccountType, QuizMode, Difficulty, SourceType } from '@prisma/client'
 
-export const seedDatabase: SeedDatabase<{}, { success: boolean; message: string; stats?: any }> = async (_args, context) => {
+export const seedDatabase: SeedDatabase<{ recentBoost?: boolean }, { success: boolean; message: string; stats?: any }> = async (args, context) => {
   if (!context.user) throw new HttpError(401, 'You must be logged in to seed the database')
   const nodeEnv = process.env.NODE_ENV || 'development'
   if (nodeEnv === 'production') throw new HttpError(403, 'Database seeding is not allowed in production environment')
 
   const prisma = context.entities
+  const recentBoost = args?.recentBoost ?? true
 
   const TOTAL_USERS = 500
-  const DAYS_OF_HISTORY = 90
+  const DAYS_OF_HISTORY = 365
   const CATEGORIES = ['Mathematics','Science','History','Literature','Geography','Physics','Chemistry','Biology','Computer Science','Philosophy','Economics','Psychology','Art','Music','Sports','Politics']
   const POPULAR_COUNTRIES = [
     { country: 'United States', cities: ['New York','Los Angeles','Chicago','Houston','Phoenix'] },
@@ -104,7 +105,21 @@ export const seedDatabase: SeedDatabase<{}, { success: boolean; message: string;
     const perWeek = 3
     const total = Math.floor(perWeek * (DAYS_OF_HISTORY / 7))
     for (let k = 0; k < total; k++) {
-      const quizDate = new Date(now.getTime() - faker.number.int({ min: 0, max: DAYS_OF_HISTORY }) * 24 * 60 * 60 * 1000)
+      // Optional recency bias for more lively deltas
+      let dayOffset: number
+      if (recentBoost) {
+        const roll = Math.random()
+        if (roll < 0.55) {
+          dayOffset = faker.number.int({ min: 0, max: Math.min(30, DAYS_OF_HISTORY) })
+        } else if (roll < 0.85) {
+          dayOffset = faker.number.int({ min: 31, max: Math.min(90, DAYS_OF_HISTORY) })
+        } else {
+          dayOffset = faker.number.int({ min: 91, max: DAYS_OF_HISTORY })
+        }
+      } else {
+        dayOffset = faker.number.int({ min: 0, max: DAYS_OF_HISTORY })
+      }
+      const quizDate = new Date(now.getTime() - dayOffset * 24 * 60 * 60 * 1000)
       const document = faker.helpers.arrayElement(userDocs)
       const questions = await prisma.Question.findMany({ where: { documentId: document.id }, include: { answers: true } })
       if (questions.length === 0) continue
