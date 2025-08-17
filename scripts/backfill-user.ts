@@ -23,7 +23,7 @@ async function main() {
       city,
       country,
       county: 'San Francisco County',
-      eloRating: user.eloRating ?? 1200,
+      qlo: user.qlo ?? 100,
       isPublicProfile: true
     }
   })
@@ -136,16 +136,16 @@ async function main() {
     })
   }
 
-  // Seed EloHistory for this user
-  const existingElo = await prisma.eloHistory.count({ where: { userId: user.id } })
-  if (existingElo === 0) {
-    let elo = (await prisma.user.findUnique({ where: { id: user.id } }))?.eloRating ?? 1200
+  // Seed QloHistory for this user
+  const existingQlo = await (prisma as any).qloHistory.count({ where: { userId: user.id } })
+  if (existingQlo === 0) {
+    let qlo = (await prisma.user.findUnique({ where: { id: user.id } }))?.qlo ?? 100
     for (let i = 15; i >= 1; i--) {
       const changedAt = new Date(now.getTime() - i * 2 * 24 * 60 * 60 * 1000)
-      elo = Math.max(900, Math.min(2200, elo + Math.floor((Math.random()-0.5)*40)))
-      await prisma.eloHistory.create({ data: { userId: user.id, elo, changedAt, source: 'backfill' } })
+      qlo = Math.max(0, qlo + Math.floor((Math.random()-0.5)*40))
+      await (prisma as any).qloHistory.create({ data: { userId: user.id, qlo, changedAt, source: 'backfill' } })
     }
-    await prisma.eloHistory.create({ data: { userId: user.id, elo, changedAt: now, source: 'backfill' } })
+    await (prisma as any).qloHistory.create({ data: { userId: user.id, qlo, changedAt: now, source: 'backfill' } })
   }
 
   console.log(`✅ Backfilled user ${email}. Visit /analytics and /analytics?tab=leaderboards`)

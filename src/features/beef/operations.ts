@@ -555,7 +555,7 @@ async function maybeFinalizeBeefAndGrantAchievements(challengeId: number, contex
       triggerData: { challengeId, position: 1, finalScore: winner.finalScore }
     }, context as any)
 
-    // Phase 1.4: Update Elo ratings for winner vs next best (simple pair)
+    // Phase 1.4: Update QLO ratings for winner vs next best (simple pair)
     if (participants.length >= 2) {
       try {
         const { updateQloRatings } = await import('./ratings')

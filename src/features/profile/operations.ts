@@ -445,7 +445,8 @@ export const getLeaderboard: GetLeaderboard<{
         longestWinStreak: true,
         joinedAt: true,
         favoriteSubject: true,
-        // qlo: true, // temporarily omitted until all views updated
+        qlo: true,
+        avatarUrl: true,
         country: true,
         county: true,
         city: true,
@@ -467,7 +468,8 @@ export const getLeaderboard: GetLeaderboard<{
         longestWinStreak: true,
         joinedAt: true,
         favoriteSubject: true,
-        // qlo: true, // temporarily omitted until all views updated
+        qlo: true,
+        avatarUrl: true,
         country: true,
         county: true,
         city: true,

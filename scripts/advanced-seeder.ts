@@ -43,6 +43,7 @@ async function main() {
     
     // Still run streak/group seeding and other functions for existing users
     const allUsers = await prisma.user.findMany()
+    await seedRivals(allUsers)
     await seedRandomStreaks(allUsers)
     await seedLeaderboardGroups(allUsers)
     return
@@ -70,6 +71,9 @@ async function main() {
   console.log(`🥇 Updating QLO and user stats...`)
   await updateUserStats(users)
 
+  console.log(`🤝 Seeding Rivals (beef wins) distribution...`)
+  await seedRivals(users)
+
   console.log(`🏅 Designating top performers with high QLO & rare achievements...`)
   await designateTopPerformers(users)
 
@@ -87,7 +91,7 @@ async function main() {
   console.log(`   - ${documents.length} documents with questions`)
   console.log(`   - 90 days of quiz history per user`)
   console.log(`   - Achievements awarded based on performance`)
-  console.log(`   - Realistic QLO distribution`)
+  console.log(`   - Realistic QLO distribution & rivals (beef wins)`)
   console.log(`   - Leaderboard groups with 10-50 members each`)
 }
 
@@ -182,7 +186,7 @@ async function createUsers(): Promise<any[]> {
     const locationData = faker.helpers.arrayElement(POPULAR_COUNTRIES)
     const city = faker.helpers.arrayElement(locationData.cities)
     
-    // Create realistic Elo distribution (bell curve around 1200)
+    // Create realistic QLO distribution (default around 100 + light spread)
     // Start most users near the global default (100), with small spread
     const qlo = Math.max(100, Math.round(100 + faker.number.int({ min: 0, max: 300 })))
     
@@ -410,7 +414,7 @@ async function createQuizHistories(users: any[], documents: any[]) {
         faker.number.int({ min: Math.min(5, questions.length), max: Math.min(15, questions.length) })
       )
       
-      // User skill affects performance (based on Elo rating)
+      // User skill affects performance (based on QLO rating)
       const skillLevel = Math.max(0, Math.min(1, (user.qlo - 100) / 1000)) // 0-1 scale
       const baseAccuracy = Math.max(0.3, Math.min(0.95, 0.5 + skillLevel * 0.4))
       
@@ -753,9 +757,29 @@ async function updateUserStats(users: any[]) {
   console.log('   ✅ Updated user statistics')
 }
 
-// Promote a subset of users to "top performers" with high Elo and rare achievements
+// Seed "Rivals" by distributing beef wins to create realistic win counts.
+async function seedRivals(users: any[]) {
+  // Apply a light distribution: most users 0-5 wins, some 5-20, a few 20-60
+  for (const user of users) {
+    const r = Math.random()
+    let wins = 0
+    if (r < 0.70) wins = Math.floor(Math.random() * 6) // 0-5
+    else if (r < 0.95) wins = 5 + Math.floor(Math.random() * 16) // 5-20
+    else wins = 20 + Math.floor(Math.random() * 41) // 20-60
+
+    if (wins > 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { totalBeefWins: wins }
+      })
+    }
+  }
+  console.log('   ✅ Seeded Rivals (totalBeefWins) distribution')
+}
+
+// Promote a subset of users to "top performers" with high QLO and rare achievements
 async function designateTopPerformers(users: any[]) {
-  // Pick top 15 by current Elo, or random if Elo ties
+  // Pick top 15 by current QLO, or random if ties
   const sorted = [...users].sort((a, b) => (b.qlo ?? 0) - (a.qlo ?? 0))
   const topCount = Math.min(15, sorted.length)
   const topUsers = sorted.slice(0, topCount)
@@ -770,13 +794,13 @@ async function designateTopPerformers(users: any[]) {
   for (let i = 0; i < topUsers.length; i++) {
     const u = topUsers[i]
 
-    // Assign a strong Elo distribution 1800-2200 with slight variance
-    const boostedElo = 1500 + Math.floor((topCount - i) * 10) + Math.floor(Math.random() * 500)
+    // Assign a strong QLO distribution 1800-2200 with slight variance
+    const boostedQlo = 1500 + Math.floor((topCount - i) * 10) + Math.floor(Math.random() * 500)
 
     await prisma.user.update({
       where: { id: u.id },
       data: {
-        qlo: boostedElo,
+        qlo: boostedQlo,
         totalBeefWins: { increment: Math.floor(10 + Math.random() * 40) },
         longestWinStreak: { increment: Math.floor(3 + Math.random() * 10) }
       }
@@ -823,21 +847,21 @@ async function seedQloHistory(users: any[]) {
   // Create a small time-series for each user (~15-25 points over last 90 days)
   for (let i = 0; i < users.length; i++) {
     const u = users[i]
-    const currentElo = u.qlo ?? 500
+    const currentQlo = u.qlo ?? 500
     const points = 15 + Math.floor(Math.random() * 10)
-    let elo = Math.max(0, currentElo - 150 + Math.floor(Math.random() * 100))
+    let qlo = Math.max(0, currentQlo - 150 + Math.floor(Math.random() * 100))
 
     for (let p = points; p >= 1; p--) {
       const daysAgo = Math.floor((90 / points) * p) + Math.floor(Math.random() * 2)
       const changedAt = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000)
       // Random walk
       const delta = Math.floor((Math.random() - 0.5) * 30)
-      elo = Math.max(0, elo + delta)
+      qlo = Math.max(0, qlo + delta)
 
       await (prisma as any).qloHistory.create({
         data: {
           userId: u.id,
-          qlo: elo,
+          qlo,
           changedAt,
           source: 'seed',
           note: 'Synthetic history'
@@ -849,7 +873,7 @@ async function seedQloHistory(users: any[]) {
     await (prisma as any).qloHistory.create({
       data: {
         userId: u.id,
-        qlo: currentElo,
+        qlo: currentQlo,
         changedAt: now,
         source: 'seed',
         note: 'Current'

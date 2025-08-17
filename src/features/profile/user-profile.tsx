@@ -49,7 +49,7 @@ interface UserProfile {
   location?: string
   website?: string
   avatarUrl?: string  // v1.7: Added for profile pictures
-  eloRating?: number  // v1.7: Added for Elo rating system
+  qlo?: number  // v1.7: QLO rating system
   joinedAt: string
   totalScore: number
   totalQuizzes: number
@@ -296,9 +296,9 @@ export default function UserProfilePage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Elo</p>
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">QLO</p>
                   <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                    {profileData.eloRating || 1200}
+                    {profileData.qlo ?? 100}
                   </p>
                 </div>
                 <Shield className="h-8 w-8 text-blue-500" />

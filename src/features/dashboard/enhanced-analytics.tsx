@@ -851,7 +851,27 @@ export default function EnhancedAnalytics() {
                       )}
                       {/* Top users average (simple average across series per timestamp if aligned) */}
                       {(() => {
-                        return null
+                        if (!qloSeries?.series || !qloSeries.users?.length) return null
+                        const allTs = new Set<number>()
+                        Object.values(qloSeries.series).forEach((arr: any) => {
+                          (arr as any[]).forEach((p: any) => allTs.add(new Date(p.t).getTime()))
+                        })
+                        const sortedTs = Array.from(allTs).sort((a, b) => a - b)
+                        const avgSeries = sortedTs.map((ts) => {
+                          let sum = 0
+                          let count = 0
+                          for (const arr of Object.values(qloSeries.series) as any[]) {
+                            const prior = (arr as any[]).filter((p: any) => new Date(p.t).getTime() <= ts)
+                            if (prior.length) {
+                              const val = prior[prior.length - 1].qlo
+                              if (typeof val === 'number') { sum += val; count += 1 }
+                            }
+                          }
+                          return { t: ts, qlo: count ? sum / count : null }
+                        }).filter((p: any) => p.qlo !== null)
+                        return (
+                          <Line dataKey="qlo" data={avgSeries as any} name="Top Avg" stroke="#9CA3AF" strokeDasharray="4 4" dot={false} />
+                        )
                       })()}
                     </LineChart>
                   </ResponsiveContainer>
@@ -860,32 +880,50 @@ export default function EnhancedAnalytics() {
             <Card>
               <CardHeader>
                 <CardTitle>Top Learners</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {(leaderboardData || []).slice(0, 10).map((u: any, i: number) => (
-                  <div key={u.id ?? i} className="flex items-center justify-between border rounded-md px-3 py-2">
-                    <div className="flex items-center gap-3">
-                      <span className="w-6 text-center font-semibold">{i + 1}</span>
-                      {u.id ? (
-                        <span
-                          onClick={() => navigate(`/user/${u.id}`)}
-                          className="font-medium hover:underline cursor-pointer"
-                        >
-                          {u.handle ?? `User ${i + 1}`}
-                        </span>
-                      ) : (
-                        <span className="font-medium">{u.handle ?? `User ${i + 1}`}</span>
-                      )}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {u.totalScore ?? 0} pts • {u.totalQuizzes ?? 0} quizzes
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Rank</TableHead>
+                        <TableHead>Avatar</TableHead>
+                        <TableHead>Handle</TableHead>
+                        <TableHead>QLO</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(leaderboardData || []).slice(0, 10).map((u: any, i: number) => (
+                        <TableRow key={u.id ?? i}>
+                          <TableCell className="font-medium">{i + 1}</TableCell>
+                          <TableCell>
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={u.avatarUrl || undefined} />
+                              <AvatarFallback>{(u.handle || 'U').toString().slice(0,2).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                          </TableCell>
+                          <TableCell>
+                            {u.id ? (
+                              <span onClick={() => navigate(`/user/${u.id}`)} className="hover:underline cursor-pointer">@{u.handle ?? `user${i+1}`}</span>
+                            ) : (
+                              <span>@{u.handle ?? `user${i+1}`}</span>
+                            )}
+                          </TableCell>
+                          <TableCell>{u.qlo ?? 0}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center gap-2 justify-end">
+                              <Button variant="outline" size="sm" onClick={() => navigate(`/user/${u.id}`)}>View Profile</Button>
+                              <Button size="sm" onClick={() => navigate('/beef')}>Challenge</Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
             {/* Group Leaderboard (9+1) */}
             <GroupLeaderboardCard />
          </div>

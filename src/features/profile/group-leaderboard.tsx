@@ -12,7 +12,7 @@ interface GroupLeaderboardUser {
   averageAccuracy?: number
   winStreak: number
   longestWinStreak: number
-  eloRating: number
+  qlo: number
   avatarUrl?: string
   rank: number
   displayIndex: number

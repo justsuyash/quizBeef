@@ -566,7 +566,7 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
     }
     const nowTs = new Date()
 
-    // Lightweight user fetch for demo assassinsCount via totalBeefWins
+    // Lightweight user fetch for demo rivalsCount via totalBeefWins
     const meWins = await context.entities.User.findUnique({
       where: { id: context.user.id },
       select: { totalBeefWins: true }
@@ -598,8 +598,8 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
       }
     })
 
-    // Calculate assassins count (demo): reuse totalBeefWins as a stand-in until rivalry is implemented
-    const assassinsCount = meWins?.totalBeefWins ?? 0
+    // Calculate rivals count (demo): reuse totalBeefWins as a stand-in until rivalry is implemented
+    const rivalsCount = meWins?.totalBeefWins ?? 0
 
     // Category breadth
     const categories = await context.entities.QuizAttempt.findMany({
@@ -813,7 +813,7 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
       accuracy: Math.round(accuracy * 100) / 100,
       streak,
       medalsCount,
-      assassinsCount,
+      rivalsCount,
       breadth,
       depth: Math.round(depth * 100) / 100,
       avgTimePerQ: avgTimePerQ._avg.timeToAnswer || 0,
@@ -828,11 +828,11 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
         accuracyOverTime: perDayAccuracy,
         qpmOverTime: perDayQpm,
         beefsOverTime: [], // TODO: Implement from BeefChallenge
-        assassinsOverTime: [], // TODO: Implement
+        rivalsOverTime: [], // TODO: Implement
         activityHeatmap: [], // TODO: Implement
         categoryDonuts: [], // TODO: Implement
         subCategoryBars: [], // TODO: Implement
-        assassinsDonut: [] // TODO: Implement
+        rivalsDonut: [] // TODO: Implement
       }
     }
   } catch (error) {

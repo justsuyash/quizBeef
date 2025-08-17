@@ -604,8 +604,8 @@ action grantDemoAchievementsAll {
   entities: [User, Achievement, UserAchievement]
 }
 
-action seedEloHistoryAll {
-  fn: import { seedEloHistoryAll } from "@src/features/admin/operations",
+action seedQloHistoryAll {
+  fn: import { seedQloHistoryAll } from "@src/features/admin/operations",
   entities: [User, QloHistory]
 }
 

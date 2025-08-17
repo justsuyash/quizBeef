@@ -5,7 +5,7 @@ import { Switch } from '../../components/ui/switch'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Loader2, Database, Users, FileText, Trophy, Brain, RefreshCcw, Medal, TrendingUp, BarChart3, Swords, Undo2 } from 'lucide-react'
-import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedEloHistoryAll, rebuildLeaderboardStatsAll, getCurrentUser, resetMySeededData, addRandomNinjas } from 'wasp/client/operations'
+import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedQloHistoryAll, rebuildLeaderboardStatsAll, getCurrentUser, resetMySeededData, addRandomNinjas } from 'wasp/client/operations'
 import { useQuery } from 'wasp/client/operations'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 
@@ -13,7 +13,7 @@ export default function AdminPage() {
   const [isSeeding, setIsSeeding] = useState(false)
   const [isBackfilling, setIsBackfilling] = useState(false)
   const [isGranting, setIsGranting] = useState(false)
-  const [isSeedingElo, setIsSeedingElo] = useState(false)
+  const [isSeedingQlo, setIsSeedingQlo] = useState(false)
   const [isRebuilding, setIsRebuilding] = useState(false)
   const [seedResult, setSeedResult] = useState<any>(null)
   const [recentBoost, setRecentBoost] = useState(true)
@@ -71,17 +71,17 @@ export default function AdminPage() {
     }
   }
 
-  const handleSeedEloAll = async () => {
+  const handleSeedQloAll = async () => {
     try {
-      setIsSeedingElo(true)
+      setIsSeedingQlo(true)
       setError(null)
-      await seedEloHistoryAll({})
+      await seedQloHistoryAll({})
       alert('Seeded QLO history for all users')
     } catch (err: any) {
       console.error('Seed QLO error:', err)
       setError(err.message || 'Failed to seed QLO history')
     } finally {
-      setIsSeedingElo(false)
+      setIsSeedingQlo(false)
     }
   }
 
@@ -223,8 +223,8 @@ export default function AdminPage() {
                 </>
               )}
             </Button>
-            <Button variant="outline" onClick={handleSeedEloAll} disabled={isSeedingElo}>
-              {isSeedingElo ? (
+            <Button variant="outline" onClick={handleSeedQloAll} disabled={isSeedingQlo}>
+              {isSeedingQlo ? (
                 'Seeding…'
               ) : (
                 <>
@@ -328,7 +328,7 @@ export default function AdminPage() {
               <strong>Safe Operation:</strong> The seeder checks if data already exists and won't duplicate records. It's idempotent and safe to run multiple times.
             </div>
             <div>
-              <strong>Realistic Data:</strong> Generated users have proper geographic distribution across 10 countries, realistic Elo ratings (bell curve around 1200), and varied activity patterns.
+              <strong>Realistic Data:</strong> Generated users have proper geographic distribution across 10 countries, realistic QLO distribution (default ~100 start), and varied activity patterns.
             </div>
             <div>
               <strong>Performance:</strong> Creates 500 users with 90 days of quiz history each. This may take 2-5 minutes depending on your system.

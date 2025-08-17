@@ -63,7 +63,7 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
     streak: false,
     elo: false,
     medals: false,
-    assassins: false
+    rivals: false
   })
 
   const { data: stats, isLoading, error, refetch } = useQuery(getStatsOverview, { range: 30 })
@@ -89,7 +89,7 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
             const message = payload.type === 'achievement_granted' ? 'New achievement unlocked!' : payload.type === 'quiz_completed' ? 'Quiz completed — stats updated.' : 'Stats updated.'
             toast({ description: message })
           } catch {}
-          setPulseFlags({ streak: false, elo: false, medals: false, assassins: false })
+          setPulseFlags({ streak: false, elo: false, medals: false, rivals: false })
         }, 300)
       } catch {}
     }
@@ -111,14 +111,14 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
         streak: stats.streak !== previousStats.streak,
         elo: false, // TODO: Compare elo when implemented
         medals: stats.medalsCount !== previousStats.medalsCount,
-        assassins: stats.assassinsCount !== previousStats.assassinsCount
+        rivals: stats.rivalsCount !== previousStats.rivalsCount
       }
 
       setPulseFlags(newPulseFlags)
 
       // Reset pulse flags after animation
       const timeout = setTimeout(() => {
-        setPulseFlags({ streak: false, elo: false, medals: false, assassins: false })
+        setPulseFlags({ streak: false, elo: false, medals: false, rivals: false })
       }, 600)
 
       return () => clearTimeout(timeout)
@@ -158,7 +158,7 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
     return null
   }
 
-  // Placeholder for Elo; values not shown in icon-only pill
+  // Placeholder for QLO; values not shown in icon-only pill
 
   // Current QLO from server
   const currentQlo = qloSeries?.currentQlo ?? 0
@@ -177,7 +177,7 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
         <StatStack icon="🔥" value={stats.streak || 0} bubbleClasses={stats.streak > 0 ? 'bg-orange-100' : 'bg-gray-100'} pulse={pulseFlags.streak} layout="inside" />
         <StatStack icon="♟" value={currentQlo} bubbleClasses="bg-blue-100" pulse={pulseFlags.elo} layout="inside" className="px-3 sm:px-3.5" />
         <StatStack icon="🏅" value={stats.medalsCount || 0} bubbleClasses={stats.medalsCount > 0 ? 'bg-yellow-100' : 'bg-gray-100'} pulse={pulseFlags.medals} layout="inside" />
-        <StatStack icon="🥷" value={stats.assassinsCount || 0} bubbleClasses={stats.assassinsCount > 0 ? 'bg-red-100' : 'bg-gray-100'} pulse={pulseFlags.assassins} layout="inside" />
+        <StatStack icon="🥷" value={stats.rivalsCount || 0} bubbleClasses={stats.rivalsCount > 0 ? 'bg-red-100' : 'bg-gray-100'} pulse={pulseFlags.rivals} layout="inside" />
       </div>
 
       {/* Avatar on the right - largest pill */}

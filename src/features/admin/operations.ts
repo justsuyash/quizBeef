@@ -1,6 +1,6 @@
 import { HttpError } from 'wasp/server'
 import { faker } from '@faker-js/faker'
-import type { SeedDatabase, BackfillMyAccount, GrantDemoAchievementsAll, SeedEloHistoryAll, RebuildLeaderboardStatsAll } from 'wasp/server/operations'
+import type { SeedDatabase, BackfillMyAccount, GrantDemoAchievementsAll, SeedQloHistoryAll, RebuildLeaderboardStatsAll } from 'wasp/server/operations'
 import type { ResetMySeededData, AddRandomNinjas } from 'wasp/server/operations'
 import type { AchievementCategory, AchievementRarity, ProfileType, AccountType, QuizMode, Difficulty, SourceType } from '@prisma/client'
 
@@ -307,7 +307,7 @@ export const grantDemoAchievementsAll: GrantDemoAchievementsAll<{}, { success: b
   return { success: true, count: granted }
 }
 
-export const seedEloHistoryAll: SeedEloHistoryAll<{}, { success: boolean }> = async (_args, context) => {
+export const seedQloHistoryAll: SeedQloHistoryAll<{}, { success: boolean }> = async (_args, context) => {
   if (!context.user) throw new HttpError(401, 'Must be logged in')
   const prisma = context.entities
   const users = await prisma.User.findMany({ select: { id: true, qlo: true } })
@@ -358,7 +358,7 @@ export const resetMySeededData: ResetMySeededData<{}, { success: boolean }> = as
   return { success: true }
 }
 
-// Fun: add random number of ninjas to current user (assassins count stand-in)
+// Fun: add random number of ninjas to current user (rivals count stand-in)
 export const addRandomNinjas: AddRandomNinjas<{}, { success: boolean; count: number }> = async (_args, context) => {
   if (!context.user) throw new HttpError(401, 'Must be logged in')
   const count = Math.floor(Math.random() * 20) + 1
