@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'wasp/client/router';
 import { useNavigate } from 'react-router-dom';
 import { useAction, useQuery } from 'wasp/client/operations';
-import { startGameMode, seedQuizData, getQuizHistory } from 'wasp/client/operations';
+import { startGameMode, seedQuizData, getQuizHistory, getStatsOverview } from 'wasp/client/operations';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
@@ -41,6 +41,11 @@ export default function PlayPage() {
   
   // Fetch real quiz history for recent activity
   const { data: quizHistory, isLoading: historyLoading } = useQuery(getQuizHistory, {}, {
+    enabled: !!user
+  });
+
+  // Fetch overview stats to show accurate streak in quick stats
+  const { data: statsOverview } = useQuery(getStatsOverview, { range: 30 }, {
     enabled: !!user
   });
 
@@ -255,7 +260,34 @@ export default function PlayPage() {
         transition={{ duration: 0.6, delay: 1.0 }}
         className="mb-12 grid grid-cols-2 md:grid-cols-4 gap-4"
       >
-        {quickStats.map((stat, index) => (
+        {(
+          [
+            {
+              label: 'Your Streak',
+              value: String(statsOverview?.streak ?? 0),
+              icon: Flame,
+              color: 'text-orange-500'
+            },
+            {
+              label: 'Global Rank',
+              value: '#42',
+              icon: Trophy,
+              color: 'text-yellow-500'
+            },
+            {
+              label: 'Total Score',
+              value: '2.4K',
+              icon: Award,
+              color: 'text-blue-500'
+            },
+            {
+              label: 'Completed',
+              value: '134',
+              icon: Target,
+              color: 'text-green-500'
+            }
+          ] as const
+        ).map((stat, index) => (
           <Card key={stat.label} className="p-4 text-center hover:shadow-md transition-shadow rounded-xl">
             <CardContent className="space-y-2">
               <stat.icon className={cn("w-8 h-8 mx-auto", stat.color)} />

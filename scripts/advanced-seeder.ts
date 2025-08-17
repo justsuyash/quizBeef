@@ -5,8 +5,13 @@ import type { QuizMode, Difficulty, QuestionType, SourceType, ProfileType, Accou
 const prisma = new PrismaClient()
 
 // Configuration
-const TOTAL_USERS = 500 // Create many users for realistic leaderboards
-const DAYS_OF_HISTORY = 90 // 3 months of realistic activity
+const TOTAL_USERS = 2000 // Create many users for realistic leaderboards
+const DAYS_OF_HISTORY = 90 // 3 months of realistic activity (general activity)
+// Streak seeding configuration (kept efficient by applying to a subset of users)
+const MAX_STREAK_YEARS = 5
+const MAX_STREAK_DAYS = MAX_STREAK_YEARS * 365
+const STREAK_USERS_PERCENT = 0.05 // 5% of users get a long random streak
+const MIN_STREAK_DAYS = 7
 const CATEGORIES = [
   'Mathematics', 'Science', 'History', 'Literature', 'Geography', 
   'Physics', 'Chemistry', 'Biology', 'Computer Science', 'Philosophy',
@@ -30,11 +35,16 @@ const POPULAR_COUNTRIES = [
 async function main() {
   console.log('🚀 Starting comprehensive database seeding...')
   
-  // Check if already seeded
+  // Check if already seeded - allow continuous seeding up to TOTAL_USERS
   const existingUserCount = await prisma.user.count()
-  if (existingUserCount >= TOTAL_USERS / 2) {
-    console.log(`⚠️  Database already has ${existingUserCount} users. Skipping seeding to avoid duplicates.`)
-    console.log('   To re-seed, clear the database first.')
+  if (existingUserCount >= TOTAL_USERS) {
+    console.log(`⚠️  Database already has ${existingUserCount} users (target: ${TOTAL_USERS}). Skipping user creation.`)
+    console.log('   Proceeding with group seeding and other enhancements...')
+    
+    // Still run streak/group seeding and other functions for existing users
+    const allUsers = await prisma.user.findMany()
+    await seedRandomStreaks(allUsers)
+    await seedLeaderboardGroups(allUsers)
     return
   }
 
@@ -57,21 +67,28 @@ async function main() {
   console.log(`🏆 Awarding achievements based on performance...`)
   await awardAchievements(users)
   
-  console.log(`🥇 Updating Elo ratings and user stats...`)
+  console.log(`🥇 Updating QLO and user stats...`)
   await updateUserStats(users)
 
-  console.log(`🏅 Designating top performers with high Elo & rare achievements...`)
+  console.log(`🏅 Designating top performers with high QLO & rare achievements...`)
   await designateTopPerformers(users)
 
-  console.log(`📈 Seeding Elo rating history time-series for charts...`)
-  await seedEloHistory(users)
+  console.log(`📈 Seeding QLO rating history time-series for charts...`)
+  await seedQloHistory(users)
+
+  console.log(`🔥 Seeding random long-day streaks for a subset of users...`)
+  await seedRandomStreaks(users)
+
+  console.log(`👥 Creating leaderboard groups with proper distribution...`)
+  await seedLeaderboardGroups(users)
 
   console.log('✅ Database seeded successfully with realistic data!')
   console.log(`   - ${users.length} users across ${POPULAR_COUNTRIES.length} countries`)
   console.log(`   - ${documents.length} documents with questions`)
   console.log(`   - 90 days of quiz history per user`)
   console.log(`   - Achievements awarded based on performance`)
-  console.log(`   - Realistic Elo rating distribution`)
+  console.log(`   - Realistic QLO distribution`)
+  console.log(`   - Leaderboard groups with 10-50 members each`)
 }
 
 async function seedAchievements() {
@@ -166,7 +183,8 @@ async function createUsers(): Promise<any[]> {
     const city = faker.helpers.arrayElement(locationData.cities)
     
     // Create realistic Elo distribution (bell curve around 1200)
-    const eloRating = Math.round(faker.number.int({ min: 800, max: 2000 }) * 0.3 + 1200 * 0.7)
+    // Start most users near the global default (100), with small spread
+    const qlo = Math.max(100, Math.round(100 + faker.number.int({ min: 0, max: 300 })))
     
     // Choose avatar provider (DiceBear or Pravatar) for variety
     const usernameForAvatar = faker.internet.userName().toLowerCase()
@@ -192,7 +210,7 @@ async function createUsers(): Promise<any[]> {
         city,
         county: faker.location.county(),
         country: locationData.country,
-        eloRating,
+        qlo,
         bio: faker.helpers.maybe(() => faker.lorem.sentence(), 0.4),
         favoriteSubject: faker.helpers.arrayElement(CATEGORIES),
         language: faker.helpers.weightedArrayElement([
@@ -393,7 +411,7 @@ async function createQuizHistories(users: any[], documents: any[]) {
       )
       
       // User skill affects performance (based on Elo rating)
-      const skillLevel = (user.eloRating - 800) / 1200 // 0-1 scale
+      const skillLevel = Math.max(0, Math.min(1, (user.qlo - 100) / 1000)) // 0-1 scale
       const baseAccuracy = Math.max(0.3, Math.min(0.95, 0.5 + skillLevel * 0.4))
       
       let correctAnswers = 0
@@ -472,6 +490,171 @@ async function createQuizHistories(users: any[], documents: any[]) {
       console.log(`   Created quiz histories for ${userIndex + 1}/${users.length} users...`)
     }
   }
+}
+
+// Seed random long streaks (up to MAX_STREAK_DAYS) by ensuring daily quiz activity
+// for a small subset of users. This augments existing histories by filling in
+// daily activity back in time so that the streak calculation will see
+// consecutive days.
+async function seedRandomStreaks(users: any[]) {
+  const prismaAny: any = prisma
+  const chosenUsers = [...users]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, Math.max(1, Math.floor(users.length * STREAK_USERS_PERCENT)))
+
+  for (const user of chosenUsers) {
+    // Pick a random streak length between MIN_STREAK_DAYS and MAX_STREAK_DAYS
+    const streakLength = Math.floor(
+      Math.random() * (MAX_STREAK_DAYS - MIN_STREAK_DAYS + 1)
+    ) + MIN_STREAK_DAYS
+
+    // Fetch any document for this user; if none exists, create one
+    let doc = await prisma.document.findFirst({ where: { userId: user.id } })
+    if (!doc) {
+      doc = await prisma.document.create({
+        data: {
+          userId: user.id,
+          title: 'Streak Seeding Doc',
+          category: 'General',
+          sourceType: 'TEXT_INPUT' as SourceType,
+          contentJson: { content: 'Auto generated content for streak seeding' },
+          tags: ['streak', 'auto']
+        }
+      })
+      // Ensure a few questions exist
+      const q = await prisma.question.create({
+        data: {
+          documentId: doc.id,
+          questionText: 'Auto question?',
+          questionType: 'MULTIPLE_CHOICE' as QuestionType,
+          difficulty: 'EASY' as Difficulty,
+          explanation: 'Auto generated'
+        }
+      })
+      for (let a = 0; a < 4; a++) {
+        await prisma.answer.create({
+          data: {
+            questionId: q.id,
+            answerText: a === 0 ? 'Correct' : `Option ${a + 1}`,
+            isCorrect: a === 0,
+            orderIndex: a
+          }
+        })
+      }
+    }
+
+    // We'll create a lightweight quizAttempt per day going back streakLength days
+    // to guarantee a streak. To keep performance reasonable, we only generate
+    // one short quiz per day (5 questions, ~random score/time).
+    const today = new Date()
+    today.setHours(12, 0, 0, 0)
+
+    for (let d = 0; d < streakLength; d++) {
+      const day = new Date(today)
+      day.setDate(today.getDate() - d)
+
+      // Skip if there is already an attempt on this day to avoid duplicates
+      const existing = await prisma.quizAttempt.findFirst({
+        where: {
+          userId: user.id,
+          completedAt: {
+            gte: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0),
+            lt: new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1, 0, 0, 0)
+          }
+        },
+        select: { id: true }
+      })
+      if (existing) continue
+
+      // Prepare questions (fallback to creating a few if missing)
+      let questions = await prisma.question.findMany({
+        where: { documentId: doc.id },
+        include: { answers: true },
+        take: 5
+      })
+      if (questions.length < 1) {
+        const q = await prisma.question.create({
+          data: {
+            documentId: doc.id,
+            questionText: 'Auto seeded question?',
+            questionType: 'MULTIPLE_CHOICE' as QuestionType,
+            difficulty: 'EASY' as Difficulty,
+            explanation: 'Auto'
+          }
+        })
+        for (let a = 0; a < 4; a++) {
+          await prisma.answer.create({
+            data: {
+              questionId: q.id,
+              answerText: a === 0 ? 'Correct' : `Option ${a + 1}`,
+              isCorrect: a === 0,
+              orderIndex: a
+            }
+          })
+        }
+        questions = await prisma.question.findMany({
+          where: { documentId: doc.id },
+          include: { answers: true },
+          take: 5
+        })
+      }
+
+      const startTime = new Date(day)
+      const quizAttempt = await prisma.quizAttempt.create({
+        data: {
+          userId: user.id,
+          documentId: doc.id,
+          startTime,
+          quizMode: 'PRACTICE' as QuizMode,
+          totalQuestions: questions.length,
+          correctAnswers: 0,
+          score: 0,
+          timeSpent: 0,
+          createdAt: startTime,
+          completedAt: startTime
+        }
+      })
+
+      // Simulate answers quickly
+      let correct = 0
+      let totalMs = 0
+      for (const q of questions) {
+        const isCorrect = Math.random() < 0.7
+        if (isCorrect) correct++
+        const t = 4000 + Math.floor(Math.random() * 12000)
+        totalMs += t
+        const sel = isCorrect ? q.answers.find(a => a.isCorrect)! : q.answers[1]
+        await prisma.userQuestionHistory.create({
+          data: {
+            userId: user.id,
+            questionId: q.id,
+            quizAttemptId: quizAttempt.id,
+            wasCorrect: isCorrect,
+            timeSpent: Math.ceil(t / 1000),
+            timeToAnswer: t,
+            selectedAnswerId: sel?.id || null,
+            confidenceLevel: 3,
+            createdAt: new Date(startTime.getTime() + totalMs)
+          }
+        })
+      }
+
+      const end = new Date(startTime.getTime() + totalMs)
+      const score = (correct / questions.length) * 100
+      await prisma.quizAttempt.update({
+        where: { id: quizAttempt.id },
+        data: {
+          endTime: end,
+          completedAt: end,
+          timeSpent: Math.ceil(totalMs / 1000),
+          score,
+          correctAnswers: correct
+        }
+      })
+    }
+  }
+
+  console.log(`   ✅ Seeded long-day streaks for ${chosenUsers.length} users (up to ${MAX_STREAK_DAYS} days)`)
 }
 
 async function awardAchievements(users: any[]) {
@@ -573,7 +756,7 @@ async function updateUserStats(users: any[]) {
 // Promote a subset of users to "top performers" with high Elo and rare achievements
 async function designateTopPerformers(users: any[]) {
   // Pick top 15 by current Elo, or random if Elo ties
-  const sorted = [...users].sort((a, b) => (b.eloRating ?? 0) - (a.eloRating ?? 0))
+  const sorted = [...users].sort((a, b) => (b.qlo ?? 0) - (a.qlo ?? 0))
   const topCount = Math.min(15, sorted.length)
   const topUsers = sorted.slice(0, topCount)
 
@@ -588,12 +771,12 @@ async function designateTopPerformers(users: any[]) {
     const u = topUsers[i]
 
     // Assign a strong Elo distribution 1800-2200 with slight variance
-    const boostedElo = 1800 + Math.floor((topCount - i) * 10) + Math.floor(Math.random() * 100)
+    const boostedElo = 1500 + Math.floor((topCount - i) * 10) + Math.floor(Math.random() * 500)
 
     await prisma.user.update({
       where: { id: u.id },
       data: {
-        eloRating: boostedElo,
+        qlo: boostedElo,
         totalBeefWins: { increment: Math.floor(10 + Math.random() * 40) },
         longestWinStreak: { increment: Math.floor(3 + Math.random() * 10) }
       }
@@ -626,35 +809,35 @@ async function designateTopPerformers(users: any[]) {
   console.log(`   ✅ Marked ${topUsers.length} users as top performers`)
 }
 
-// Generate synthetic EloHistory for users to populate comparative charts
-async function seedEloHistory(users: any[]) {
+// Generate synthetic QloHistory for users to populate comparative charts
+async function seedQloHistory(users: any[]) {
   const now = new Date()
 
-  // If EloHistory already exists, skip to avoid duplicates
-  const anyHistory = await prisma.eloHistory.count()
+  // If QloHistory already exists, skip to avoid duplicates
+  const anyHistory = await (prisma as any).qloHistory?.count?.() ?? 0
   if (anyHistory > 0) {
-    console.log('   ℹ️ EloHistory already present, skipping time-series seeding...')
+    console.log('   ℹ️ QloHistory already present, skipping time-series seeding...')
     return
   }
 
   // Create a small time-series for each user (~15-25 points over last 90 days)
   for (let i = 0; i < users.length; i++) {
     const u = users[i]
-    const currentElo = u.eloRating ?? 1200
+    const currentElo = u.qlo ?? 500
     const points = 15 + Math.floor(Math.random() * 10)
-    let elo = Math.max(800, Math.min(2000, currentElo - 150 + Math.floor(Math.random() * 100)))
+    let elo = Math.max(0, currentElo - 150 + Math.floor(Math.random() * 100))
 
     for (let p = points; p >= 1; p--) {
       const daysAgo = Math.floor((90 / points) * p) + Math.floor(Math.random() * 2)
       const changedAt = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000)
       // Random walk
       const delta = Math.floor((Math.random() - 0.5) * 30)
-      elo = Math.max(800, Math.min(2200, elo + delta))
+      elo = Math.max(0, elo + delta)
 
-      await prisma.eloHistory.create({
+      await (prisma as any).qloHistory.create({
         data: {
           userId: u.id,
-          elo,
+          qlo: elo,
           changedAt,
           source: 'seed',
           note: 'Synthetic history'
@@ -663,10 +846,10 @@ async function seedEloHistory(users: any[]) {
     }
 
     // Ensure last point close to current elo
-    await prisma.eloHistory.create({
+    await (prisma as any).qloHistory.create({
       data: {
         userId: u.id,
-        elo: currentElo,
+        qlo: currentElo,
         changedAt: now,
         source: 'seed',
         note: 'Current'
@@ -674,11 +857,114 @@ async function seedEloHistory(users: any[]) {
     })
 
     if (i % 50 === 0) {
-      console.log(`   Seeded Elo history for ${i + 1}/${users.length} users...`)
+      console.log(`   Seeded QLO history for ${i + 1}/${users.length} users...`)
     }
   }
 
-  console.log('   ✅ Seeded EloHistory time-series for users')
+  console.log('   ✅ Seeded QloHistory time-series for users')
+}
+
+// Seed leaderboard groups with proper distribution for 9+1 user display
+async function seedLeaderboardGroups(users: any[]) {
+  const groupNames = [
+    'Global Champions', 'Rising Stars', 'Quiz Masters', 'Brain Busters', 'Knowledge Seekers',
+    'Study Squad', 'Trivia Titans', 'Smart Cookies', 'Fact Finders', 'Quiz Wizards',
+    'Learning League', 'Genius Guild', 'Wisdom Warriors', 'Mind Menders', 'IQ Elite'
+  ]
+
+  // Create groups with varying sizes (10-50 members each)
+  for (let i = 0; i < groupNames.length; i++) {
+    const groupName = groupNames[i]
+    
+    // Check if group already exists
+    const existingGroup = await prisma.group.findUnique({
+      where: { name: groupName }
+    })
+    
+    let group
+    if (existingGroup) {
+      group = existingGroup
+      console.log(`   Group "${groupName}" already exists, updating memberships...`)
+    } else {
+      group = await prisma.group.create({
+        data: {
+          name: groupName,
+          description: `A competitive leaderboard group for ${groupName.toLowerCase()}`
+        }
+      })
+      console.log(`   Created group: ${groupName}`)
+    }
+
+    // Determine group size (10-50 members, with some groups having exactly 10 for testing)
+    const groupSize = i < 3 ? 
+      faker.number.int({ min: 8, max: 12 }) : // First 3 groups: 8-12 members (test small groups)
+      faker.number.int({ min: 15, max: 50 })   // Other groups: 15-50 members
+
+    // Select users for this group based on QLO similarity
+    const sortedUsers = [...users].sort((a, b) => (b.qlo || 100) - (a.qlo || 100))
+    const startIndex = Math.floor((i / groupNames.length) * sortedUsers.length)
+    const endIndex = Math.min(startIndex + groupSize, sortedUsers.length)
+    const groupUsers = sortedUsers.slice(startIndex, endIndex)
+
+    // Add users to group (avoid duplicates)
+    for (const user of groupUsers) {
+      try {
+        await prisma.groupMembership.upsert({
+          where: {
+            userId_groupId: {
+              userId: user.id,
+              groupId: group.id
+            }
+          },
+          update: {}, // No update needed if exists
+          create: {
+            userId: user.id,
+            groupId: group.id,
+            joinedAt: faker.date.between({ 
+              from: user.createdAt, 
+              to: new Date() 
+            })
+          }
+        })
+      } catch (error) {
+        // Skip if duplicate constraint error
+        console.log(`   Skipped duplicate membership for user ${user.id} in group ${group.name}`)
+      }
+    }
+
+    console.log(`   Added ${groupUsers.length} members to "${groupName}"`)
+  }
+
+  // Ensure current user (if exists) is in at least 3 groups for testing
+  const currentUser = await prisma.user.findFirst({
+    orderBy: { createdAt: 'desc' }
+  })
+  
+  if (currentUser) {
+    const randomGroups = await prisma.group.findMany({
+      take: 3,
+      orderBy: { createdAt: 'asc' }
+    })
+    
+    for (const group of randomGroups) {
+      await prisma.groupMembership.upsert({
+        where: {
+          userId_groupId: {
+            userId: currentUser.id,
+            groupId: group.id
+          }
+        },
+        update: {},
+        create: {
+          userId: currentUser.id,
+          groupId: group.id
+        }
+      })
+    }
+    console.log(`   Ensured current user is in ${randomGroups.length} groups`)
+  }
+
+  console.log(`   ✅ Created ${groupNames.length} leaderboard groups with varied membership`)
 }
 
 main()

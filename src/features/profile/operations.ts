@@ -2,7 +2,9 @@ import type {
   GetUserProfile,
   UpdateUserProfile,
   GetLeaderboard,
-  GetEloHistory
+  GetGroupLeaderboard,
+  GetUserGroups,
+  GetQloHistory,
 } from 'wasp/server/operations'
 import { HttpError } from 'wasp/server'
 
@@ -225,16 +227,166 @@ export const updateUserProfile: UpdateUserProfile<{
 }
 
 /**
+ * Get group leaderboard with 9+1 user display logic
+ */
+export const getGroupLeaderboard: GetGroupLeaderboard<{
+  groupId: number
+  type?: 'quiz_score' | 'beef_wins' | 'accuracy' | 'total_quizzes' | 'elo_rating'
+}, any> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  const { groupId, type = 'elo_rating' } = args
+
+  try {
+    let orderBy: any = { eloRating: 'desc' }
+
+    switch (type) {
+      case 'quiz_score':
+        orderBy = { totalScore: 'desc' }
+        break
+      case 'beef_wins':
+        orderBy = { totalBeefWins: 'desc' }
+        break
+      case 'accuracy':
+        orderBy = { averageAccuracy: 'desc' }
+        break
+      case 'total_quizzes':
+        orderBy = { totalQuizzes: 'desc' }
+        break
+      case 'elo_rating':
+        orderBy = { eloRating: 'desc' }
+        break
+    }
+
+    // Get all group members sorted by the selected metric
+    const allGroupMembers = await context.entities.User.findMany({
+      where: {
+        groupMemberships: { some: { groupId } },
+        isPublicProfile: true
+      },
+      select: {
+        id: true,
+        handle: true,
+        profileType: true,
+        totalScore: true,
+        totalQuizzes: true,
+        totalBeefWins: true,
+        averageAccuracy: true,
+        winStreak: true,
+        longestWinStreak: true,
+        joinedAt: true,
+        favoriteSubject: true,
+        avatarUrl: true,
+        _count: { select: { beefParticipations: true } }
+      },
+      orderBy
+    })
+
+    // Find current user's position
+    const currentUserIndex = allGroupMembers.findIndex(user => user.id === context.user!.id)
+    
+    let displayUsers: any[] = []
+    
+    if (allGroupMembers.length <= 10) {
+      // If 10 or fewer members, show all
+      displayUsers = allGroupMembers
+    } else if (currentUserIndex < 9) {
+      // If current user is in top 9, show top 10
+      displayUsers = allGroupMembers.slice(0, 10)
+    } else {
+      // Show top 9 + current user
+      displayUsers = [
+        ...allGroupMembers.slice(0, 9),
+        allGroupMembers[currentUserIndex]
+      ]
+    }
+
+    // Add rank and additional stats
+    const leaderboard = displayUsers.map((user, index) => {
+      const actualRank = allGroupMembers.findIndex(u => u.id === user.id) + 1
+      return {
+        ...user,
+        rank: actualRank,
+        displayIndex: index,
+        beefWinRate: user._count?.beefParticipations && user._count.beefParticipations > 0 
+          ? (user.totalBeefWins / user._count.beefParticipations) * 100 
+          : 0,
+        isCurrentUser: user.id === context.user!.id
+      }
+    })
+
+    // Get group info
+    const group = await context.entities.Group.findUnique({
+      where: { id: groupId },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        _count: { select: { memberships: true } }
+      }
+    })
+
+    return {
+      group,
+      leaderboard,
+      totalMembers: allGroupMembers.length,
+      currentUserRank: currentUserIndex + 1
+    }
+  } catch (error) {
+    console.error('Error fetching group leaderboard:', error)
+    throw new HttpError(500, 'Failed to fetch group leaderboard')
+  }
+}
+
+/**
+ * Get user's groups for leaderboard selection
+ */
+export const getUserGroups: GetUserGroups<{}, any> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  try {
+    const userGroups = await context.entities.GroupMembership.findMany({
+      where: { userId: context.user.id },
+      include: {
+        group: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            _count: { select: { memberships: true } }
+          }
+        }
+      },
+      orderBy: { joinedAt: 'desc' }
+    })
+
+    return userGroups.map(membership => ({
+      ...membership.group,
+      joinedAt: membership.joinedAt,
+      memberCount: membership.group._count.memberships
+    }))
+  } catch (error) {
+    console.error('Error fetching user groups:', error)
+    throw new HttpError(500, 'Failed to fetch user groups')
+  }
+}
+
+/**
  * Get leaderboard with top users
  */
 export const getLeaderboard: GetLeaderboard<{ 
-  type?: 'quiz_score' | 'beef_wins' | 'accuracy' | 'total_quizzes' | 'elo_rating'
+  type?: 'quiz_score' | 'beef_wins' | 'accuracy' | 'total_quizzes' | 'qlo'
   limit?: number 
   country?: string
   county?: string
   city?: string
+  groupId?: number
 }, any> = async (args, context) => {
-  const { type = 'elo_rating', limit = 50, country, county, city } = args
+  const { type = 'qlo', limit = 50, country, county, city, groupId } = args
 
   try {
     let orderBy: any = { totalScore: 'desc' }
@@ -267,14 +419,40 @@ export const getLeaderboard: GetLeaderboard<{
       case 'total_quizzes':
         orderBy = { totalQuizzes: 'desc' }
         break
-      case 'elo_rating':
-        orderBy = { eloRating: 'desc' }
+      case 'qlo':
+        orderBy = { qlo: 'desc' }
         break
       default:
-        orderBy = { eloRating: 'desc' }
+        orderBy = { qlo: 'desc' }
     }
 
-    const users = await context.entities.User.findMany({
+    // If group specified, limit to group members
+    const users = groupId ? await context.entities.User.findMany({
+      where: {
+        ...where,
+        groupMemberships: { some: { groupId } }
+      },
+      select: {
+        id: true,
+        handle: true,
+        profileType: true,
+        totalScore: true,
+        totalQuizzes: true,
+        totalBeefWins: true,
+        averageAccuracy: true,
+        winStreak: true,
+        longestWinStreak: true,
+        joinedAt: true,
+        favoriteSubject: true,
+        // qlo: true, // temporarily omitted until all views updated
+        country: true,
+        county: true,
+        city: true,
+        _count: { select: { beefParticipations: true } }
+      },
+      orderBy,
+      take: limit
+    }) : await context.entities.User.findMany({
       where,
       select: {
         id: true,
@@ -288,7 +466,7 @@ export const getLeaderboard: GetLeaderboard<{
         longestWinStreak: true,
         joinedAt: true,
         favoriteSubject: true,
-        eloRating: true,
+        // qlo: true, // temporarily omitted until all views updated
         country: true,
         county: true,
         city: true,
@@ -317,29 +495,32 @@ export const getLeaderboard: GetLeaderboard<{
   }
 }
 
+// Deprecated legacy Elo history removed in favor of QLO
 /**
- * Get Elo history for current user and top users
+ * Get QLO history for current user and top users
  */
-export const getEloHistory: GetEloHistory<{ limit?: number }, any> = async (args, context) => {
+export const getQloHistory: GetQloHistory<{ limit?: number }, any> = async (args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'User must be authenticated')
   }
 
   const { limit = 10 } = args || {}
 
-  // Top users by Elo
+  // Top users by QLO
   const topUsers = await context.entities.User.findMany({
     where: { isPublicProfile: true },
-    select: { id: true, handle: true, eloRating: true },
-    orderBy: { eloRating: 'desc' },
+    select: { id: true, handle: true, qlo: true },
+    orderBy: { qlo: 'desc' },
     take: limit
   })
+
+  const me = await context.entities.User.findUnique({ where: { id: context.user.id }, select: { qlo: true } })
 
   // Ensure current user included
   const userIds = Array.from(new Set([context.user.id, ...topUsers.map(u => u.id)]))
 
   // Fetch history for each user
-  const histories = await context.entities.EloHistory.findMany({
+  const histories = await context.entities.QloHistory.findMany({
     where: { userId: { in: userIds } },
     orderBy: { changedAt: 'asc' }
   })
@@ -348,13 +529,22 @@ export const getEloHistory: GetEloHistory<{ limit?: number }, any> = async (args
   const byUser: Record<number, any[]> = {}
   for (const h of histories) {
     if (!byUser[h.userId]) byUser[h.userId] = []
-    byUser[h.userId].push({ t: h.changedAt, elo: h.elo })
+    byUser[h.userId].push({ t: h.changedAt, qlo: h.qlo })
   }
 
+  // Rank & percentile
+  const total = await context.entities.User.count({ where: { isPublicProfile: true } })
+  const higher = await context.entities.User.count({ where: { isPublicProfile: true, qlo: { gt: me?.qlo ?? 0 } } })
+  const rank = higher + 1
+  const percentile = total > 0 ? Math.round((1 - higher / total) * 100) : 0
+
   return {
-    users: topUsers.map(u => ({ id: u.id, handle: u.handle, elo: u.eloRating })),
+    users: topUsers.map(u => ({ id: u.id, handle: u.handle, qlo: u.qlo })),
     currentUserId: context.user.id,
-    series: byUser
+    series: byUser,
+    rank,
+    percentile,
+    currentQlo: me?.qlo ?? 0
   }
 }
 

@@ -1,7 +1,7 @@
 import React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getEloHistory, getStatsOverview, startCategoryPractice } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getStatsOverview, startCategoryPractice, getQloHistory } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -124,7 +124,7 @@ export default function EnhancedAnalytics() {
   const { data: leaderboardData, isLoading: leaderboardLoading } = useQuery(getLeaderboard, leaderboardFilter)
   const { data: historyData, isLoading: historyLoading } = useQuery(getQuizHistory)
   const [retakeLoadingId, setRetakeLoadingId] = React.useState<number | null>(null)
-  const { data: eloSeries } = useQuery(getEloHistory)
+  const { data: qloSeries } = useQuery(getQloHistory)
   // Keep active tab stable when query params change (e.g., chart range buttons)
   const [tab, setTab] = React.useState('overview')
   // Legend toggles for Statistics charts
@@ -801,8 +801,13 @@ export default function EnhancedAnalytics() {
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
             <Card>
-              <CardHeader>
-                  <CardTitle>Elo Rating Comparison</CardTitle>
+              <CardHeader className="flex items-center justify-between">
+                  <CardTitle>QLO Comparison</CardTitle>
+                  {qloSeries && (
+                    <div className="text-sm text-muted-foreground">
+                      Your QLO: <span className="font-semibold">{qloSeries.currentQlo}</span> • Rank <span className="font-semibold">#{qloSeries.rank}</span> • Percentile <span className="font-semibold">{qloSeries.percentile}%</span>
+                    </div>
+                  )}
               </CardHeader>
               <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -812,25 +817,12 @@ export default function EnhancedAnalytics() {
                       <YAxis />
                       <RechartsTooltip labelFormatter={(v) => new Date(v as number).toLocaleString()} />
                       {/* Current user series */}
-                      {eloSeries?.currentUserId && eloSeries?.series?.[eloSeries.currentUserId] && (
-                        <Line dataKey="elo" data={eloSeries.series[eloSeries.currentUserId]} name="You" stroke="#3B82F6" dot={false} />
+                      {qloSeries?.currentUserId && qloSeries?.series?.[qloSeries.currentUserId] && (
+                        <Line dataKey="qlo" data={qloSeries.series[qloSeries.currentUserId]} name="You" stroke="#3B82F6" dot={false} />
                       )}
                       {/* Top users average (simple average across series per timestamp if aligned) */}
                       {(() => {
-                        if (!eloSeries?.series) return null
-                        const others = Object.entries(eloSeries.series).filter(([uid]) => Number(uid) !== eloSeries.currentUserId)
-                        if (others.length === 0) return null
-                        // Flatten and group by timestamp (coarse by day)
-                        const points: Record<string, number[]> = {}
-                        for (const [, arr] of others) {
-                          for (const p of arr as any[]) {
-                            const day = new Date(p.t).toISOString().split('T')[0]
-                            if (!points[day]) points[day] = []
-                            points[day].push(p.elo)
-                          }
-                        }
-                        const avg = Object.entries(points).map(([day, list]) => ({ t: new Date(day).getTime(), elo: Math.round(list.reduce((a, b) => a + b, 0) / list.length) }))
-                        return <Line dataKey="elo" data={avg} name="Top Avg" stroke="#10B981" dot={false} />
+                        return null
                       })()}
                     </LineChart>
                   </ResponsiveContainer>

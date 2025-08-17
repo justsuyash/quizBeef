@@ -76,10 +76,10 @@ export default function AdminPage() {
       setIsSeedingElo(true)
       setError(null)
       await seedEloHistoryAll({})
-      alert('Seeded Elo history for all users')
+      alert('Seeded QLO history for all users')
     } catch (err: any) {
-      console.error('Seed Elo error:', err)
-      setError(err.message || 'Failed to seed Elo history')
+      console.error('Seed QLO error:', err)
+      setError(err.message || 'Failed to seed QLO history')
     } finally {
       setIsSeedingElo(false)
     }
@@ -146,7 +146,7 @@ export default function AdminPage() {
                 <div>
                   <h4 className="font-medium">Seeder Pro Features</h4>
                   <p className="text-sm text-muted-foreground">
-                    Creates realistic data with proper geographic distribution, Elo ratings, and 3 months of activity
+                    Creates realistic data with proper geographic distribution, QLO ratings, and 3 months of activity
                   </p>
                 </div>
                 <div className="flex items-center gap-3 mr-4">
@@ -195,7 +195,7 @@ export default function AdminPage() {
           <CardHeader>
             <CardTitle>Backfill My Account (Dev)</CardTitle>
             <CardDescription>
-              Populate your user with recent quiz attempts, per-question timings, and Elo history. Remove before production.
+              Populate your user with recent quiz attempts, per-question timings, and QLO history. Remove before production.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -229,7 +229,7 @@ export default function AdminPage() {
               ) : (
                 <>
                   <TrendingUp className="mr-2 h-4 w-4" />
-                  Seed Elo History (All Users)
+                  Seed QLO History (All Users)
                 </>
               )}
             </Button>

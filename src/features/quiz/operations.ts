@@ -285,6 +285,42 @@ export const completeQuiz: CompleteQuiz<
       })
     }
 
+    // Update QLO based on performance and diversification
+    try {
+      const user = await context.entities.User.findUnique({ where: { id: context.user.id } })
+      if (user) {
+        const K = 24
+        const expected = 0.6 // baseline expectation
+        const deltaBase = K * ((score / 100) - expected)
+
+        // Diversification bonus: first few sessions in a category grant extra, then decay
+        const category = quizAttempt.document?.category
+        let bonus = 0
+        if (category) {
+          const playsInTopic = await context.entities.QuizAttempt.count({
+            where: {
+              userId: context.user.id,
+              document: { category },
+              completedAt: { not: null }
+            }
+          })
+          const B = 25
+          const seen = Math.max(0, playsInTopic - 1)
+          bonus = B / Math.max(1, Math.log(1 + seen + 1)) // slowly diminishing
+          // Require meaningful quiz length
+          if (totalQuestions < 5) bonus *= 0.5
+        }
+
+        const newQlo = Math.max(0, Math.round((user.qlo ?? 5000) + deltaBase + bonus))
+        await context.entities.User.update({ where: { id: context.user.id }, data: { qlo: newQlo } })
+        try {
+          await (context.entities as any).QloHistory.create({ data: { userId: context.user.id, qlo: newQlo, changedAt: new Date(), source: 'quiz', note: category || undefined } })
+        } catch {}
+      }
+    } catch (e) {
+      console.warn('QLO update after quiz failed:', e)
+    }
+
     // After completing the quiz, check for achievements
     try {
       await (async () => {

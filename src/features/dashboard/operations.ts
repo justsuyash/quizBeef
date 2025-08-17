@@ -10,6 +10,69 @@ import { HttpError } from 'wasp/server'
 import type { GetEnrichedAnalytics } from 'wasp/server/operations'
 
 /**
+ * Shared function to calculate user streak consistently across all operations
+ */
+async function calculateUserStreak(userId: number, context: any) {
+  const recentAttempts = await context.entities.QuizAttempt.findMany({
+    where: { 
+      userId,
+      completedAt: { not: null }
+    },
+    orderBy: { completedAt: 'desc' },
+    take: 30,
+    select: {
+      completedAt: true,
+      score: true
+    }
+  })
+  
+  // Debug logging
+  console.log('🔥 STREAK CALC DEBUG:', {
+    userId,
+    recentAttemptsCount: recentAttempts.length,
+    recentAttempts: recentAttempts.slice(0, 5).map(a => ({
+      completedAt: a.completedAt,
+      score: a.score
+    }))
+  })
+
+  let currentStreak = 0
+  let bestStreak = 0
+  let tempStreak = 0
+
+  // Calculate streaks (consecutive days with quiz activity)
+  const today = new Date()
+  const recentDays = new Set()
+  
+  for (const attempt of recentAttempts) {
+    if (attempt.completedAt) {
+      const attemptDate = new Date(attempt.completedAt).toDateString()
+      recentDays.add(attemptDate)
+    }
+  }
+
+  const sortedDays = Array.from(recentDays).sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime())
+  
+  for (let i = 0; i < sortedDays.length; i++) {
+    const daysDiff = Math.floor((today.getTime() - new Date(sortedDays[i] as string).getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (i === 0 && daysDiff <= 1) {
+      currentStreak = 1
+      tempStreak = 1
+    } else if (daysDiff === i) {
+      currentStreak++
+      tempStreak++
+    } else {
+      break
+    }
+    
+    bestStreak = Math.max(bestStreak, tempStreak)
+  }
+
+  return { currentStreak, bestStreak }
+}
+
+/**
  * Get comprehensive user analytics for dashboard
  */
 export const getUserAnalytics: GetUserAnalytics<void, any> = async (args, context) => {
@@ -38,51 +101,25 @@ export const getUserAnalytics: GetUserAnalytics<void, any> = async (args, contex
       }
     })
 
-    // Calculate current streak
+    // Calculate current streak using shared function
+    const { currentStreak, bestStreak } = await calculateUserStreak(context.user.id, context)
+    
+    // Debug logging
+    console.log('🔥 STREAK DEBUG - getUserAnalytics:', {
+      userId: context.user.id,
+      currentStreak,
+      bestStreak,
+      timestamp: new Date().toISOString()
+    })
+
+    // Get average score from recent attempts
     const recentAttempts = await context.entities.QuizAttempt.findMany({
       where: { userId: context.user.id },
       orderBy: { completedAt: 'desc' },
       take: 30,
-      select: {
-        completedAt: true,
-        score: true
-      }
+      select: { score: true }
     })
 
-    let currentStreak = 0
-    let bestStreak = 0
-    let tempStreak = 0
-
-    // Calculate streaks (consecutive days with quiz activity)
-    const today = new Date()
-    const recentDays = new Set()
-    
-    for (const attempt of recentAttempts) {
-      if (attempt.completedAt) {
-        const attemptDate = new Date(attempt.completedAt).toDateString()
-        recentDays.add(attemptDate)
-      }
-    }
-
-    const sortedDays = Array.from(recentDays).sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime())
-    
-    for (let i = 0; i < sortedDays.length; i++) {
-      const daysDiff = Math.floor((today.getTime() - new Date(sortedDays[i] as string).getTime()) / (1000 * 60 * 60 * 24))
-      
-      if (i === 0 && daysDiff <= 1) {
-        currentStreak = 1
-        tempStreak = 1
-      } else if (daysDiff === i) {
-        currentStreak++
-        tempStreak++
-      } else {
-        break
-      }
-      
-      bestStreak = Math.max(bestStreak, tempStreak)
-    }
-
-    // Get average score
     const avgScore = recentAttempts.length > 0 
       ? recentAttempts.reduce((sum, attempt) => sum + attempt.score, 0) / recentAttempts.length
       : 0
@@ -543,41 +580,15 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
     const correctAnswers = await context.entities.UserQuestionHistory.count({ where: { userId: context.user.id, wasCorrect: true } })
     const accuracy = totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0
 
-    // Calculate current streak
-    const recentAttempts = await context.entities.QuizAttempt.findMany({
-      where: { 
-        userId: context.user.id,
-        completedAt: { not: null }
-      },
-      orderBy: { completedAt: 'desc' },
-      take: 30,
-      select: { completedAt: true }
+    // Calculate current streak using shared function
+    const { currentStreak: streak } = await calculateUserStreak(context.user.id, context)
+    
+    // Debug logging
+    console.log('🔥 STREAK DEBUG - getStatsOverview:', {
+      userId: context.user.id,
+      streak,
+      timestamp: new Date().toISOString()
     })
-
-    let streak = 0
-    const today = new Date()
-    const recentDays = new Set()
-    
-    for (const attempt of recentAttempts) {
-      if (attempt.completedAt) {
-        const attemptDate = new Date(attempt.completedAt).toDateString()
-        recentDays.add(attemptDate)
-      }
-    }
-
-    const sortedDays = Array.from(recentDays).sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime())
-    
-    for (let i = 0; i < sortedDays.length; i++) {
-      const daysDiff = Math.floor((today.getTime() - new Date(sortedDays[i] as string).getTime()) / (1000 * 60 * 60 * 24))
-      
-      if (i === 0 && daysDiff <= 1) {
-        streak = 1
-      } else if (daysDiff === i) {
-        streak++
-      } else {
-        break
-      }
-    }
 
     // Get medals count (achievements)
     const medalsCount = await context.entities.UserAchievement.count({
@@ -790,11 +801,11 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
     // Compute endDate for range upper bound
     const endDate = new Date()
     endDate.setHours(23,59,59,999)
-    const eloHistory = await (context.entities as any).EloHistory.findMany({
+    const qloHistory = await (context.entities as any).QloHistory.findMany({
       where: { userId: context.user.id, changedAt: { gte: startDate, lte: endDate } },
       orderBy: { changedAt: 'asc' }
     })
-    const eloOverTime = eloHistory.map(e => ({ date: e.changedAt.toISOString().split('T')[0], value: e.elo }))
+    const eloOverTime = qloHistory.map((e: any) => ({ date: e.changedAt.toISOString().split('T')[0], value: e.qlo }))
 
     return {
       periodDays,

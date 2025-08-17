@@ -23,7 +23,7 @@ model User {
   city                      String?
   county                    String?
   country                   String?
-  eloRating                 Int           @default(1200)
+  qlo                       Int           @default(100)
   
   // Relations
   folders                   Folder[]
@@ -37,7 +37,10 @@ model User {
   
   // Phase 3: Achievements Relations
   achievements              UserAchievement[]
-  eloHistory                EloHistory[]
+  qloHistory                QloHistory[]
+
+  // Groups (many-to-many via GroupMembership)
+  groupMemberships         GroupMembership[]
   
   // Profile & Achievement fields
   email                     String?
@@ -122,6 +125,33 @@ model Document {
   quizAttempts             QuizAttempt[]
   questions                Question[]
   beefChallenges           BeefChallenge[]
+}
+
+// Groups for leaderboards/comparisons (users can belong to unlimited groups)
+model Group {
+  id            Int               @id @default(autoincrement())
+  createdAt     DateTime          @default(now())
+  name          String
+  description   String?
+
+  memberships   GroupMembership[]
+
+  @@unique([name])
+}
+
+model GroupMembership {
+  id        Int      @id @default(autoincrement())
+  joinedAt  DateTime @default(now())
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  groupId   Int
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([groupId])
+  @@index([userId])
 }
 
 enum QuizMode {
@@ -417,12 +447,12 @@ enum AchievementRarity {
   LEGENDARY   // Extremely rare, exceptional accomplishment
 }
 
-// Phase 3.2: Elo rating history for comparative charts
-model EloHistory {
+// Phase 3.2: QLO rating history for comparative charts
+model QloHistory {
   id         Int      @id @default(autoincrement())
   userId     Int
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  elo        Int
+  qlo        Int
   changedAt  DateTime @default(now())
   source     String?
   note       String?

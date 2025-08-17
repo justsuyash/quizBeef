@@ -194,6 +194,12 @@ page LeaderboardPage {
   authRequired: false
 }
 
+route GroupLeaderboardRoute { path: "/leaderboard/groups", to: GroupLeaderboardPage }
+page GroupLeaderboardPage {
+  component: import GroupLeaderboardPage from "@src/features/profile/group-leaderboard",
+  authRequired: true
+}
+
 route ChatsRoute { path: "/chats", to: ChatsPage }
 page ChatsPage {
   component: import ChatsPage from "@src/features/chats/index",
@@ -395,7 +401,7 @@ query getOptimalLearningTime {
 // v1.7: Stats Pill and enhanced analytics
 query getStatsOverview {
   fn: import { getStatsOverview } from "@src/features/dashboard/operations",
-  entities: [User, QuizAttempt, UserQuestionHistory, UserAchievement, Document, EloHistory]
+  entities: [User, QuizAttempt, UserQuestionHistory, UserAchievement, Document, QloHistory]
 }
 
 // v1.7: Play flow suggestions and random quiz
@@ -555,22 +561,32 @@ action updateProfileLocation {
 
 query getLeaderboard {
   fn: import { getLeaderboard } from "@src/features/profile/operations",
-  entities: [User, BeefParticipant]
+  entities: [User, BeefParticipant, Group, GroupMembership]
 }
 
-query getEloHistory {
-  fn: import { getEloHistory } from "@src/features/profile/operations",
-  entities: [User, EloHistory]
+query getGroupLeaderboard {
+  fn: import { getGroupLeaderboard } from "@src/features/profile/operations",
+  entities: [User, Group, GroupMembership, BeefParticipant]
+}
+
+query getUserGroups {
+  fn: import { getUserGroups } from "@src/features/profile/operations",
+  entities: [Group, GroupMembership]
+}
+
+query getQloHistory {
+  fn: import { getQloHistory } from "@src/features/profile/operations",
+  entities: [User, QloHistory]
 }
 
 action seedDatabase {
     fn: import { seedDatabase } from "@src/features/admin/operations",
-    entities: [User, Document, QuizAttempt, Achievement, UserAchievement, Folder, Question, Answer, UserQuestionHistory, EloHistory]
+    entities: [User, Document, QuizAttempt, Achievement, UserAchievement, Folder, Question, Answer, UserQuestionHistory, QloHistory, Group, GroupMembership]
 }
 
 action resetMySeededData {
   fn: import { resetMySeededData } from "@src/features/admin/operations",
-  entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory, UserAchievement, EloHistory]
+  entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory, UserAchievement, QloHistory]
 }
 
 action addRandomNinjas {
@@ -580,7 +596,7 @@ action addRandomNinjas {
 
 action backfillMyAccount {
   fn: import { backfillMyAccount } from "@src/features/admin/operations",
-  entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory, EloHistory, Achievement, UserAchievement]
+  entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory, QloHistory, Achievement, UserAchievement]
 }
 
 action grantDemoAchievementsAll {
@@ -590,7 +606,7 @@ action grantDemoAchievementsAll {
 
 action seedEloHistoryAll {
   fn: import { seedEloHistoryAll } from "@src/features/admin/operations",
-  entities: [User, EloHistory]
+  entities: [User, QloHistory]
 }
 
 action rebuildLeaderboardStatsAll {

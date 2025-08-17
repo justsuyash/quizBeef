@@ -159,8 +159,8 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
 
   // Placeholder for Elo; values not shown in icon-only pill
 
-  // Placeholder current Elo until wired
-  const currentElo = 1200
+  // Placeholder current QLO until wired
+  const currentQlo = 5000
 
   return (
     <div
@@ -174,7 +174,7 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
       {/* Left metrics with numbers below */}
       <div className="flex items-center space-x-2 sm:space-x-3">
         <StatStack icon="🔥" value={stats.streak || 0} bubbleClasses={stats.streak > 0 ? 'bg-orange-100' : 'bg-gray-100'} pulse={pulseFlags.streak} layout="inside" />
-        <StatStack icon="♟" value={currentElo} bubbleClasses="bg-blue-100" pulse={pulseFlags.elo} layout="inside" className="px-3 sm:px-3.5" />
+        <StatStack icon="♟" value={currentQlo} bubbleClasses="bg-blue-100" pulse={pulseFlags.elo} layout="inside" className="px-3 sm:px-3.5" />
         <StatStack icon="🏅" value={stats.medalsCount || 0} bubbleClasses={stats.medalsCount > 0 ? 'bg-yellow-100' : 'bg-gray-100'} pulse={pulseFlags.medals} layout="inside" />
         <StatStack icon="🥷" value={stats.assassinsCount || 0} bubbleClasses={stats.assassinsCount > 0 ? 'bg-red-100' : 'bg-gray-100'} pulse={pulseFlags.assassins} layout="inside" />
       </div>

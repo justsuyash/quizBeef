@@ -558,10 +558,10 @@ async function maybeFinalizeBeefAndGrantAchievements(challengeId: number, contex
     // Phase 1.4: Update Elo ratings for winner vs next best (simple pair)
     if (participants.length >= 2) {
       try {
-        const { updateEloRatings } = await import('./ratings')
-        await updateEloRatings(winner.userId, participants[1].userId, context as any)
+        const { updateQloRatings } = await import('./ratings')
+        await updateQloRatings(winner.userId, participants[1].userId, context as any)
       } catch (e) {
-        console.warn('Elo update failed:', e)
+        console.warn('QLO update failed:', e)
       }
     }
   } catch (e) {

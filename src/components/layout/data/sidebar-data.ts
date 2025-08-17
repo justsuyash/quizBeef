@@ -84,6 +84,20 @@ export const sidebarData: SidebarData = {
           url: '/achievements',
           icon: IconTrophy,
         },
+        {
+          title: 'Leaderboard',
+          icon: IconUsers,
+          items: [
+            {
+              title: 'Global Rankings',
+              url: '/leaderboard',
+            },
+            {
+              title: 'Group Rankings',
+              url: '/leaderboard/groups',
+            },
+          ],
+        },
       ],
     },
     {

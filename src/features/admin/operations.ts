@@ -53,12 +53,13 @@ export const seedDatabase: SeedDatabase<{ recentBoost?: boolean }, { success: bo
   for (let i = 0; i < BATCH_USERS; i++) {
     const loc = faker.helpers.arrayElement(POPULAR_COUNTRIES)
     const city = faker.helpers.arrayElement(loc.cities)
-    const eloRating = Math.round(faker.number.int({ min: 800, max: 2000 }) * 0.3 + 1200 * 0.7)
+    // Seed QLO roughly around 5000 with moderate variance
+    const qlo = Math.round(5000 + faker.number.int({ min: -1200, max: 1200 }))
     const usernameForAvatar = faker.internet.userName().toLowerCase()
     const diceBear = `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(usernameForAvatar)}&backgroundType=gradientLinear,solid&radius=50`
     const pravatar = `https://i.pravatar.cc/150?u=${encodeURIComponent(usernameForAvatar)}@quizbeef`
     const avatarUrl = Math.random() < 0.5 ? pravatar : diceBear
-    const user = await prisma.User.create({ data: { email: faker.internet.email(), name: faker.person.fullName(), handle: usernameForAvatar, avatarUrl, profileType: 'ADULT' as ProfileType, accountType: faker.helpers.weightedArrayElement([{ weight: 70, value: 'FREE' as AccountType },{ weight: 20, value: 'PREMIUM' as AccountType },{ weight: 10, value: 'FAMILY' as AccountType }]), city, county: faker.location.county(), country: loc.country, eloRating, favoriteSubject: faker.helpers.arrayElement(CATEGORIES), language: 'en', createdAt: faker.date.between({ from: new Date(Date.now() - DAYS_OF_HISTORY * 24 * 60 * 60 * 1000), to: new Date() }) } })
+    const user = await prisma.User.create({ data: { email: faker.internet.email(), name: faker.person.fullName(), handle: usernameForAvatar, avatarUrl, profileType: 'ADULT' as ProfileType, accountType: faker.helpers.weightedArrayElement([{ weight: 70, value: 'FREE' as AccountType },{ weight: 20, value: 'PREMIUM' as AccountType },{ weight: 10, value: 'FAMILY' as AccountType }]), city, county: faker.location.county(), country: loc.country, qlo, favoriteSubject: faker.helpers.arrayElement(CATEGORIES), language: 'en', createdAt: faker.date.between({ from: new Date(Date.now() - DAYS_OF_HISTORY * 24 * 60 * 60 * 1000), to: new Date() }) } })
     users.push(user)
     if ((i + 1) % 50 === 0) console.log(`   Created ${i + 1}/${TOTAL_USERS} users...`)
   }
@@ -142,18 +143,53 @@ export const seedDatabase: SeedDatabase<{ recentBoost?: boolean }, { success: bo
     if ((ui + 1) % 25 === 0) console.log(`   Created quiz histories for ${ui + 1}/${users.length} users...`)
   }
 
-  // 6) Elo History (light)
+  // 6) Groups & Memberships for leaderboard bars
+  try {
+    const groupCount = 5
+    const memberPerGroup = 20
+    const groups: any[] = []
+    for (let i = 0; i < groupCount; i++) {
+      const g = await prisma.Group.upsert({
+        where: { name: `Group ${i + 1}` },
+        update: {},
+        create: { name: `Group ${i + 1}`, description: 'Auto-seeded group' }
+      })
+      groups.push(g)
+    }
+    const allUsers = await prisma.User.findMany({ select: { id: true } })
+    for (const g of groups) {
+      const shuffled = faker.helpers.shuffle([...allUsers]).slice(0, Math.min(memberPerGroup, allUsers.length))
+      for (const u of shuffled) {
+        await prisma.GroupMembership.upsert({
+          where: { userId_groupId: { userId: u.id, groupId: g.id } },
+          update: {},
+          create: { userId: u.id, groupId: g.id }
+        })
+      }
+      if (context.user) {
+        await prisma.GroupMembership.upsert({
+          where: { userId_groupId: { userId: context.user.id, groupId: g.id } },
+          update: {},
+          create: { userId: context.user.id, groupId: g.id }
+        })
+      }
+    }
+  } catch(e) {
+    console.warn('Group seeding skipped/failed:', e)
+  }
+
+  // 6) QLO History (light)
   for (let i = 0; i < users.length; i++) {
     const u = users[i]
-    const existing = await prisma.EloHistory.count({ where: { userId: u.id } })
+    const existing = await prisma.QloHistory.count({ where: { userId: u.id } })
     if (existing > 0) continue
-    let elo = u.eloRating ?? 1200
+    let qlo = u.qlo ?? 5000
     for (let j = 15; j >= 1; j--) {
       const changedAt = new Date(now.getTime() - j * 2 * 24 * 60 * 60 * 1000)
-      elo = Math.max(900, Math.min(2200, elo + Math.floor((Math.random()-0.5)*40)))
-      await prisma.EloHistory.create({ data: { userId: u.id, elo, changedAt, source: 'seed' } })
+      qlo = Math.max(0, qlo + Math.floor((Math.random()-0.5)*80))
+      await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt, source: 'seed' } })
     }
-    await prisma.EloHistory.create({ data: { userId: u.id, elo, changedAt: now, source: 'seed' } })
+    await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt: now, source: 'seed' } })
   }
 
   const after = {
@@ -229,16 +265,16 @@ export const backfillMyAccount: BackfillMyAccount<{}, { success: boolean }> = as
       await prisma.QuizAttempt.update({ where: { id: qa.id }, data: { endTime: end, completedAt: end, timeSpent: Math.ceil(totalMs/1000), score, correctAnswers: correct } })
     }
 
-    // Elo history for user
-    const existing = await prisma.EloHistory.count({ where: { userId: user.id } })
+    // QLO history for user
+    const existing = await prisma.QloHistory.count({ where: { userId: user.id } })
     if (existing === 0) {
-      let elo = user.eloRating ?? 1200
+      let qlo = user.qlo ?? 100
       for (let i = 10; i >= 1; i--) {
         const t = new Date(Date.now() - i * 2 * 24 * 60 * 60 * 1000)
-        elo = Math.max(900, Math.min(2200, elo + Math.floor((Math.random()-0.5)*40)))
-        await prisma.EloHistory.create({ data: { userId: user.id, elo, changedAt: t, source: 'backfill' } })
+        qlo = Math.max(0, qlo + Math.floor((Math.random()-0.5)*80))
+        await prisma.QloHistory.create({ data: { userId: user.id, qlo, changedAt: t, source: 'backfill' } })
       }
-      await prisma.EloHistory.create({ data: { userId: user.id, elo, changedAt: new Date(), source: 'backfill' } })
+      await prisma.QloHistory.create({ data: { userId: user.id, qlo, changedAt: new Date(), source: 'backfill' } })
     }
 
     // Emit refresh for current user
@@ -274,18 +310,18 @@ export const grantDemoAchievementsAll: GrantDemoAchievementsAll<{}, { success: b
 export const seedEloHistoryAll: SeedEloHistoryAll<{}, { success: boolean }> = async (_args, context) => {
   if (!context.user) throw new HttpError(401, 'Must be logged in')
   const prisma = context.entities
-  const users = await prisma.User.findMany({ select: { id: true, eloRating: true } })
+  const users = await prisma.User.findMany({ select: { id: true, qlo: true } })
   for (const u of users) {
-    const existing = await prisma.EloHistory.count({ where: { userId: u.id } })
+    const existing = await prisma.QloHistory.count({ where: { userId: u.id } })
     if (existing > 0) continue
-    let elo = u.eloRating ?? 1200
+    let qlo = u.qlo ?? 5000
     const now = new Date()
     for (let i = 20; i >= 1; i--) {
       const t = new Date(now.getTime() - i * 3 * 24 * 60 * 60 * 1000)
-      elo = Math.max(900, Math.min(2200, elo + Math.floor((Math.random()-0.5)*40)))
-      await prisma.EloHistory.create({ data: { userId: u.id, elo, changedAt: t, source: 'backfill-all' } })
+      qlo = Math.max(0, qlo + Math.floor((Math.random()-0.5)*80))
+      await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt: t, source: 'backfill-all' } })
     }
-    await prisma.EloHistory.create({ data: { userId: u.id, elo, changedAt: now, source: 'backfill-all' } })
+    await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt: now, source: 'backfill-all' } })
   }
   return { success: true }
 }
@@ -313,7 +349,7 @@ export const resetMySeededData: ResetMySeededData<{}, { success: boolean }> = as
   await prisma.UserAchievement.deleteMany({ where: { userId } })
   await prisma.UserQuestionHistory.deleteMany({ where: { userId } })
   await prisma.QuizAttempt.deleteMany({ where: { userId } })
-  await prisma.EloHistory.deleteMany({ where: { userId } })
+  await prisma.QloHistory.deleteMany({ where: { userId } })
   await prisma.Document.deleteMany({ where: { userId } })
   await prisma.Folder.deleteMany({ where: { userId } })
   // Optionally reset rolls
