@@ -231,16 +231,16 @@ export const updateUserProfile: UpdateUserProfile<{
  */
 export const getGroupLeaderboard: GetGroupLeaderboard<{
   groupId: number
-  type?: 'quiz_score' | 'beef_wins' | 'accuracy' | 'total_quizzes' | 'elo_rating'
+  type?: 'quiz_score' | 'beef_wins' | 'accuracy' | 'total_quizzes' | 'qlo'
 }, any> = async (args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'User must be authenticated')
   }
 
-  const { groupId, type = 'elo_rating' } = args
+  const { groupId, type = 'qlo' } = args
 
   try {
-    let orderBy: any = { eloRating: 'desc' }
+    let orderBy: any = { qlo: 'desc' }
 
     switch (type) {
       case 'quiz_score':
@@ -255,8 +255,8 @@ export const getGroupLeaderboard: GetGroupLeaderboard<{
       case 'total_quizzes':
         orderBy = { totalQuizzes: 'desc' }
         break
-      case 'elo_rating':
-        orderBy = { eloRating: 'desc' }
+      case 'qlo':
+        orderBy = { qlo: 'desc' }
         break
     }
 
@@ -278,6 +278,7 @@ export const getGroupLeaderboard: GetGroupLeaderboard<{
         longestWinStreak: true,
         joinedAt: true,
         favoriteSubject: true,
+        qlo: true,
         avatarUrl: true,
         _count: { select: { beefParticipations: true } }
       },

@@ -1,7 +1,7 @@
 import React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getStatsOverview, startCategoryPractice, getQloHistory } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getStatsOverview, startCategoryPractice, getQloHistory, getUserGroups, getGroupLeaderboard } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -54,6 +54,8 @@ import {
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
+import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
+import GroupLeaderboardCard from '../profile/components/GroupLeaderboardCard'
 import { Checkbox } from '../../components/ui/checkbox'
 
 const iconMap: Record<string, any> = {
@@ -125,6 +127,20 @@ export default function EnhancedAnalytics() {
   const { data: historyData, isLoading: historyLoading } = useQuery(getQuizHistory)
   const [retakeLoadingId, setRetakeLoadingId] = React.useState<number | null>(null)
   const { data: qloSeries } = useQuery(getQloHistory)
+  // Group leaderboard wiring
+  const [selectedGroupId, setSelectedGroupId] = React.useState<number | null>(null)
+  const [selectedGroupMetric, setSelectedGroupMetric] = React.useState<'qlo'|'quiz_score'|'beef_wins'|'accuracy'|'total_quizzes'>('qlo')
+  const { data: myGroups } = useQuery(getUserGroups)
+  const { data: groupLeaderboard } = useQuery(
+    getGroupLeaderboard,
+    selectedGroupId ? { groupId: selectedGroupId, type: selectedGroupMetric } : undefined,
+    { enabled: !!selectedGroupId }
+  )
+  React.useEffect(() => {
+    if (myGroups && myGroups.length > 0 && !selectedGroupId) {
+      setSelectedGroupId(myGroups[0].id)
+    }
+  }, [myGroups, selectedGroupId])
   // Keep active tab stable when query params change (e.g., chart range buttons)
   const [tab, setTab] = React.useState('overview')
   // Legend toggles for Statistics charts
@@ -604,7 +620,7 @@ export default function EnhancedAnalytics() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Elo Over Time</CardTitle>
+                    <CardTitle>QLO Over Time</CardTitle>
                     <CardDescription>Last {chartsRange} days</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -628,7 +644,7 @@ export default function EnhancedAnalytics() {
                     <XAxis dataKey="date" />
                     <YAxis />
                     <RechartsTooltip />
-                    <Line type="monotone" dataKey="value" name="Elo" stroke="#8B5CF6" dot={false} />
+                    <Line type="monotone" dataKey="value" name="QLO" stroke="#8B5CF6" dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -857,6 +873,8 @@ export default function EnhancedAnalytics() {
               </div>
             </CardContent>
           </Card>
+            {/* Group Leaderboard (9+1) */}
+            <GroupLeaderboardCard />
          </div>
         </TabsContent>
 

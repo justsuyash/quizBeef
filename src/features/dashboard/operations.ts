@@ -797,7 +797,7 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
       }
     }
 
-    // Elo over time for the selected range
+    // QLO over time for the selected range
     // Compute endDate for range upper bound
     const endDate = new Date()
     endDate.setHours(23,59,59,999)
