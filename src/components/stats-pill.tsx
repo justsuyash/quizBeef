@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
 import { useToast } from '../hooks/use-toast'
-import { getStatsOverview, getCurrentUser } from 'wasp/client/operations'
+import { getStatsOverview, getCurrentUser, getQloHistory } from 'wasp/client/operations'
 import { cn } from '../lib/cn'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { useAuth } from 'wasp/client/auth'
@@ -67,6 +67,7 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
   })
 
   const { data: stats, isLoading, error, refetch } = useQuery(getStatsOverview, { range: 30 })
+  const { data: qloSeries } = useQuery(getQloHistory)
   const { toast } = useToast()
 
   // SSE subscription for real-time updates
@@ -159,8 +160,8 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
 
   // Placeholder for Elo; values not shown in icon-only pill
 
-  // Placeholder current QLO until wired
-  const currentQlo = 5000
+  // Current QLO from server
+  const currentQlo = qloSeries?.currentQlo ?? 0
 
   return (
     <div

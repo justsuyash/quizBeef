@@ -27,6 +27,8 @@ import {
 
 export default function QuizResultsPage() {
   const { attemptId } = useParams<{ attemptId: string }>()
+  const params = new URLSearchParams(window.location.search)
+  const returnTo = params.get('return')
   const navigate = useNavigate()
 
   const { data: quizData, isLoading, error } = useQuery(getQuizAttempt, 
@@ -102,7 +104,13 @@ export default function QuizResultsPage() {
       <div className='mb-8 flex items-center justify-between'>
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/quiz-history')}>
+            <Button variant="ghost" size="sm" onClick={() => {
+              if (returnTo) {
+                window.location.href = returnTo
+              } else {
+                navigate('/quiz-history')
+              }
+            }}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Quiz History
             </Button>

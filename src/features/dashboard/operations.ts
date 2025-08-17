@@ -567,7 +567,7 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
     const nowTs = new Date()
 
     // Lightweight user fetch for demo assassinsCount via totalBeefWins
-    const me = await context.entities.User.findUnique({
+    const meWins = await context.entities.User.findUnique({
       where: { id: context.user.id },
       select: { totalBeefWins: true }
     })
@@ -599,7 +599,7 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
     })
 
     // Calculate assassins count (demo): reuse totalBeefWins as a stand-in until rivalry is implemented
-    const assassinsCount = me?.totalBeefWins ?? 0
+    const assassinsCount = meWins?.totalBeefWins ?? 0
 
     // Category breadth
     const categories = await context.entities.QuizAttempt.findMany({

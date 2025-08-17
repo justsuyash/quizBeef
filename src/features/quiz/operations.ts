@@ -448,42 +448,70 @@ export const getQuizAttempt: GetQuizAttempt<
 }
 
 /**
- * Get user's quiz history
+ * Get user's quiz history with filters and pagination
  */
-export const getQuizHistory: GetQuizHistory<void, any> = async (args, context) => {
+import type { QuizMode } from '@prisma/client'
+
+export const getQuizHistory: GetQuizHistory<{
+  page?: number
+  pageSize?: number
+  rangeDays?: number | null
+  documentId?: number | null
+  mode?: QuizMode | 'ALL'
+}, { items: any[]; total: number; page: number; pageSize: number }> = async (args, context) => {
   if (!context.user) {
     throw new Error('User must be authenticated')
   }
 
   try {
-    const quizAttempts = await context.entities.QuizAttempt.findMany({
-      where: { 
-        userId: context.user.id,
-        completedAt: { not: null }
-      },
-      include: {
-        document: true,
-        _count: {
-          select: {
-            questionHistory: true
-          }
-        }
-      },
-      orderBy: { completedAt: 'desc' }
-    })
+    const page = Math.max(1, args?.page || 1)
+    const pageSize = Math.min(50, Math.max(5, args?.pageSize || 10))
 
-    return quizAttempts.map(attempt => ({
+    const where: any = {
+      userId: context.user.id,
+      completedAt: { not: null }
+    }
+    if (args?.rangeDays && args.rangeDays > 0) {
+      const end = new Date()
+      const start = new Date(end.getTime() - args.rangeDays * 24 * 60 * 60 * 1000)
+      where.completedAt = { gte: start, lte: end }
+    }
+    if (args?.documentId) {
+      where.documentId = args.documentId
+    }
+    if (args?.mode && args.mode !== 'ALL') {
+      where.quizMode = args.mode
+    }
+
+    const [total, quizAttempts] = await Promise.all([
+      context.entities.QuizAttempt.count({ where }),
+      context.entities.QuizAttempt.findMany({
+        where,
+        include: {
+          document: true,
+          _count: { select: { questionHistory: true } }
+        },
+        orderBy: { completedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize
+      })
+    ])
+
+    const items = quizAttempts.map(attempt => ({
       id: attempt.id,
       documentId: attempt.documentId,
-      documentTitle: attempt.document.title,
+      documentTitle: attempt.document?.title,
       score: attempt.score,
       correctAnswers: attempt.correctAnswers,
       totalQuestions: attempt.totalQuestions,
       timeSpent: attempt.timeSpent,
       completedAt: attempt.completedAt,
       grade: getGradeFromScore(attempt.score),
-      questionCount: attempt._count.questionHistory
+      questionCount: attempt._count.questionHistory,
+      mode: attempt.quizMode
     }))
+
+    return { items, total, page, pageSize }
 
   } catch (error) {
     console.error('Error fetching quiz history:', error)

@@ -39,8 +39,8 @@ export default function PlayPage() {
   const startGameModeFn = useAction(startGameMode);
   const seedDataFn = useAction(seedQuizData);
   
-  // Fetch real quiz history for recent activity
-  const { data: quizHistory, isLoading: historyLoading } = useQuery(getQuizHistory, {}, {
+  // Fetch recent activity: last 30 attempts
+  const { data: quizHistory, isLoading: historyLoading } = useQuery(getQuizHistory, { page: 1, pageSize: 30 }, {
     enabled: !!user
   });
 
@@ -53,43 +53,7 @@ export default function PlayPage() {
     setSelectedMode(selectedMode === modeId ? null : modeId);
   };
 
-  // Convert quiz history to activity items
-  const getRecentActivity = (): ActivityItem[] => {
-    if (!quizHistory || quizHistory.length === 0) {
-      // Return fallback static data if no history
-      return recentActivityList.slice(0, 5);
-    }
-
-    return quizHistory.slice(0, 10).map((quiz: any): ActivityItem => {
-      const percentage = Math.round((quiz.correctAnswers / quiz.totalQuestions) * 100);
-      const isGoodScore = percentage >= 70;
-      
-      // Get mode display info
-      const getModeInfo = (mode: string) => {
-        switch (mode) {
-          case 'RAPID_FIRE': return { name: 'Rapid Fire', icon: Zap, color: 'bg-gradient-to-br from-yellow-500 to-orange-500' };
-          case 'FLASHCARD_FRENZY': return { name: 'Flashcard Frenzy', icon: Brain, color: 'bg-gradient-to-br from-purple-500 to-indigo-500' };
-          case 'TIME_ATTACK': return { name: 'Time Attack', icon: Timer, color: 'bg-gradient-to-br from-red-500 to-pink-500' };
-          case 'BEEF_CHALLENGE': return { name: 'Beef Challenge', icon: Trophy, color: 'bg-gradient-to-br from-orange-500 to-red-500' };
-          default: return { name: 'Practice Quiz', icon: BookOpen, color: 'bg-gradient-to-br from-blue-500 to-cyan-500' };
-        }
-      };
-
-      const modeInfo = getModeInfo(quiz.quizMode);
-      const timeAgo = formatTimeAgo(new Date(quiz.completedAt));
-
-      return {
-        title: `${modeInfo.name}`,
-        description: quiz.document?.title || 'General Knowledge Quiz',
-        type: 'quiz' as const,
-        score: `${percentage}%`,
-        result: isGoodScore ? 'win' : 'loss',
-        date: timeAgo,
-        icon: modeInfo.icon,
-        color: modeInfo.color
-      };
-    });
-  };
+  const recentItems: any[] = (quizHistory as any)?.items || []
 
   // Format time ago helper
   const formatTimeAgo = (date: Date): string => {
@@ -298,7 +262,7 @@ export default function PlayPage() {
         ))}
       </motion.div>
 
-      {/* Recent Activity List */}
+      {/* Recent Activity: copy of Quiz History (last 30) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -310,12 +274,6 @@ export default function PlayPage() {
             <History className="w-6 h-6 text-primary" />
             Recent Activity
           </h3>
-          <Link to="/quiz-history">
-            <Button variant="outline" size="sm">
-              View All
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          </Link>
         </div>
 
         <Card>
@@ -326,77 +284,47 @@ export default function PlayPage() {
                 <p className="text-muted-foreground">Loading recent activity...</p>
               </div>
             ) : (
-              <div className="divide-y divide-border">
-                {getRecentActivity().map((activity, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors cursor-pointer group"
-                >
-                  <div className="flex items-center space-x-4">
-                    {/* Icon */}
-                    <div className={cn(
-                      "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                      activity.color
-                    )}>
-                      <activity.icon className="w-5 h-5 text-white" />
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2">
-                        <h4 className="font-semibold text-sm group-hover:text-primary transition-colors truncate">
-                          {activity.title}
-                        </h4>
-                        <Badge 
-                          variant={activity.type === 'beef' ? 'destructive' : 'secondary'} 
-                          className="text-xs shrink-0"
-                        >
-                          {activity.type}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {activity.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Result & Actions */}
-                  <div className="flex items-center space-x-4 shrink-0">
-                    {/* Win/Loss Indicator */}
-                    <div className="flex items-center space-x-2">
-                      {activity.result === 'win' ? (
-                        <div className="flex items-center text-green-600">
-                          <span className="text-lg font-bold">+</span>
-                          <span className="text-sm font-semibold ml-1">{activity.score}</span>
-                        </div>
-                      ) : activity.result === 'loss' ? (
-                        <div className="flex items-center text-red-600">
-                          <span className="text-lg font-bold">-</span>
-                          <span className="text-sm font-semibold ml-1">{activity.score}</span>
-                        </div>
-                      ) : (
-                        <span className="text-sm font-semibold text-muted-foreground">
-                          {activity.score}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Date */}
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {activity.date}
-                    </span>
-                    
-                    {/* Retry Button */}
-                    <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <RotateCcw className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                ))}
+              <div className="w-full overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-3">Date</th>
+                      <th className="text-left p-3">Document</th>
+                      <th className="text-left p-3">Mode</th>
+                      <th className="text-right p-3">Score</th>
+                      <th className="text-right p-3">Questions</th>
+                      <th className="text-right p-3">Time</th>
+                      <th className="text-right p-3">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(recentItems || []).map((row: any) => (
+                      <tr key={row.id} className="border-b hover:bg-muted/50">
+                        <td className="p-3">{row.completedAt ? new Date(row.completedAt).toLocaleDateString() : '-'}</td>
+                        <td className="p-3 truncate max-w-[280px]">{row.documentTitle}</td>
+                        <td className="p-3">{row.mode || row.quizMode}</td>
+                        <td className="p-3 text-right font-medium">{Math.round(row.score)}%</td>
+                        <td className="p-3 text-right">{row.correctAnswers}/{row.totalQuestions}</td>
+                        <td className="p-3 text-right">{formatTimeAgo(new Date(row.completedAt))}</td>
+                        <td className="p-3 text-right whitespace-nowrap">
+                          <Button variant='outline' size='sm' onClick={() => (window.location.href = `/quiz/${row.id}/results`)}>Review</Button>
+                          <Button size='sm' className="ml-2" onClick={() => (window.location.href = `/quiz/${row.documentId}/take`)}>Retake</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
         </Card>
+
+        <div className="flex justify-center">
+          <Button variant="outline" size="sm" onClick={() => navigate('/analytics?tab=history')}>
+            Quiz History
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        </div>
       </motion.div>
     </main>
   );

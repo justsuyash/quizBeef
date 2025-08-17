@@ -4,23 +4,16 @@ import { Link } from 'wasp/client/router'
 import { getQuizHistory } from 'wasp/client/operations'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
-import { Badge } from '../../components/ui/badge'
 import { Skeleton } from '../../components/ui/skeleton'
-import { History, Trophy, Clock, Target, PlayCircle, Calendar } from 'lucide-react'
+import { History, PlayCircle, Calendar } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 
 export default function QuizHistoryPage() {
-  const { data: quizHistory, isLoading, error } = useQuery(getQuizHistory)
-
-  const getGradeColor = (grade: string) => {
-    switch (grade) {
-      case 'A': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-      case 'B': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
-      case 'C': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
-      case 'D': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
-      case 'F': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
-    }
-  }
+  const [page, setPage] = React.useState(1)
+  const [range, setRange] = React.useState<number | null>(30)
+  const [mode, setMode] = React.useState<'ALL'|'PRACTICE'|'TEST_MODE'|'SPEED_ROUND'|'RAPID_FIRE'|'FLASHCARD_FRENZY'|'TIME_ATTACK'>('ALL')
+  const { data, isLoading, error } = useQuery(getQuizHistory, { page, pageSize: 10, rangeDays: range, mode })
 
   const formatTimeSpent = (seconds: number) => {
     const minutes = Math.floor(seconds / 60)
@@ -41,18 +34,9 @@ export default function QuizHistoryPage() {
       </div>
 
       {isLoading ? (
-        <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
-          {[...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <CardHeader>
-                <Skeleton className='h-4 w-3/4' />
-                <Skeleton className='h-3 w-1/2' />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className='h-20 w-full' />
-              </CardContent>
-            </Card>
-          ))}
+        <div className='space-y-4'>
+          <Skeleton className='h-10 w-64' />
+          <Skeleton className='h-64 w-full' />
         </div>
       ) : error ? (
         <Card>
@@ -62,7 +46,7 @@ export default function QuizHistoryPage() {
             </div>
           </CardContent>
         </Card>
-      ) : !quizHistory || quizHistory.length === 0 ? (
+      ) : !data || data.total === 0 ? (
         <Card className='p-12 text-center'>
           <CardContent className='space-y-6'>
             <History className='w-24 h-24 mx-auto text-muted-foreground' />
@@ -79,82 +63,108 @@ export default function QuizHistoryPage() {
                   Start Your First Quiz
                 </Link>
               </Button>
-              <Button variant='outline' size='lg' asChild>
-                <Link to='/documents'>
-                  Upload Content
-                </Link>
-              </Button>
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className='grid gap-6 md:grid-cols-2 lg:grid-cols-3'>
-          {quizHistory.map((attempt) => (
-            <Card key={attempt.id} className='hover:shadow-md transition-shadow'>
-              <CardHeader className='pb-3'>
-                <div className='flex items-start justify-between'>
-                  <div className='flex-1 min-w-0'>
-                    <CardTitle className='text-lg line-clamp-2'>
-                      {attempt.document?.title || 'Quiz Attempt'}
-                    </CardTitle>
-                    <CardDescription className='flex items-center text-sm mt-1'>
-                      <Calendar className='h-4 w-4 mr-1' />
-                      {new Date(attempt.createdAt).toLocaleDateString()}
-                    </CardDescription>
-                  </div>
-                  <Badge className={getGradeColor(attempt.grade || 'N/A')}>
-                    {attempt.grade || 'N/A'}
-                  </Badge>
-                </div>
+        <div className='space-y-6'>
+          {/* Filters */}
+          <div className='grid gap-4 md:grid-cols-3'>
+            <Card>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2'>
+                  <Calendar className='h-5 w-5 text-blue-500' />
+                  Range
+                </CardTitle>
               </CardHeader>
-
-              <CardContent className='space-y-4'>
-                {/* Stats Grid */}
-                <div className='grid grid-cols-2 gap-4 text-center'>
-                  <div className='space-y-1'>
-                    <div className='flex items-center justify-center text-sm text-muted-foreground'>
-                      <Target className='h-4 w-4 mr-1' />
-                      Score
-                    </div>
-                    <div className='text-2xl font-bold text-primary'>
-                      {attempt.score}%
-                    </div>
-                  </div>
-                  <div className='space-y-1'>
-                    <div className='flex items-center justify-center text-sm text-muted-foreground'>
-                      <Clock className='h-4 w-4 mr-1' />
-                      Time
-                    </div>
-                    <div className='text-2xl font-bold'>
-                      {formatTimeSpent(attempt.timeSpent || 0)}
-                    </div>
-                  </div>
+              <CardContent>
+                <div className='flex gap-2'>
+                  {[7,30,90].map((d)=> (
+                    <Button key={d} variant={range===d?'default':'outline'} size='sm' onClick={()=>{setPage(1);setRange(d)}}>{d}d</Button>
+                  ))}
+                  <Button variant={range===null?'default':'outline'} size='sm' onClick={()=>{setPage(1);setRange(null)}}>All</Button>
                 </div>
-
-                {/* Progress Bar */}
-                <div className='space-y-2'>
-                  <div className='flex justify-between text-sm'>
-                    <span>Correct: {attempt.correctAnswers}</span>
-                    <span>Total: {attempt.totalQuestions}</span>
-                  </div>
-                  <div className='w-full bg-muted rounded-full h-2'>
-                    <div 
-                      className='bg-primary h-2 rounded-full transition-all duration-500'
-                      style={{ width: `${attempt.score}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Action Button */}
-                <Button asChild variant='outline' className='w-full'>
-                  <Link to="/quiz-history">
-                    <Trophy className='h-4 w-4 mr-2' />
-                    View Results
-                  </Link>
-                </Button>
               </CardContent>
             </Card>
-          ))}
+            <Card>
+              <CardHeader>
+                <CardTitle>Mode</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Select value={mode} onValueChange={(v:any)=>{setPage(1);setMode(v)}}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='ALL'>All</SelectItem>
+                    <SelectItem value='PRACTICE'>Practice</SelectItem>
+                    <SelectItem value='TEST_MODE'>Test Mode</SelectItem>
+                    <SelectItem value='SPEED_ROUND'>Speed Round</SelectItem>
+                    <SelectItem value='RAPID_FIRE'>Rapid Fire</SelectItem>
+                    <SelectItem value='FLASHCARD_FRENZY'>Flashcard Frenzy</SelectItem>
+                    <SelectItem value='TIME_ATTACK'>Time Attack</SelectItem>
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>History</CardTitle>
+              <CardDescription>Your recent completed quizzes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className='w-full overflow-auto'>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Document</TableHead>
+                      <TableHead>Mode</TableHead>
+                      <TableHead className='text-right'>Score</TableHead>
+                      <TableHead className='text-right'>Questions</TableHead>
+                      <TableHead className='text-right'>Time</TableHead>
+                      <TableHead className='text-right'>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(data.items || []).map((row: any) => (
+                      <TableRow key={row.id} className='hover:bg-muted/50'>
+                        <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleDateString() : '-'}</TableCell>
+                        <TableCell className='truncate max-w-[280px]'>{row.documentTitle}</TableCell>
+                        <TableCell>{row.mode}</TableCell>
+                        <TableCell className='text-right font-medium'>{Math.round(row.score)}%</TableCell>
+                        <TableCell className='text-right'>{row.correctAnswers}/{row.totalQuestions}</TableCell>
+                        <TableCell className='text-right'>{formatTimeSpent(row.timeSpent)}</TableCell>
+                        <TableCell className='text-right space-x-2 whitespace-nowrap'>
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            onClick={() => {
+                              const q = new URLSearchParams({ range: String(range ?? ''), mode, page: String(page) })
+                              const ret = `/quiz-history?${q.toString()}`
+                              window.location.href = `/quiz/${row.id}/results?return=${encodeURIComponent(ret)}`
+                            }}
+                          >
+                            Review
+                          </Button>
+                          <Button size='sm' onClick={() => (window.location.href = `/quiz/${row.documentId}/take`)}>Retake</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                {/* Pagination */}
+                <div className='flex items-center justify-between mt-4'>
+                  <div className='text-sm text-muted-foreground'>Page {data.page} of {Math.max(1, Math.ceil(data.total / data.pageSize))}</div>
+                  <div className='flex gap-2'>
+                    <Button variant='outline' size='sm' disabled={page<=1} onClick={()=>setPage(p=>p-1)}>Prev</Button>
+                    <Button variant='outline' size='sm' disabled={data.page * data.pageSize >= data.total} onClick={()=>setPage(p=>p+1)}>Next</Button>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </main>

@@ -845,7 +845,7 @@ async function seedQloHistory(users: any[]) {
       })
     }
 
-    // Ensure last point close to current elo
+    // Ensure last point close to current QLO (today)
     await (prisma as any).qloHistory.create({
       data: {
         userId: u.id,

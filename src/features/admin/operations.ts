@@ -189,7 +189,7 @@ export const seedDatabase: SeedDatabase<{ recentBoost?: boolean }, { success: bo
       qlo = Math.max(0, qlo + Math.floor((Math.random()-0.5)*80))
       await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt, source: 'seed' } })
     }
-    await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt: now, source: 'seed' } })
+    await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt: now, source: 'seed', note: 'Current' } })
   }
 
   const after = {
@@ -321,7 +321,7 @@ export const seedEloHistoryAll: SeedEloHistoryAll<{}, { success: boolean }> = as
       qlo = Math.max(0, qlo + Math.floor((Math.random()-0.5)*80))
       await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt: t, source: 'backfill-all' } })
     }
-    await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt: now, source: 'backfill-all' } })
+    await prisma.QloHistory.create({ data: { userId: u.id, qlo, changedAt: now, source: 'backfill-all', note: 'Current' } })
   }
   return { success: true }
 }

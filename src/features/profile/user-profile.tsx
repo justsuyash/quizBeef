@@ -86,7 +86,7 @@ export default function UserProfilePage() {
   // v1.7: Get additional data for Trophy Case layout
   const { data: stats } = useQuery(getStatsOverview, { range: 30 })
   const { data: achievements } = useQuery(getUserAchievements, {})
-  const { data: recentActivity } = useQuery(getQuizHistory, { limit: 10 })
+  const { data: recentActivityResp } = useQuery(getQuizHistory, { page: 1, pageSize: 10 })
   
   const createBeefFn = useAction(createBeef)
   const { toast } = useToast()
@@ -433,8 +433,8 @@ export default function UserProfilePage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {recentActivity && recentActivity.length > 0 ? (
-                recentActivity.map((activity, index) => (
+              {recentActivityResp && (recentActivityResp as any).items?.length > 0 ? (
+                (recentActivityResp as any).items.map((activity: any, index: number) => (
                   <div
                     key={index}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"

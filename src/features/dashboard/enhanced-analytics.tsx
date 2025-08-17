@@ -54,6 +54,7 @@ import {
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
+import QuizHistoryTable from '../quiz/components/QuizHistoryTable'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import GroupLeaderboardCard from '../profile/components/GroupLeaderboardCard'
 import { Checkbox } from '../../components/ui/checkbox'
@@ -142,7 +143,19 @@ export default function EnhancedAnalytics() {
     }
   }, [myGroups, selectedGroupId])
   // Keep active tab stable when query params change (e.g., chart range buttons)
-  const [tab, setTab] = React.useState('overview')
+  // Tab selection with querystring support
+  const initialTab = React.useMemo(() => {
+    const p = new URLSearchParams(window.location.search)
+    const t = p.get('tab')
+    return t === 'leaderboards' || t === 'history' || t === 'statistics' ? t : 'overview'
+  }, [])
+  const [tab, setTab] = React.useState(initialTab)
+  React.useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    p.set('tab', tab)
+    const url = `${window.location.pathname}?${p.toString()}`
+    window.history.replaceState({}, '', url)
+  }, [tab])
   // Legend toggles for Statistics charts
   const [showQuizzesCurrent, setShowQuizzesCurrent] = React.useState(true)
   const [showQuizzesPrev, setShowQuizzesPrev] = React.useState(true)
@@ -880,76 +893,7 @@ export default function EnhancedAnalytics() {
 
         {/* Quiz History Tab */}
         <TabsContent value="history" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Quiz History</CardTitle>
-                  <CardDescription>Your recent completed quizzes</CardDescription>
-                </div>
-                <Button variant="outline" onClick={() => (window.location.href = '/quiz-history')}>View Full History</Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {(!historyData || historyData.length === 0) ? (
-                <div className="text-center text-muted-foreground py-12">No quiz history yet.</div>
-              ) : (
-                <div className="w-full overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Document</TableHead>
-                        <TableHead className="text-right">Score</TableHead>
-                        <TableHead className="text-right">Questions</TableHead>
-                        <TableHead className="text-right">Time</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(historyData || []).slice(0, 10).map((row: any) => (
-                        <TableRow key={row.id} className="hover:bg-muted/50">
-                          <TableCell>{row.completedAt ? new Date(row.completedAt).toLocaleDateString() : '-'}</TableCell>
-                          <TableCell className="truncate max-w-[240px]">{row.documentTitle}</TableCell>
-                          <TableCell className="text-right font-medium">{Math.round(row.score)}%</TableCell>
-                          <TableCell className="text-right">{row.correctAnswers}/{row.totalQuestions}</TableCell>
-                          <TableCell className="text-right">{row.timeSpent}s</TableCell>
-                          <TableCell className="text-right space-x-2 whitespace-nowrap">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => (window.location.href = `/quiz/${row.id}/results`)}
-                            >
-                              Review
-                            </Button>
-                            <Button
-                              size="sm"
-                              disabled={retakeLoadingId === row.id}
-                              onClick={async () => {
-                                try {
-                                  setRetakeLoadingId(row.id)
-                                  const defaultSettings = {
-                                    questionCount: 10,
-                                    difficultyDistribution: { easy: 40, medium: 40, hard: 20 },
-                                  }
-                                  const result = await startQuiz({ documentId: row.documentId, settings: defaultSettings })
-                                  navigate(`/quiz/${row.documentId}/take?attemptId=${result.quizAttemptId}`)
-                                } finally {
-                                  setRetakeLoadingId(null)
-                                }
-                              }}
-                            >
-                              {retakeLoadingId === row.id ? 'Starting…' : 'Retake'}
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <QuizHistoryTable />
         </TabsContent>
       </Tabs>
     </main>
