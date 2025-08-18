@@ -565,6 +565,17 @@ query getRivalsList {
   fn: import { getRivalsList } from "@src/features/beef/operations",
   entities: [User, BeefParticipant, BeefChallenge]
 }
+
+// Rivals summary and paginated list
+query getRivalSummary {
+  fn: import { getRivalSummary } from "@src/features/beef/operations",
+  entities: [User, BeefParticipant, BeefChallenge]
+}
+
+query getRivalList {
+  fn: import { getRivalList } from "@src/features/beef/operations",
+  entities: [User, BeefParticipant, BeefChallenge]
+}
 // Profile & User operations
 query getUserProfile {
   fn: import { getUserProfile } from "@src/features/profile/operations",

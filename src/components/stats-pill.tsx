@@ -129,6 +129,40 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
     }
   }, [stats, previousStats])
 
+  // QLO tick-up animation & pulse on change
+  const [displayQlo, setDisplayQlo] = useState<number>(0)
+  const prevQloRef = React.useRef<number>(0)
+  useEffect(() => {
+    const current = qloSeries?.currentQlo ?? 0
+    // initialize on first load
+    if (prevQloRef.current === 0 && displayQlo === 0) {
+      prevQloRef.current = current
+      setDisplayQlo(current)
+      return
+    }
+    if (current !== prevQloRef.current) {
+      // trigger pulse
+      setPulseFlags((p) => ({ ...p, elo: true }))
+      const start = prevQloRef.current
+      const end = current
+      const duration = 500
+      const startTs = performance.now()
+      let raf: number
+      const step = (t: number) => {
+        const progress = Math.min(1, (t - startTs) / duration)
+        const value = Math.round(start + (end - start) * progress)
+        setDisplayQlo(value)
+        if (progress < 1) raf = requestAnimationFrame(step)
+        else {
+          setTimeout(() => setPulseFlags((p) => ({ ...p, elo: false })), 150)
+        }
+      }
+      raf = requestAnimationFrame(step)
+      prevQloRef.current = current
+      return () => cancelAnimationFrame(raf)
+    }
+  }, [qloSeries?.currentQlo])
+
   const handleClick = () => {
     navigate('/analytics')
   }
@@ -161,7 +195,7 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
   // Placeholder for QLO; values not shown in icon-only pill
 
   // Current QLO from server
-  const currentQlo = qloSeries?.currentQlo ?? 0
+  const currentQlo = displayQlo
 
   return (
     <div
@@ -175,7 +209,7 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
       {/* Left metrics with numbers below */}
       <div className="flex items-center space-x-2 sm:space-x-3">
         <StatStack icon="🔥" value={stats.streak || 0} bubbleClasses={stats.streak > 0 ? 'bg-orange-100' : 'bg-gray-100'} pulse={pulseFlags.streak} layout="inside" />
-        <StatStack icon="♟" value={currentQlo} bubbleClasses="bg-blue-100" pulse={pulseFlags.elo} layout="inside" className="px-3 sm:px-3.5" />
+        <StatStack icon="♟" value={currentQlo} bubbleClasses="bg-blue-100" pulse={pulseFlags.elo} layout="inside" className="px-3 sm:px-3.5 transition-transform duration-300" />
         <StatStack icon="🏅" value={stats.medalsCount || 0} bubbleClasses={stats.medalsCount > 0 ? 'bg-yellow-100' : 'bg-gray-100'} pulse={pulseFlags.medals} layout="inside" />
         <StatStack icon="🥷" value={stats.rivalsCount || 0} bubbleClasses={stats.rivalsCount > 0 ? 'bg-red-100' : 'bg-gray-100'} pulse={pulseFlags.rivals} layout="inside" />
       </div>

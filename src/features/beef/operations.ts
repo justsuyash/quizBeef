@@ -1,4 +1,4 @@
-import type { GetRivalHeadToHead, GetRivalsList } from 'wasp/server/operations'
+import type { GetRivalHeadToHead, GetRivalsList, GetRivalSummary, GetRivalList } from 'wasp/server/operations'
 import { HttpError } from 'wasp/server'
 
 export const getRivalHeadToHead: GetRivalHeadToHead<{ page?: number; pageSize?: number }, any> = async (args, context) => {
@@ -117,12 +117,43 @@ export const getRivalsList: GetRivalsList<void, any[]> = async (_args, context) 
     winRate: r.matches > 0 ? Math.round((r.wins / r.matches) * 100) : 0,
     lastPlayedAt: new Date(r.lastPlayedAt),
     avgScoreDiff: r.matches > 0 ? Math.round(((r.totalMyScore - r.totalOppScore) / r.matches) * 10) / 10 : 0,
+    netDebt: r.losses - r.wins,
     avgTimePerMatchSec: r.matches > 0 ? Math.round((r.totalTime / r.matches) / 1000) : 0
   }))
 
   // Sort by debt (losses - wins) desc, then recent
   rivals.sort((a: any, b: any) => (b.losses - b.wins) - (a.losses - a.wins) || (b.lastPlayedAt.getTime() - a.lastPlayedAt.getTime()))
   return rivals
+}
+
+// Paginated rivals list with net debt per opponent
+export const getRivalList: GetRivalList<{ limit?: number; offset?: number }, { items: any[]; total: number; limit: number; offset: number }> = async (args, context) => {
+  if (!context.user) throw new HttpError(401, 'Not authorized')
+
+  const limit = Math.min(50, Math.max(1, Number(args?.limit ?? 20)))
+  const offset = Math.max(0, Number(args?.offset ?? 0))
+
+  // Reuse aggregation from getRivalsList
+  const all = await getRivalsList(undefined as any, context)
+  const total = all.length
+  const items = all.slice(offset, offset + limit)
+  return { items, total, limit, offset }
+}
+
+// Summary across all rivals for current user
+export const getRivalSummary: GetRivalSummary<void, { rivalsCount: number; matches: number; wins: number; losses: number; netDebt: number }> = async (_args, context) => {
+  if (!context.user) throw new HttpError(401, 'Not authorized')
+
+  const list = await getRivalsList(undefined as any, context)
+  const rivalsCount = list.length
+  let matches = 0, wins = 0, losses = 0
+  for (const r of list as any[]) {
+    matches += r.matches || 0
+    wins += r.wins || 0
+    losses += r.losses || 0
+  }
+  const netDebt = losses - wins
+  return { rivalsCount, matches, wins, losses, netDebt }
 }
 
 import type { 

@@ -310,6 +310,7 @@ export default function EnhancedAnalytics() {
   const [showQuizzesPrev, setShowQuizzesPrev] = React.useState(true)
   const [showTopicsCurrent, setShowTopicsCurrent] = React.useState(true)
   const [showTopicsPrev, setShowTopicsPrev] = React.useState(true)
+  const [selectedCategory, setSelectedCategory] = React.useState<string | undefined>(undefined)
   
 
 
@@ -1005,20 +1006,56 @@ export default function EnhancedAnalytics() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Category Mastery</CardTitle>
-                <CardDescription>Accuracy by category</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Category Mastery</CardTitle>
+                    <CardDescription>Accuracy by category</CardDescription>
+                  </div>
+                  <div>
+                    <Select onValueChange={(v)=> setSelectedCategory(v)}>
+                      <SelectTrigger className="w-40 h-8">
+                        <SelectValue placeholder="All Categories" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all">All Categories</SelectItem>
+                        {((overview?.series?.categoryDonuts||[]) as any[]).map((c: any) => (
+                          <SelectItem key={c.label} value={c.label}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={240}>
-                  <PieChart>
-                    <RechartsTooltip />
-                    <Pie dataKey="value" data={(overview?.series?.categoryDonuts || [])} outerRadius={90} label>
-                      {(overview?.series?.categoryDonuts || []).map((_: any, idx: number) => (
-                        <Cell key={`cell-${idx}`} fill={["#3B82F6", "#10B981", "#F59E0B", "#F43F5E", "#8B5CF6", "#06B6D4"][idx % 6]} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
+                {(() => {
+                  const base = ((overview?.series?.categoryDonuts||[]) as any[])
+                  const sel = (selectedCategory && selectedCategory !== '__all') ? base.filter(d=> d.label === selectedCategory) : base
+                  const total = sel.reduce((s,d)=> s + (d?.value||0), 0)
+                  return (
+                    <div className="grid md:grid-cols-2 gap-4 items-center">
+                      <ResponsiveContainer width="100%" height={240}>
+                        <PieChart>
+                          <RechartsTooltip formatter={(val:any, _name:any, ctx:any)=>{
+                            const pct = total>0 ? `${Math.round((Number(val)/total)*100)}%` : '0%'
+                            return [`${val} (${pct})`, ctx?.payload?.label]
+                          }}/>
+                          <Pie dataKey="value" data={sel} outerRadius={90} label>
+                            {sel.map((_: any, idx: number) => (
+                              <Cell key={`cat-${idx}`} fill={["#3B82F6", "#10B981", "#F59E0B", "#F43F5E", "#8B5CF6", "#06B6D4"][idx % 6]} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="text-center md:text-left">
+                        <div className="text-3xl font-semibold">{total}</div>
+                        <div className="text-xs text-muted-foreground">Total correct answers</div>
+                        {selectedCategory && selectedCategory !== '__all' && (
+                          <div className="mt-2 text-sm">Category: <span className="font-medium">{selectedCategory}</span></div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
               </CardContent>
             </Card>
 
