@@ -531,14 +531,19 @@ export const getOptimalLearningTime: GetOptimalLearningTime<void, any> = async (
 /**
  * v1.7: Get stats overview for the Stats Pill and analytics
  */
-export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: number }, any> = async (args, context) => {
+export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: number; year?: number }, any> = async (args, context) => {
   if (!context.user) {
     throw new HttpError(401, 'User must be authenticated')
   }
 
   try {
     const range = args?.range || 30 // For charts
-    const startDate = new Date()
+    const now = new Date()
+    const selectedYear = args?.year && args.year > 1970 ? args.year : now.getFullYear()
+    const endOfSelectedYear = new Date(selectedYear, 11, 31, 23, 59, 59, 999)
+    const endClamp = selectedYear === now.getFullYear() ? now : endOfSelectedYear
+
+    const startDate = new Date(endClamp)
     startDate.setHours(0,0,0,0)
     startDate.setDate(startDate.getDate() - range + 1)
     const prevStartDate = new Date(startDate)
@@ -549,7 +554,7 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
 
     // Overview KPI period window (optional)
     const periodDays = args?.periodDays
-    const periodStart = periodDays && periodDays > 0 ? new Date(new Date().setHours(0,0,0,0)) : null
+    const periodStart = periodDays && periodDays > 0 ? new Date(endClamp.setHours(0,0,0,0)) : null
     if (periodStart && periodDays) {
       periodStart.setDate(periodStart.getDate() - periodDays + 1)
     }
@@ -807,6 +812,142 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
     })
     const eloOverTime = qloHistory.map((e: any) => ({ date: e.changedAt.toISOString().split('T')[0], value: e.qlo }))
 
+    // Beef participations over time (simple: count of user participations per day)
+    const beefParticipations = await context.entities.BeefParticipant.findMany({
+      where: {
+        userId: context.user.id,
+        joinedAt: { gte: startDate, lte: endDate }
+      },
+      select: { joinedAt: true }
+    })
+    const dailyBeefsMap: Record<string, number> = {}
+    for (const bp of beefParticipations) {
+      const k = bp.joinedAt.toISOString().split('T')[0]
+      dailyBeefsMap[k] = (dailyBeefsMap[k] || 0) + 1
+    }
+    const beefsOverTime: { date: string; count: number }[] = []
+    for (let i = 0; i < range; i++) {
+      const d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+      const k = d.toISOString().split('T')[0]
+      beefsOverTime.push({ date: k, count: dailyBeefsMap[k] || 0 })
+    }
+
+    // Rivals encounters over time (approx): number of distinct opponents faced per day
+    const beefWithOpponents = await context.entities.BeefParticipant.findMany({
+      where: {
+        userId: context.user.id,
+        joinedAt: { gte: startDate, lte: endDate }
+      },
+      select: { joinedAt: true, challengeId: true }
+    })
+    const challengeIds = Array.from(new Set(beefWithOpponents.map(b => b.challengeId)))
+    const challenges = challengeIds.length > 0
+      ? await context.entities.BeefChallenge.findMany({
+          where: { id: { in: challengeIds } },
+          select: { id: true, participants: { select: { userId: true } } }
+        })
+      : []
+    const challengeIdToOppCount: Record<number, number> = {}
+    for (const ch of challenges as any[]) {
+      const count = Math.max(0, (ch.participants?.length || 1) - 1)
+      challengeIdToOppCount[ch.id] = count
+    }
+    const dailyRivalsMap: Record<string, number> = {}
+    for (const bp of beefWithOpponents) {
+      const k = bp.joinedAt.toISOString().split('T')[0]
+      const opp = challengeIdToOppCount[bp.challengeId] || 0
+      dailyRivalsMap[k] = (dailyRivalsMap[k] || 0) + opp
+    }
+    const rivalsOverTime: { date: string; count: number }[] = []
+    for (let i = 0; i < range; i++) {
+      const d = new Date(startDate)
+      d.setDate(startDate.getDate() + i)
+      const k = d.toISOString().split('T')[0]
+      rivalsOverTime.push({ date: k, count: dailyRivalsMap[k] || 0 })
+    }
+
+    // Activity heatmap (calendar year): Quiz Attempts + Beef participations per day
+    const yearStart = new Date(selectedYear, 0, 1)
+    yearStart.setHours(0, 0, 0, 0)
+    // Always render the full calendar year (Jan–Dec) for the heatmap grid
+    const yearEnd = new Date(selectedYear, 11, 31)
+    yearEnd.setHours(23, 59, 59, 999)
+
+    const yearAttempts = await context.entities.QuizAttempt.findMany({
+      where: { userId: context.user.id, completedAt: { gte: yearStart, lte: yearEnd } },
+      select: { completedAt: true }
+    })
+    const yearBeefs = await context.entities.BeefParticipant.findMany({
+      where: { userId: context.user.id, joinedAt: { gte: yearStart, lte: yearEnd } },
+      select: { joinedAt: true }
+    })
+
+    const attemptsMap: Record<string, number> = {}
+    for (const a of yearAttempts) {
+      if (!a.completedAt) continue
+      const k = a.completedAt.toISOString().split('T')[0]
+      attemptsMap[k] = (attemptsMap[k] || 0) + 1
+    }
+
+    const beefMap: Record<string, number> = {}
+    for (const b of yearBeefs) {
+      const k = b.joinedAt.toISOString().split('T')[0]
+      beefMap[k] = (beefMap[k] || 0) + 1
+    }
+
+    const activityHeatmap: { date: string; count: number }[] = []
+    const curDay = new Date(yearStart)
+    while (curDay <= yearEnd) {
+      const k = curDay.toISOString().split('T')[0]
+      activityHeatmap.push({ date: k, count: (attemptsMap[k] || 0) + (beefMap[k] || 0) })
+      curDay.setDate(curDay.getDate() + 1)
+    }
+
+    // Category donuts: accuracy per category (in range)
+    const answersInRange = await context.entities.UserQuestionHistory.findMany({
+      where: { userId: context.user.id, createdAt: { gte: startDate, lte: endDate } },
+      select: {
+        wasCorrect: true,
+        question: { select: { document: { select: { category: true, tags: true } } } }
+      }
+    })
+    const categoryAgg: Record<string, { correct: number; total: number }> = {}
+    const tagAgg: Record<string, { correct: number; total: number }> = {}
+    for (const a of answersInRange as any[]) {
+      const cat = a.question?.document?.category || 'Uncategorized'
+      categoryAgg[cat] = categoryAgg[cat] || { correct: 0, total: 0 }
+      categoryAgg[cat].total += 1
+      if (a.wasCorrect) categoryAgg[cat].correct += 1
+      const tags: string[] = a.question?.document?.tags || []
+      if (tags && tags.length > 0) {
+        const t = tags[0]
+        tagAgg[t] = tagAgg[t] || { correct: 0, total: 0 }
+        tagAgg[t].total += 1
+        if (a.wasCorrect) tagAgg[t].correct += 1
+      }
+    }
+    const categoryDonuts = Object.entries(categoryAgg)
+      .map(([category, v]) => ({ label: category, value: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0 }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6)
+    const subCategoryBars = Object.entries(tagAgg)
+      .map(([label, v]) => ({ label, accuracyPct: v.total > 0 ? Math.round((v.correct / v.total) * 100) : 0 }))
+      .sort((a, b) => b.accuracyPct - a.accuracyPct)
+      .slice(0, 8)
+
+    // Rivals donut: Outstanding vs Avenged (approx): losses vs wins in beef participations
+    const myBeefsAll = await context.entities.BeefParticipant.findMany({
+      where: { userId: context.user.id, joinedAt: { gte: startDate, lte: endDate } },
+      select: { position: true }
+    })
+    const wins = myBeefsAll.filter(b => (b.position || 0) === 1).length
+    const losses = myBeefsAll.length - wins
+    const rivalsDonut = [
+      { label: 'Outstanding', value: Math.max(0, losses) },
+      { label: 'Avenged', value: Math.max(0, wins) }
+    ]
+
     return {
       periodDays,
       totals: { totalQuizzes, totalQuestions },
@@ -827,12 +968,12 @@ export const getStatsOverview: GetStatsOverview<{ range?: number; periodDays?: n
         eloOverTime,
         accuracyOverTime: perDayAccuracy,
         qpmOverTime: perDayQpm,
-        beefsOverTime: [], // TODO: Implement from BeefChallenge
-        rivalsOverTime: [], // TODO: Implement
-        activityHeatmap: [], // TODO: Implement
-        categoryDonuts: [], // TODO: Implement
-        subCategoryBars: [], // TODO: Implement
-        rivalsDonut: [] // TODO: Implement
+        beefsOverTime,
+        rivalsOverTime,
+        activityHeatmap,
+        categoryDonuts,
+        subCategoryBars,
+        rivalsDonut
       }
     }
   } catch (error) {

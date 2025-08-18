@@ -1,3 +1,130 @@
+import type { GetRivalHeadToHead, GetRivalsList } from 'wasp/server/operations'
+import { HttpError } from 'wasp/server'
+
+export const getRivalHeadToHead: GetRivalHeadToHead<{ page?: number; pageSize?: number }, any> = async (args, context) => {
+  if (!context.user) throw new HttpError(401, 'Not authorized')
+
+  const page = Math.max(1, Number(args?.page || 1))
+  const pageSize = Math.min(50, Math.max(5, Number(args?.pageSize || 20)))
+  const skip = (page - 1) * pageSize
+
+  // Fetch participations for the current user with their challenges and participants
+  const [rows, total] = await Promise.all([
+    context.entities.BeefParticipant.findMany({
+      where: { userId: context.user.id },
+      include: {
+        challenge: {
+          select: {
+            id: true,
+            createdAt: true,
+            participants: { select: { userId: true, position: true, user: { select: { id: true, avatarUrl: true } } } }
+          }
+        }
+      },
+      orderBy: { joinedAt: 'desc' },
+      skip,
+      take: pageSize
+    }),
+    context.entities.BeefParticipant.count({ where: { userId: context.user.id } })
+  ])
+
+  const items = rows.map((p: any) => {
+    const others = (p.challenge?.participants || []).filter((q: any) => q.userId !== context.user!.id)
+    const opp = others[0]
+    const userFinishedPos = p.position ?? null
+    const oppPos = opp?.position ?? null
+    const result = userFinishedPos && oppPos
+      ? (userFinishedPos < oppPos ? 'W' : userFinishedPos > oppPos ? 'L' : 'T')
+      : null
+
+    return {
+      id: p.challenge?.id,
+      date: p.challenge?.createdAt || p.joinedAt,
+      opponent: opp ? { id: opp.userId, avatarUrl: opp.user?.avatarUrl || null } : null,
+      result,
+      userPosition: userFinishedPos,
+      opponentPosition: oppPos
+    }
+  })
+
+  return { items, total, page, pageSize }
+}
+
+// Aggregated rivals list with basic stats
+export const getRivalsList: GetRivalsList<void, any[]> = async (_args, context) => {
+  if (!context.user) throw new HttpError(401, 'Not authorized')
+
+  const participations = await context.entities.BeefParticipant.findMany({
+    where: { userId: context.user.id },
+    include: {
+      challenge: {
+        select: {
+          id: true,
+          createdAt: true,
+          participants: {
+            select: {
+              userId: true,
+              position: true,
+              finalScore: true,
+              totalTimeSpent: true,
+              user: { select: { id: true, handle: true, avatarUrl: true } }
+            }
+          }
+        }
+      }
+    }
+  })
+
+  const byOpponent: Record<number, any> = {}
+  for (const p of participations as any[]) {
+    const others = (p.challenge?.participants || []).filter((q: any) => q.userId !== context.user!.id)
+    const opp = others[0]
+    if (!opp) continue
+    const oppId = opp.userId
+    if (!byOpponent[oppId]) {
+      byOpponent[oppId] = {
+        opponentId: oppId,
+        handle: opp.user?.handle || `user-${oppId}`,
+        avatarUrl: opp.user?.avatarUrl || null,
+        matches: 0,
+        wins: 0,
+        losses: 0,
+        lastPlayedAt: p.challenge?.createdAt || p.joinedAt,
+        totalMyScore: 0,
+        totalOppScore: 0,
+        totalTime: 0
+      }
+    }
+    const row = byOpponent[oppId]
+    row.matches += 1
+    row.lastPlayedAt = Math.max(new Date(row.lastPlayedAt).getTime(), new Date(p.challenge?.createdAt || p.joinedAt).getTime())
+    const mePos = p.position ?? 9999
+    const oppPos = opp.position ?? 9999
+    if (mePos < oppPos) row.wins += 1
+    else if (mePos > oppPos) row.losses += 1
+    row.totalMyScore += p.finalScore || 0
+    row.totalOppScore += opp.finalScore || 0
+    row.totalTime += p.totalTimeSpent || 0
+  }
+
+  const rivals = Object.values(byOpponent).map((r: any) => ({
+    opponentId: r.opponentId,
+    handle: r.handle,
+    avatarUrl: r.avatarUrl,
+    matches: r.matches,
+    wins: r.wins,
+    losses: r.losses,
+    winRate: r.matches > 0 ? Math.round((r.wins / r.matches) * 100) : 0,
+    lastPlayedAt: new Date(r.lastPlayedAt),
+    avgScoreDiff: r.matches > 0 ? Math.round(((r.totalMyScore - r.totalOppScore) / r.matches) * 10) / 10 : 0,
+    avgTimePerMatchSec: r.matches > 0 ? Math.round((r.totalTime / r.matches) / 1000) : 0
+  }))
+
+  // Sort by debt (losses - wins) desc, then recent
+  rivals.sort((a: any, b: any) => (b.losses - b.wins) - (a.losses - a.wins) || (b.lastPlayedAt.getTime() - a.lastPlayedAt.getTime()))
+  return rivals
+}
+
 import type { 
   CreateBeef,
   JoinBeef,
@@ -7,7 +134,7 @@ import type {
   GetActiveBeefs,
   LeaveBeef
 } from 'wasp/server/operations'
-import { HttpError } from 'wasp/server'
+// HttpError already imported above
 
 /**
  * Generate a unique challenge code

@@ -194,6 +194,18 @@ page LeaderboardPage {
   authRequired: false
 }
 
+route RivalsRoute { path: "/rivals", to: RivalsPage }
+page RivalsPage {
+  component: import RivalsPage from "@src/features/rivals/index",
+  authRequired: true
+}
+
+// Telemetry: Rivals page visits (lightweight)
+action logRivalsVisit {
+  fn: import { logRivalsVisit } from "@src/features/rivals/operations",
+  entities: [User]
+}
+
 route GroupLeaderboardRoute { path: "/leaderboard/groups", to: GroupLeaderboardPage }
 page GroupLeaderboardPage {
   component: import GroupLeaderboardPage from "@src/features/profile/group-leaderboard",
@@ -401,7 +413,7 @@ query getOptimalLearningTime {
 // v1.7: Stats Pill and enhanced analytics
 query getStatsOverview {
   fn: import { getStatsOverview } from "@src/features/dashboard/operations",
-  entities: [User, QuizAttempt, UserQuestionHistory, UserAchievement, Document, QloHistory]
+  entities: [User, QuizAttempt, UserQuestionHistory, UserAchievement, Document, QloHistory, BeefParticipant, BeefChallenge]
 }
 
 // v1.7: Play flow suggestions and random quiz
@@ -542,6 +554,17 @@ action leaveBeef {
   entities: [User, BeefChallenge, BeefParticipant]
 }
 
+// Rivals head-to-head history
+query getRivalHeadToHead {
+  fn: import { getRivalHeadToHead } from "@src/features/beef/operations",
+  entities: [User, BeefParticipant, BeefChallenge]
+}
+
+// Rivals aggregated list
+query getRivalsList {
+  fn: import { getRivalsList } from "@src/features/beef/operations",
+  entities: [User, BeefParticipant, BeefChallenge]
+}
 // Profile & User operations
 query getUserProfile {
   fn: import { getUserProfile } from "@src/features/profile/operations",

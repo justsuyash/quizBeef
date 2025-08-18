@@ -1,7 +1,7 @@
 import React from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
-import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getStatsOverview, startCategoryPractice, getQloHistory, getUserGroups, getGroupLeaderboard } from 'wasp/client/operations'
+import { getUserAnalytics, getLearningProgress, getPerformanceTrends, getUserAchievements, getLeaderboard, getCategoryMetrics, getOptimalLearningTime, getEnrichedAnalytics, getQuizHistory, startQuiz, getStatsOverview, startCategoryPractice, getQloHistory, getUserGroups, getGroupLeaderboard, getRivalsList, getRivalHeadToHead } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import {
   Card,
@@ -79,6 +79,12 @@ const rarityColors: Record<string, string> = {
   'LEGENDARY': '#F59E0B'
 }
 
+// Discrete slider ticks and positions for docking
+const TICKS = ['7d','30d','90d','All'] as const
+const TICK_TO_DAYS = [7, 30, 90, Infinity] as const
+const TICK_POS = [0, 33, 66, 100] as const // percentages along track
+const SNAP_EPS = 4 // percent
+
 // Shared KPI title with unified tooltip behavior
 function KpiTitle({ title, info }: { title: string; info?: string }) {
   return (
@@ -106,10 +112,69 @@ export default function EnhancedAnalytics() {
   const { data: categoryData, isLoading: categoryLoading } = useQuery(getCategoryMetrics)
   const { data: optimalTimeData, isLoading: optimalTimeLoading } = useQuery(getOptimalLearningTime)
   const { data: enriched, isLoading: enrichedLoading } = useQuery(getEnrichedAnalytics)
+  // Rivals panel visibility
+  const [showRivals, setShowRivals] = React.useState(false)
+  const rivalsPanelRef = React.useRef<HTMLDivElement | null>(null)
+  // Rivals data (queried regardless; panel uses them when open)
+  const { data: rivalsListData } = useQuery(getRivalsList)
+  // Head-to-Head infinite scroll state
+  const PAGE_SIZE = 20
+  const [h2hPage, setH2hPage] = React.useState(1)
+  const [h2hItems, setH2hItems] = React.useState<any[]>([])
+  const [h2hTotal, setH2hTotal] = React.useState(0)
+  const { data: rivalH2HPage } = useQuery(getRivalHeadToHead, { page: h2hPage, pageSize: PAGE_SIZE })
+  React.useEffect(() => {
+    if (!rivalH2HPage) return
+    setH2hItems(prev => (h2hPage === 1 ? rivalH2HPage.items : [...prev, ...rivalH2HPage.items]))
+    setH2hTotal(rivalH2HPage.total || 0)
+  }, [rivalH2HPage])
+  // Reset pagination when panel re-opens
+  React.useEffect(() => {
+    if (showRivals) {
+      setH2hPage(1)
+      // when page 1 data arrives, useEffect above will reset items
+      // Scroll panel into view when opened
+      setTimeout(() => {
+        try { rivalsPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) } catch {}
+      }, 0)
+    }
+  }, [showRivals])
   // Overview range switcher (7/30/90) with URL persistence
   const [searchParams, setSearchParams] = useSearchParams()
-  const chartsRangeParam = Number(searchParams.get('chartsRange') || 30)
-  const chartsRange = [7, 30, 90].includes(chartsRangeParam) ? chartsRangeParam : 30
+  // Button-based ranges per chart (0=7d,1=30d,2=90d,3=All)
+  const [quizRangeIdx, setQuizRangeIdx] = React.useState<number>(1)
+  const [qloRangeIdx, setQloRangeIdx] = React.useState<number>(1)
+  const [topicsRangeIdx, setTopicsRangeIdx] = React.useState<number>(1)
+  const [beefsRangeIdx, setBeefsRangeIdx] = React.useState<number>(1)
+  const [rivalsRangeIdx, setRivalsRangeIdx] = React.useState<number>(1)
+
+  const getDaysForIdx = (idx: number) => TICK_TO_DAYS[Math.max(0, Math.min(3, idx))]
+  // Server fetch window is max among charts (cap at 90 for perf)
+  const chartsRange = (() => {
+    const days = Math.max(
+      getDaysForIdx(quizRangeIdx) || 0,
+      getDaysForIdx(qloRangeIdx) || 0,
+      getDaysForIdx(topicsRangeIdx) || 0,
+      getDaysForIdx(beefsRangeIdx) || 0,
+      getDaysForIdx(rivalsRangeIdx) || 0
+    )
+    return days === Infinity ? 90 : days
+  })()
+  // Helper to apply client-side slicing based on both thumbs
+  const sliceByRange = React.useCallback(<T,>(rows: T[], accessor: (r: T) => Date, idx: number) => {
+    if (!Array.isArray(rows) || rows.length === 0) return rows
+    const rightDays = getDaysForIdx(idx)
+    const msDay = 24 * 60 * 60 * 1000
+    const endTs = rows.reduce((max, row) => Math.max(max, accessor(row).getTime()), 0) // latest point in series
+    const rightWindowDays = rightDays === Infinity ? 3650 : rightDays
+    const startTs = endTs - rightWindowDays * msDay
+    const endVisibleTs = endTs
+    return rows.filter((row) => {
+      const t = accessor(row).getTime()
+      return t >= startTs && t <= endVisibleTs
+    })
+  }, [])
+  const [selectedYear, setSelectedYear] = React.useState<number>(new Date().getFullYear())
   // Overview KPI selector (7d, 30d, 90d, YTD, all)
   const rawOverviewParam = (searchParams.get('overviewRange') || '30d')
   const periodParam = rawOverviewParam === '1y' ? 'ytd' : rawOverviewParam
@@ -118,7 +183,7 @@ export default function EnhancedAnalytics() {
   const ytdDays = Math.floor((nowForYtd.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24)) + 1
   const periodDaysMap: Record<string, number | null> = { '7d': 7, '30d': 30, '90d': 90, 'ytd': ytdDays, 'all': null }
   const periodDays = periodDaysMap[periodParam] ?? 30
-  const { data: overview, isLoading: overviewLoading } = useQuery(getStatsOverview, { range: chartsRange, periodDays: periodDays ?? undefined })
+  const { data: overview, isLoading: overviewLoading } = useQuery(getStatsOverview, { range: chartsRange, periodDays: periodDays ?? undefined, year: selectedYear })
   const [leaderboardFilter, setLeaderboardFilter] = React.useState({
     country: 'all',
     county: 'all',
@@ -137,6 +202,90 @@ export default function EnhancedAnalytics() {
     selectedGroupId ? { groupId: selectedGroupId, type: selectedGroupMetric } : undefined,
     { enabled: !!selectedGroupId }
   )
+
+  // Activity heatmap (GitHub-style) helpers
+  const activityByDate = React.useMemo(() => {
+    const map = new Map<string, number>()
+    const list: Array<{ date: string; count: number }> = (overview?.series?.activityHeatmap || [])
+    for (const item of list) {
+      map.set(item.date, item.count)
+    }
+    return map
+  }, [overview])
+
+  const activityWeeks = React.useMemo(() => {
+    if (!overview?.series?.activityHeatmap) return [] as Array<Array<{ date: string; count: number }>>
+    const start = new Date(selectedYear, 0, 1)
+    start.setHours(0, 0, 0, 0)
+    // Always show full year through Dec 31
+    const end = new Date(selectedYear, 11, 31)
+    end.setHours(23, 59, 59, 999)
+    // Align to full weeks (Sun-Sat)
+    const startAlign = new Date(start)
+    while (startAlign.getDay() !== 0) startAlign.setDate(startAlign.getDate() - 1)
+    const endAlign = new Date(end)
+    while (endAlign.getDay() !== 6) endAlign.setDate(endAlign.getDate() + 1)
+
+    const weeks: Array<Array<{ date: string; count: number }>> = []
+    const cur = new Date(startAlign)
+    while (cur <= endAlign) {
+      const week: Array<{ date: string; count: number }> = []
+      for (let i = 0; i < 7; i++) {
+        const key = cur.toISOString().split('T')[0]
+        const count = activityByDate.get(key) || 0
+        week.push({ date: key, count })
+        cur.setDate(cur.getDate() + 1)
+      }
+      weeks.push(week)
+    }
+    return weeks
+  }, [activityByDate, overview, selectedYear])
+
+  const maxHeat = React.useMemo(() => {
+    let m = 0
+    activityByDate.forEach((v) => { if (v > m) m = v })
+    return m || 1
+  }, [activityByDate])
+
+  // Continuous rose color scale for a more professional, smooth look
+  const heatColor = React.useCallback((count: number) => {
+    const pct = Math.max(0, Math.min(1, count / maxHeat))
+    // Rose hue ~345, keep high saturation, vary lightness from 96% (low) to 45% (high)
+    const light = 96 - pct * 51
+    return `hsl(345 85% ${light}%)`
+  }, [maxHeat])
+
+  const heatBorder = React.useCallback((count: number) => {
+    const pct = Math.max(0, Math.min(1, count / maxHeat))
+    const light = 90 - pct * 50
+    return `hsl(345 70% ${light}%)`
+  }, [maxHeat])
+
+  const cellStyle = React.useCallback((count: number): React.CSSProperties => ({
+    backgroundColor: count > 0 ? heatColor(count) : undefined,
+    borderColor: count > 0 ? heatBorder(count) : undefined
+  }), [heatColor, heatBorder])
+
+  const monthLabels = React.useMemo(() => {
+    const labels: Record<number, string> = {}
+    let prevMonth = -1
+    const firstOfYear = new Date(selectedYear, 0, 1)
+    firstOfYear.setHours(0,0,0,0)
+    activityWeeks.forEach((week, wi) => {
+      const d = week[0] ? new Date(week[0].date) : null
+      if (!d) return
+      if (d < firstOfYear) return // avoid showing Dec label before Jan when grid aligns to Sunday
+      const m = d.getMonth()
+      if (m !== prevMonth) {
+        labels[wi] = d.toLocaleString('en-US', { month: 'short' })
+        prevMonth = m
+      }
+    })
+    return labels
+  }, [activityWeeks, selectedYear])
+
+  const weeksCount = React.useMemo(() => activityWeeks.length, [activityWeeks])
+  const todayMidnight = React.useMemo(() => { const t = new Date(); t.setHours(0,0,0,0); return t }, [])
   React.useEffect(() => {
     if (myGroups && myGroups.length > 0 && !selectedGroupId) {
       setSelectedGroupId(myGroups[0].id)
@@ -161,6 +310,7 @@ export default function EnhancedAnalytics() {
   const [showQuizzesPrev, setShowQuizzesPrev] = React.useState(true)
   const [showTopicsCurrent, setShowTopicsCurrent] = React.useState(true)
   const [showTopicsPrev, setShowTopicsPrev] = React.useState(true)
+  
 
 
   if (!user) {
@@ -195,12 +345,23 @@ export default function EnhancedAnalytics() {
     ?.slice(0, 5) || []
 
   // Prepare chart data
+  type QuizPoint = { d: Date; count: number; prev: number | null }
+  type QloPoint = { d: Date; value: number }
+  type TopicPoint = { d: Date; count: number; prev: number | null }
   const chartData = (() => {
     if (overview?.series?.quizzesOverTime) {
-      return overview.series.quizzesOverTime.map((p: any, idx: number) => ({
-        date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      // Slice by slider thumbs
+      const raw: QuizPoint[] = overview.series.quizzesOverTime.map((p: any, idx: number) => ({
+        d: new Date(p.date),
         count: p.count,
         prev: overview.series.quizzesOverTimePrev?.[idx] ?? null
+      }))
+      // If drag-zoom is active, slice by zoom; otherwise by slider
+      const sliced = sliceByRange<QuizPoint>(raw, (r) => r.d, quizRangeIdx)
+      return sliced.map((r: QuizPoint) => ({
+        date: r.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        count: r.count,
+        prev: r.prev
       }))
     }
     return []
@@ -208,9 +369,11 @@ export default function EnhancedAnalytics() {
 
   const eloChartData = (() => {
     if (overview?.series?.eloOverTime) {
-      return overview.series.eloOverTime.map((p: any) => ({
-        date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: p.value
+      const raw: QloPoint[] = overview.series.eloOverTime.map((p: any) => ({ d: new Date(p.date), value: p.value }))
+      const sliced = sliceByRange<QloPoint>(raw, (r) => r.d, qloRangeIdx)
+      return sliced.map((r: QloPoint) => ({
+        date: r.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        value: r.value
       }))
     }
     return []
@@ -218,14 +381,22 @@ export default function EnhancedAnalytics() {
 
   const topicsChartData = (() => {
     if (overview?.series?.topicsOverTime) {
-      return overview.series.topicsOverTime.map((p: any, idx: number) => ({
-        date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      const raw: TopicPoint[] = overview.series.topicsOverTime.map((p: any, idx: number) => ({
+        d: new Date(p.date),
         count: p.count,
         prev: overview.series.topicsOverTimePrev?.[idx] ?? null
+      }))
+      const sliced = sliceByRange<TopicPoint>(raw, (r) => r.d, topicsRangeIdx)
+      return sliced.map((r: TopicPoint) => ({
+        date: r.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        count: r.count,
+        prev: r.prev
       }))
     }
     return []
   })()
+
+  
 
   // KPI delta (charts-only): Quizzes vs previous period
   const quizzesCurr = chartData.reduce((s: number, p: any) => s + (p.count || 0), 0)
@@ -579,6 +750,7 @@ export default function EnhancedAnalytics() {
         {/* Statistics Tab */}
         <TabsContent value="statistics" className="space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
+            {/* Small‑multiple AUC minis removed per design choice */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -586,47 +758,40 @@ export default function EnhancedAnalytics() {
                     <CardTitle>Quizzes Over Time</CardTitle>
                     <CardDescription>Last {chartsRange} days</CardDescription>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="hidden sm:flex items-center gap-3 mr-2">
-                      <label className="flex items-center gap-2 text-sm">
-                        <Checkbox checked={showQuizzesCurrent} onCheckedChange={(v) => setShowQuizzesCurrent(v === true)} />
-                        Quizzes
-                      </label>
-                      <label className="flex items-center gap-2 text-sm">
-                        <Checkbox checked={showQuizzesPrev} onCheckedChange={(v) => setShowQuizzesPrev(v === true)} />
-                        Previous
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {[7, 30, 90].map((r) => (
-                        <Button
-                          key={r}
-                          size="sm"
-                          variant={chartsRange === r ? 'default' : 'outline'}
-                          onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
-                        >
-                          {r}d
-                        </Button>
-                      ))}
-                    </div>
+                  <div className="flex items-center gap-2">
+                    {['7d','30d','90d','All'].map((lbl, idx) => (
+                      <Button key={lbl} size="sm" variant={quizRangeIdx===idx?'default':'outline'} onClick={()=>setQuizRangeIdx(idx)}>{lbl}</Button>
+                    ))}
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={chartData}>
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="quizzesGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.24}/>
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.04}/>
+                      </linearGradient>
+                      <linearGradient id="quizzesPrevGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#9CA3AF" stopOpacity={0.18}/>
+                        <stop offset="95%" stopColor="#9CA3AF" stopOpacity={0.02}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
                     <RechartsTooltip />
-                    {showQuizzesCurrent && (
-                      <Line type="monotone" dataKey="count" name="Quizzes" stroke="#3B82F6" strokeWidth={2} dot={false} />
-                    )}
                     {showQuizzesPrev && (
-                      <Line type="monotone" dataKey="prev" name="Previous" stroke="#9CA3AF" strokeDasharray="4 4" dot={false} />
+                      <Area type="monotone" dataKey="prev" name="Previous" stroke="#9CA3AF" fill="url(#quizzesPrevGrad)" dot={false} />
                     )}
-                  </LineChart>
+                    {showQuizzesCurrent && (
+                      <Area type="monotone" dataKey="count" name="Quizzes" stroke="#3B82F6" fill="url(#quizzesGrad)" dot={false} />
+                    )}
+                  </AreaChart>
                 </ResponsiveContainer>
+                {/* Full-width slider below chart */}
+                {/* Remove slider: drag to zoom */}
               </CardContent>
             </Card>
             <Card>
@@ -637,28 +802,27 @@ export default function EnhancedAnalytics() {
                     <CardDescription>Last {chartsRange} days</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    {[7, 30, 90].map((r) => (
-                      <Button
-                        key={r}
-                        size="sm"
-                        variant={chartsRange === r ? 'default' : 'outline'}
-                        onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
-                      >
-                        {r}d
-                      </Button>
+                    {['7d','30d','90d','All'].map((lbl, idx) => (
+                      <Button key={lbl} size="sm" variant={qloRangeIdx===idx?'default':'outline'} onClick={()=>setQloRangeIdx(idx)}>{lbl}</Button>
                     ))}
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={eloChartData}>
+                  <AreaChart data={eloChartData}>
+                    <defs>
+                      <linearGradient id="qloGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.24}/>
+                        <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.04}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
                     <RechartsTooltip />
-                    <Line type="monotone" dataKey="value" name="QLO" stroke="#8B5CF6" dot={false} />
-                  </LineChart>
+                    <Area type="monotone" dataKey="value" name="QLO" stroke="#8B5CF6" fill="url(#qloGrad)" dot={false} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
@@ -682,15 +846,8 @@ export default function EnhancedAnalytics() {
                       </label>
                     </div>
                     <div className="flex items-center gap-2">
-                      {[7, 30, 90].map((r) => (
-                        <Button
-                          key={r}
-                          size="sm"
-                          variant={chartsRange === r ? 'default' : 'outline'}
-                          onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
-                        >
-                          {r}d
-                        </Button>
+                      {['7d','30d','90d','All'].map((lbl, idx) => (
+                        <Button key={lbl} size="sm" variant={topicsRangeIdx===idx?'default':'outline'} onClick={()=>setTopicsRangeIdx(idx)}>{lbl}</Button>
                       ))}
                     </div>
                   </div>
@@ -729,68 +886,298 @@ export default function EnhancedAnalytics() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Accuracy Over Time</CardTitle>
-                    <CardDescription>Rolling daily accuracy (past {chartsRange} days)</CardDescription>
+                    <CardTitle>Activity Heatmap</CardTitle>
+                    <CardDescription>Quiz attempts + beefs per day</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    {[7, 30, 90].map((r) => (
-                      <Button
-                        key={r}
-                        size="sm"
-                        variant={chartsRange === r ? 'default' : 'outline'}
-                        onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
-                      >
-                        {r}d
-                      </Button>
-                    ))}
+                    <span className="text-xs text-muted-foreground mr-1">Year</span>
+                    <Tabs value={String(selectedYear)} onValueChange={(v)=> setSelectedYear(parseInt(String(v)))}>
+                      <TabsList className="h-7">
+                        {Array.from({length: 6}).map((_,i)=>{
+                          const y = new Date().getFullYear() - i
+                          return (
+                            <TabsTrigger key={y} value={String(y)} className="px-2 text-xs">
+                              {y}
+                            </TabsTrigger>
+                          )
+                        })}
+                      </TabsList>
+                    </Tabs>
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={(overview?.series?.accuracyOverTime || [])}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis domain={[0,100]} />
-                    <RechartsTooltip />
-                    <Line type="monotone" dataKey="acc" name="Accuracy %" stroke="#16A34A" dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div className="flex items-start gap-3 overflow-x-auto">
+                  {/* Weekday labels (all days) */}
+                  <div className="grid grid-rows-7 gap-1 text-[10px] text-muted-foreground mt-4 select-none" style={{ gridTemplateRows: 'repeat(7, minmax(0, 1fr))' }}>
+                    {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d => (
+                      <div key={d} className="h-4 md:h-5 flex items-center">{d}</div>
+                    ))}
+                  </div>
+                  {/* Heatmap grid with month labels */}
+                  <div className="flex-1 grid" style={{ gridTemplateColumns: `repeat(${weeksCount}, minmax(0, 1fr))`, columnGap: '0.375rem' }}>
+                    {activityWeeks.map((week, wi) => (
+                      <div key={wi} className="flex flex-col gap-1.5 md:gap-2">
+                        {/* month label above column for first week of month */}
+                        <div className="h-3 text-[10px] text-muted-foreground mb-1 select-none text-center">
+                          {monthLabels[wi] || ''}
+                        </div>
+                        {week.map((d, di) => (
+                          <div
+                            key={`${d.date}-${di}`}
+                            className={`h-4 md:h-5 border rounded-[3px]`}
+                            style={(new Date(d.date) > todayMidnight ? { backgroundColor: '#f9fafb', borderColor: '#e5e7eb' } : cellStyle(d.count))}
+                            title={new Date(d.date) > todayMidnight ? '' : `${new Date(d.date).toLocaleDateString()} • ${d.count} events`}
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="text-xs text-muted-foreground flex items-center gap-2">
+                    <span>Less</span>
+                    <div className="h-2 w-24 md:w-40 rounded-sm" style={{
+                      background: 'linear-gradient(90deg, hsl(345 85% 96%) 0%, hsl(345 85% 45%) 100%)'
+                    }} />
+                    <span>More</span>
+                  </div>
+                  <div />
+                </div>
               </CardContent>
             </Card>
-            <Card className="lg:col-span-2">
+
+            <Card>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Questions Per Minute</CardTitle>
-                    <CardDescription>Estimated from average time per question</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {[7, 30, 90].map((r) => (
-                      <Button
-                        key={r}
-                        size="sm"
-                        variant={chartsRange === r ? 'default' : 'outline'}
-                        onClick={() => setSearchParams(prev => { const p = new URLSearchParams(prev); p.set('chartsRange', String(r)); return p })}
-                      >
-                        {r}d
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+                <CardTitle>Beefs Over Time</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={(overview?.series?.qpmOverTime || [])}>
+                <div className="flex items-center justify-end mb-2 gap-2">
+                  {['7d','30d','90d','All'].map((lbl, idx) => (
+                    <Button key={lbl} size="sm" variant={beefsRangeIdx===idx?'default':'outline'} onClick={()=>setBeefsRangeIdx(idx)}>{lbl}</Button>
+                  ))}
+                </div>
+                <ResponsiveContainer width="100%" height={240}>
+                  <AreaChart data={sliceByRange((overview?.series?.beefsOverTime || []), (r: any)=> new Date(r.date), beefsRangeIdx).map((p: any)=> ({ date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), count: p.count }))}>
+                    <defs>
+                      <linearGradient id="beefsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.24}/>
+                        <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.04}/>
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="date" />
                     <YAxis />
                     <RechartsTooltip />
-                    <Line type="monotone" dataKey="qpm" name="Q/Min" stroke="#0EA5E9" dot={false} />
-                  </LineChart>
+                    <Area type="monotone" dataKey="count" name="Beefs" stroke="#F59E0B" fill="url(#beefsGrad)" dot={false} />
+                  </AreaChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Rivals Over Time</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-end mb-2 gap-2">
+                  {['7d','30d','90d','All'].map((lbl, idx) => (
+                    <Button key={lbl} size="sm" variant={rivalsRangeIdx===idx?'default':'outline'} onClick={()=>setRivalsRangeIdx(idx)}>{lbl}</Button>
+                  ))}
+                </div>
+                <ResponsiveContainer width="100%" height={240}>
+                  <AreaChart data={sliceByRange((overview?.series?.rivalsOverTime || []), (r: any)=> new Date(r.date), rivalsRangeIdx).map((p: any)=> ({ date: new Date(p.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), count: p.count }))}>
+                    <defs>
+                      <linearGradient id="rivalsGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#EF4444" stopOpacity={0.24}/>
+                        <stop offset="95%" stopColor="#EF4444" stopOpacity={0.04}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <RechartsTooltip />
+                    <Area type="monotone" dataKey="count" name="Rivals" stroke="#EF4444" fill="url(#rivalsGrad)" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Category Mastery</CardTitle>
+                <CardDescription>Accuracy by category</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={240}>
+                  <PieChart>
+                    <RechartsTooltip />
+                    <Pie dataKey="value" data={(overview?.series?.categoryDonuts || [])} outerRadius={90} label>
+                      {(overview?.series?.categoryDonuts || []).map((_: any, idx: number) => (
+                        <Cell key={`cell-${idx}`} fill={["#3B82F6", "#10B981", "#F59E0B", "#F43F5E", "#8B5CF6", "#06B6D4"][idx % 6]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Sub‑category Comparison</CardTitle>
+                <CardDescription>Top tags by accuracy</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={(overview?.series?.subCategoryBars || [])}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="label" interval={0} angle={-20} textAnchor="end" height={60} />
+                    <YAxis domain={[0, 100]} />
+                    <RechartsTooltip />
+                    <Bar dataKey="accuracyPct" fill="#10B981" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Rivals Donut</CardTitle>
+                    <CardDescription>Outstanding vs Avenged</CardDescription>
+                  </div>
+                  <div>
+                    <Button size="sm" variant="outline" onClick={() => (window.location.href = '/rivals')}>View Rivals</Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const data = (overview?.series?.rivalsDonut || []) as Array<{ label: string; value: number }>
+                  const total = data.reduce((s, d) => s + (d?.value || 0), 0)
+                  const getColor = (label: string) => (label === 'Avenged' ? '#22C55E' : '#EF4444')
+                  const handleSliceClick = () => {
+                    // Deep-link to analytics with a relevant tab for now
+                    setTab('leaderboards')
+                  }
+                  return (
+                    <div className="relative">
+                      <ResponsiveContainer width="100%" height={260}>
+                        <PieChart>
+                          <RechartsTooltip formatter={(val: any, _name: any, ctx: any) => {
+                            const pct = total > 0 ? `${Math.round((Number(val) / total) * 100)}%` : '0%'
+                            return [`${val} (${pct})`, ctx?.payload?.label]
+                          }} />
+                          <Pie
+                            dataKey="value"
+                            data={data}
+                            innerRadius={60}
+                            outerRadius={90}
+                            onClick={handleSliceClick}
+                          >
+                            {data.map((slice, idx) => (
+                              <Cell key={`rd-${idx}`} fill={getColor(slice.label)} cursor="pointer" />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      {/* Center total overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="text-center">
+                          <div className="text-2xl font-semibold">{total}</div>
+                          <div className="text-xs text-muted-foreground">Total</div>
+                        </div>
+                      </div>
+                      {/* Custom legend */}
+                      <div className="mt-3 flex items-center justify-center gap-6 text-sm">
+                        {data.map((d) => {
+                          const pct = total > 0 ? Math.round((d.value / total) * 100) : 0
+                          return (
+                            <div key={d.label} className="flex items-center gap-2">
+                              <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: getColor(d.label) }} />
+                              <span className="text-muted-foreground">{d.label}</span>
+                              <span className="font-medium">{d.value}</span>
+                              <span className="text-muted-foreground">({pct}%)</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {/* View all button removed in favor of top-right button */}
+                    </div>
+                  )
+                })()}
+              </CardContent>
+            </Card>
+
+            {/* Rivals Panel (inline) */}
+            {showRivals && (
+              <Card className="lg:col-span-2" ref={rivalsPanelRef as any}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Rivals</CardTitle>
+                    <Button size="sm" variant="ghost" onClick={() => setShowRivals(false)}>Close</Button>
+                  </div>
+                  <CardDescription>Your opponents and head‑to‑head history</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Rivals summary grid */}
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {(rivalsListData || []).map((r: any) => (
+                      <div key={r.opponentId} className="flex items-center justify-between border rounded-lg p-3">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-gray-200 overflow-hidden" />
+                          <div>
+                            <div className="text-sm font-medium">{r.handle}</div>
+                            <div className="text-xs text-muted-foreground">{r.matches} matches • {r.winRate}% WR</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => { /* start beef */ }}>Start Beef</Button>
+                        </div>
+                      </div>
+                    ))}
+                    {(rivalsListData || []).length === 0 && (
+                      <div className="col-span-full text-center text-muted-foreground">No rivals yet.</div>
+                    )}
+                  </div>
+
+                  {/* Head‑to‑Head list with infinite scroll */}
+                  <div>
+                    <div className="mb-2 text-sm font-medium">Head‑to‑Head</div>
+                    <div
+                      className="space-y-2 max-h-[420px] overflow-auto"
+                      onScroll={(e) => {
+                        const el = e.currentTarget
+                        const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 40
+                        const loaded = h2hItems.length
+                        const hasMore = loaded < h2hTotal
+                        if (nearBottom && hasMore) setH2hPage((p) => p + 1)
+                      }}
+                    >
+                      {h2hItems.map((it: any) => (
+                        <div key={it.id} className="flex items-center justify-between border rounded-lg p-3">
+                          <div className="flex items-center gap-3">
+                            <div className={`h-2 w-2 rounded-full ${it.result === 'W' ? 'bg-green-500' : it.result === 'L' ? 'bg-red-500' : 'bg-gray-400'}`} />
+                            <div className="text-sm">{new Date(it.date).toLocaleDateString()}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" onClick={() => { /* review */ }}>Review</Button>
+                            <Button size="sm" onClick={() => { /* start beef */ }}>Start Beef</Button>
+                          </div>
+                        </div>
+                      ))}
+                      {h2hItems.length === 0 && (
+                        <div className="text-center text-muted-foreground py-6">No history yet.</div>
+                      )}
+                      {h2hItems.length < h2hTotal && (
+                        <div className="text-center text-xs text-muted-foreground py-2">Loading more…</div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </TabsContent>
 
