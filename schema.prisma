@@ -42,6 +42,16 @@ model User {
   // Groups (many-to-many via GroupMembership)
   groupMemberships         GroupMembership[]
   
+  // Social System Relations
+  following                UserFollow[]     @relation("UserFollows")
+  followers                UserFollow[]     @relation("UserFollowing")
+  feedActivities           FeedActivity[]
+  
+  // Feedback System Relations
+  documentLikes            DocumentLike[]
+  documentComments         DocumentComment[]
+  questionFeedback         QuestionFeedback[]
+  
   // Profile & Achievement fields
   email                     String?
   name                      String?
@@ -118,6 +128,12 @@ model Document {
   tags                      String[]      // Tags for categorization
   category                  String?       // Topic/category (e.g., Science, History)
   
+  // Engagement tracking
+  viewCount                 Int           @default(0)
+  likeCount                 Int           @default(0)
+  shareCount                Int           @default(0)
+  commentCount              Int           @default(0)
+  
   // Relations
   userId                    Int
   user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -125,6 +141,9 @@ model Document {
   quizAttempts             QuizAttempt[]
   questions                Question[]
   beefChallenges           BeefChallenge[]
+  documentLikes            DocumentLike[]
+  documentComments         DocumentComment[]
+  feedActivities           FeedActivity[]
 }
 
 // Groups for leaderboards/comparisons (users can belong to unlimited groups)
@@ -197,6 +216,7 @@ model QuizAttempt {
   documentId                Int
   document                  Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
   questionHistory          UserQuestionHistory[]
+  feedActivities           FeedActivity[]
 }
 
 enum QuestionType {
@@ -235,6 +255,7 @@ model Question {
   answers                   Answer[]
   questionHistory          UserQuestionHistory[]
   beefRounds               BeefRound[]
+  questionFeedback         QuestionFeedback[]
 }
 
 model Answer {
@@ -459,4 +480,102 @@ model QloHistory {
   note       String?
 
   @@index([userId, changedAt])
+}
+
+// Social Follow System
+model UserFollow {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  
+  followerId  Int      // User who is following
+  follower    User     @relation("UserFollows", fields: [followerId], references: [id], onDelete: Cascade)
+  
+  followingId Int      // User being followed
+  following   User     @relation("UserFollowing", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  @@unique([followerId, followingId])
+  @@index([followerId])
+  @@index([followingId])
+}
+
+// Social Activity Feed
+model FeedActivity {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  
+  type        ActivityType
+  data        Json     // Flexible data for different activity types
+  
+  userId      Int      // User who performed the activity
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Optional references for specific activity types
+  documentId  Int?
+  document    Document? @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  quizAttemptId Int?
+  quizAttempt   QuizAttempt? @relation(fields: [quizAttemptId], references: [id], onDelete: Cascade)
+  
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+enum ActivityType {
+  QUIZ_COMPLETED
+  QUIZ_HIGH_SCORE
+  DOCUMENT_UPLOADED
+  ACHIEVEMENT_EARNED
+  BEEF_WON
+  BEEF_CHALLENGE_CREATED
+  FOLLOW_USER
+  DOCUMENT_LIKED
+  STREAK_MILESTONE
+}
+
+// Feedback System Models
+model DocumentLike {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId  Int  
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, documentId])
+  @@index([documentId])
+  @@index([userId])
+}
+
+model DocumentComment {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  content     String
+  
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId  Int
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  
+  @@index([documentId, createdAt])
+  @@index([userId])
+}
+
+model QuestionFeedback {
+  id          Int      @id @default(autoincrement())
+  createdAt   DateTime @default(now())
+  
+  isLike      Boolean  // true = like, false = dislike
+  
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId  Int
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, questionId])
+  @@index([questionId])
+  @@index([userId])
 }

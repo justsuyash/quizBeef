@@ -1,4 +1,6 @@
-import { type StartQuiz, type SubmitQuizAnswer, type CompleteQuiz, type GetQuizAttempt, type GetQuizHistory, type GetPlaySuggestions, type StartRandomQuiz, type StartCategoryPractice } from 'wasp/server/operations'
+import { type StartQuiz, type SubmitQuizAnswer, type CompleteQuiz, type GetQuizAttempt, type GetQuizHistory, type GetPlaySuggestions, type StartRandomQuiz, type StartCategoryPractice, type GenerateStudentExplanation } from 'wasp/server/operations'
+import { HttpError } from 'wasp/server'
+import { generateStudentExplanation as generateAIExplanation } from '../documents/aiService'
 
 export interface QuizSettings {
   [key: string]: any  // Add index signature for SuperJSON compatibility
@@ -101,7 +103,7 @@ export const startQuiz: StartQuiz<
         questionText: q.questionText,
         questionType: q.questionType,
         difficulty: q.difficulty,
-        answers: q.answers.map(a => ({
+        answers: q.answers.map((a: any) => ({
           id: a.id,
           answerText: a.answerText,
           orderIndex: a.orderIndex
@@ -267,7 +269,7 @@ export const completeQuiz: CompleteQuiz<
         bonusPoints,
         longestStreak: perfectStreak,
         averageConfidence,
-        gameplayStats,
+        // gameplayStats, // TODO: Add to schema if needed
         completedAt: new Date()
       }
     })
@@ -422,7 +424,7 @@ export const getQuizAttempt: GetQuizAttempt<
       timeSpent: quizAttempt.timeSpent,
       completedAt: quizAttempt.completedAt,
       quizMode: quizAttempt.quizMode,
-      gameplayStats: quizAttempt.gameplayStats,
+      // gameplayStats: quizAttempt.gameplayStats, // TODO: Add to schema if needed
       bonusPoints: quizAttempt.bonusPoints,
       longestStreak: quizAttempt.longestStreak,
       averageConfidence: quizAttempt.averageConfidence,
@@ -584,8 +586,8 @@ function calculatePerformanceByDifficulty(questionHistory: any[]) {
   }
 
   questionHistory.forEach(h => {
-    const difficulty = h.question.difficulty
-    if (performance[difficulty]) {
+    const difficulty = h.question.difficulty as keyof typeof performance
+    if (difficulty && performance[difficulty]) {
       performance[difficulty].total++
       if (h.wasCorrect) performance[difficulty].correct++
     }
@@ -778,3 +780,37 @@ export const startCategoryPractice: StartCategoryPractice<{ category: string, di
 
   return startQuiz({ documentId: doc.id, settings }, context)
 }
+
+/**
+ * Generate AI-powered explanation for student's answer
+ */
+export const generateStudentExplanation: GenerateStudentExplanation<{
+  questionText: string
+  correctAnswer: string
+  studentAnswer: string
+  isCorrect: boolean
+  questionExplanation?: string
+}, string> = async (args, context) => {
+  if (!context.user) {
+    throw new HttpError(401, 'User must be authenticated')
+  }
+
+  const { questionText, correctAnswer, studentAnswer, isCorrect, questionExplanation } = args
+
+  try {
+    const explanation = await generateAIExplanation(
+      questionText,
+      correctAnswer,
+      studentAnswer,
+      isCorrect,
+      questionExplanation
+    )
+    
+    return explanation
+  } catch (error) {
+    console.error('Error generating student explanation:', error)
+    throw new HttpError(500, 'Failed to generate explanation')
+  }
+}
+
+

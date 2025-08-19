@@ -57,7 +57,7 @@ const StatStack: React.FC<{
 export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
   const navigate = useNavigate()
   const { data: authUser } = useAuth()
-  const { data: currentUser } = useQuery(getCurrentUser)
+  const { data: currentUser } = useQuery(getCurrentUser, undefined, { retry: 0 })
   const [previousStats, setPreviousStats] = useState<any>(null)
   const [pulseFlags, setPulseFlags] = useState({
     streak: false,
@@ -164,7 +164,9 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
   }, [qloSeries?.currentQlo])
 
   const handleClick = () => {
-    navigate('/analytics')
+    const id = (currentUser as any)?.id || authUser?.id
+    if (id) navigate(`/user/${id}`)
+    else navigate('/profile')
   }
 
   if (isLoading) {

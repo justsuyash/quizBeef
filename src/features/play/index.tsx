@@ -87,6 +87,7 @@ export default function PlayPage() {
         'flashcard-frenzy': 'FLASHCARD_FRENZY',
         'time-attack': 'TIME_ATTACK',
         'precision': 'PRECISION',
+        'test-mode': 'TEST_MODE',
         'study-mode': 'STUDY_MODE',
         'beef-challenges': 'BEEF_CHALLENGE',
         'trending': 'RAPID_FIRE', // Default to rapid fire for now
@@ -101,7 +102,7 @@ export default function PlayPage() {
         return;
       }
 
-      if (!dbMode || (dbMode !== 'RAPID_FIRE' && dbMode !== 'FLASHCARD_FRENZY' && dbMode !== 'TIME_ATTACK')) {
+      if (!dbMode || (dbMode !== 'RAPID_FIRE' && dbMode !== 'FLASHCARD_FRENZY' && dbMode !== 'TIME_ATTACK' && dbMode !== 'PRECISION' && dbMode !== 'TEST_MODE' && dbMode !== 'STUDY_MODE')) {
         // For modes not yet implemented, navigate to placeholder
         window.location.href = mode.href;
         return;
@@ -115,7 +116,10 @@ export default function PlayPage() {
         const modeRoutes: Record<string, string> = {
           'RAPID_FIRE': '/quiz/rapid-fire',
           'FLASHCARD_FRENZY': '/quiz/flashcard-frenzy',
-          'TIME_ATTACK': '/quiz/time-attack'
+          'TIME_ATTACK': '/quiz/time-attack',
+          'PRECISION': '/quiz/precision',
+          'TEST_MODE': '/quiz/test-mode',
+          'STUDY_MODE': '/quiz/study-mode'
         };
         
         const route = modeRoutes[dbMode];
@@ -502,19 +506,31 @@ const quizModes: QuizMode[] = [
     difficulty: 'Medium',
     duration: '10 min',
     popularity: null,
-    href: '/play/recommended'
+    href: '/quiz/precision'
+  },
+  {
+    id: 'test-mode',
+    title: 'Test Mode',
+    description: 'Exam-style quiz with no instant feedback. Review before submitting.',
+    icon: CheckCircle,
+    gradient: 'bg-gradient-to-br from-slate-500 via-gray-600 to-zinc-700',
+    textColor: 'text-white',
+    difficulty: 'Medium',
+    duration: '30 min',
+    popularity: 'New',
+    href: '/quiz/test-mode'
   },
   {
     id: 'study-mode',
     title: 'Study Mode',
-    description: 'Learn as you play with detailed explanations.',
+    description: 'Learn as you play with detailed explanations and conceptual understanding.',
     icon: BookOpen,
     gradient: 'bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500',
     textColor: 'text-white',
     difficulty: 'Easy',
     duration: '20 min',
-    popularity: null,
-    href: '/play/recommended'
+    popularity: 'New',
+    href: '/quiz/study-mode'
   },
   {
     id: 'beef-challenges',

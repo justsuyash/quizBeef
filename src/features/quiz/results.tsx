@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
 import { Link } from 'wasp/client/router'
@@ -20,7 +20,12 @@ import {
   RefreshCw,
   Share,
   TrendingUp,
-  Brain
+  Brain,
+  Shield,
+  Heart,
+  Timer,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 
 
@@ -71,7 +76,8 @@ export default function QuizResultsPage() {
     timeSpent,
     completedAt,
     document,
-    questions
+    questions,
+    quizMode
   } = quizData
 
   const grade = getGradeFromScore(score)
@@ -342,6 +348,405 @@ export default function QuizResultsPage() {
       )
     }
 
+    // Precision Mode - Survival Analysis
+    if (quizMode === 'PRECISION') {
+      const stats = gameplayStats ? (typeof gameplayStats === 'string' ? JSON.parse(gameplayStats) : gameplayStats) : null
+      
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Precision Survival Analysis
+            </CardTitle>
+            <CardDescription>
+              Your survival performance and accuracy breakdown
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Performance Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              {/* Survival Score */}
+              <div>
+                <div className="text-2xl font-bold text-blue-500 mb-1">
+                  {stats?.precisionScore || correctAnswers || 0}
+                </div>
+                <div className="text-sm text-muted-foreground">Survival Score</div>
+                <div className="text-xs text-muted-foreground">
+                  Correct before elimination
+                </div>
+              </div>
+
+              {/* Lives Remaining */}
+              <div>
+                <div className="flex justify-center gap-1 mb-1">
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <Heart 
+                      key={i} 
+                      className={`w-5 h-5 ${
+                        (stats?.livesRemaining || 0) > i 
+                          ? 'text-red-500 fill-red-500' 
+                          : 'text-gray-300'
+                      }`} 
+                    />
+                  ))}
+                </div>
+                <div className="text-sm text-muted-foreground">Lives Left</div>
+                <div className="text-xs text-muted-foreground">
+                  {(stats?.livesRemaining || 0) === 3 ? "🏆 Perfect!" :
+                   (stats?.livesRemaining || 0) === 2 ? "🎯 Great!" :
+                   (stats?.livesRemaining || 0) === 1 ? "⚠️ Close call!" : "💀 Eliminated"}
+                </div>
+              </div>
+
+              {/* Survival Rate */}
+              <div>
+                <div className="text-2xl font-bold text-green-500 mb-1">
+                  {Math.round(stats?.survivalRate || score || 0)}%
+                </div>
+                <div className="text-sm text-muted-foreground">Accuracy</div>
+                <div className="text-xs text-muted-foreground">
+                  {(stats?.survivalRate || score || 0) >= 90 ? "🎯 Sharpshooter!" :
+                   (stats?.survivalRate || score || 0) >= 75 ? "🏹 Marksman!" :
+                   (stats?.survivalRate || score || 0) >= 60 ? "🎪 Good aim!" : "🎯 Keep practicing!"}
+                </div>
+              </div>
+
+              {/* Longest Streak */}
+              <div>
+                <div className="text-2xl font-bold text-purple-500 mb-1">
+                  {stats?.longestStreak || 0}
+                </div>
+                <div className="text-sm text-muted-foreground">Best Streak</div>
+                <div className="text-xs text-muted-foreground">
+                  {(stats?.longestStreak || 0) >= 10 ? "🔥 Unstoppable!" :
+                   (stats?.longestStreak || 0) >= 5 ? "⚡ Hot streak!" :
+                   (stats?.longestStreak || 0) >= 3 ? "📈 Building momentum!" : "🎯 Stay focused!"}
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Survival Analysis */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">🛡️ Survival Breakdown:</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Elimination Status */}
+                <div className={`rounded-lg p-3 ${
+                  stats?.eliminatedBy === 'quiz_completed' 
+                    ? 'bg-green-50 dark:bg-green-950' 
+                    : 'bg-red-50 dark:bg-red-950'
+                }`}>
+                  <div className={`text-sm font-medium mb-1 ${
+                    stats?.eliminatedBy === 'quiz_completed'
+                      ? 'text-green-700 dark:text-green-300'
+                      : 'text-red-700 dark:text-red-300'
+                  }`}>
+                    {stats?.eliminatedBy === 'quiz_completed' ? '🏆 Quiz Completed' : '💀 Lives Exhausted'}
+                  </div>
+                  <div className={`text-xs ${
+                    stats?.eliminatedBy === 'quiz_completed'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {stats?.eliminatedBy === 'quiz_completed' 
+                      ? 'Survived all questions with lives remaining'
+                      : 'Made 3 mistakes and was eliminated'
+                    }
+                  </div>
+                </div>
+
+                {/* Precision Rating */}
+                <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-3">
+                  <div className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+                    🎯 Precision Rating
+                  </div>
+                  <div className="text-xs text-blue-600 dark:text-blue-400">
+                    {(stats?.survivalRate || score || 0) >= 95 ? "Legendary Precision" :
+                     (stats?.survivalRate || score || 0) >= 85 ? "Expert Marksman" :
+                     (stats?.survivalRate || score || 0) >= 75 ? "Skilled Shooter" :
+                     (stats?.survivalRate || score || 0) >= 60 ? "Developing Accuracy" : "Needs More Practice"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Tips */}
+            <div className="bg-muted/50 rounded-lg p-4">
+              <h4 className="font-medium text-sm mb-2">💡 Precision Tips:</h4>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                {(stats?.survivalRate || score || 0) < 80 && <li>• Take your time to read questions carefully - accuracy is key</li>}
+                {(stats?.longestStreak || 0) < 5 && <li>• Focus on building longer streaks for better consistency</li>}
+                {stats?.eliminatedBy === 'lives_exhausted' && <li>• Review incorrect answers to avoid similar mistakes</li>}
+                <li>• In Precision Mode, one wrong answer costs a life - prioritize accuracy over speed</li>
+                <li>• Practice with easier topics first to build confidence</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    // Time Attack Mode - Beat the Clock Analysis
+    if (quizMode === 'TIME_ATTACK') {
+      const stats = gameplayStats ? (typeof gameplayStats === 'string' ? JSON.parse(gameplayStats) : gameplayStats) : null
+      
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Timer className="h-5 w-5" />
+              Time Attack Performance
+            </CardTitle>
+            <CardDescription>
+              Your speed and survival performance breakdown
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Performance Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              {/* Time Attack Score */}
+              <div>
+                <div className="text-2xl font-bold text-orange-500 mb-1">
+                  {stats?.timeAttackScore || correctAnswers || 0}
+                </div>
+                <div className="text-sm text-muted-foreground">Final Score</div>
+                <div className="text-xs text-muted-foreground">
+                  Questions answered
+                </div>
+              </div>
+
+              {/* Time Remaining */}
+              <div>
+                <div className="text-2xl font-bold text-blue-500 mb-1">
+                  {stats?.timeRemaining || 0}s
+                </div>
+                <div className="text-sm text-muted-foreground">Time Left</div>
+                <div className="text-xs text-muted-foreground">
+                  {(stats?.timeRemaining || 0) > 30 ? "🏆 Great!" :
+                   (stats?.timeRemaining || 0) > 10 ? "🎯 Good!" :
+                   (stats?.timeRemaining || 0) > 0 ? "⚡ Close!" : "⏰ Time's up!"}
+                </div>
+              </div>
+
+              {/* Time Extended */}
+              <div>
+                <div className="text-2xl font-bold text-green-500 mb-1">
+                  +{stats?.totalTimeExtended || 0}s
+                </div>
+                <div className="text-sm text-muted-foreground">Time Gained</div>
+                <div className="text-xs text-muted-foreground">
+                  From correct answers
+                </div>
+              </div>
+
+              {/* Survival Time */}
+              <div>
+                <div className="text-2xl font-bold text-purple-500 mb-1">
+                  {stats?.survivalTime || Math.round((timeSpent || 0))}s
+                </div>
+                <div className="text-sm text-muted-foreground">Survival Time</div>
+                <div className="text-xs text-muted-foreground">
+                  Total time played
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Time Management Analysis */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">⏰ Time Management Breakdown:</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Elimination Status */}
+                <div className={`rounded-lg p-3 ${
+                  stats?.eliminatedBy === 'quiz_completed' 
+                    ? 'bg-green-50 dark:bg-green-950' 
+                    : 'bg-red-50 dark:bg-red-950'
+                }`}>
+                  <div className={`text-sm font-medium mb-1 ${
+                    stats?.eliminatedBy === 'quiz_completed'
+                      ? 'text-green-700 dark:text-green-300'
+                      : 'text-red-700 dark:text-red-300'
+                  }`}>
+                    {stats?.eliminatedBy === 'quiz_completed' ? '🏆 Quiz Completed' : '⏰ Time Expired'}
+                  </div>
+                  <div className={`text-xs ${
+                    stats?.eliminatedBy === 'quiz_completed'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {stats?.eliminatedBy === 'quiz_completed' 
+                      ? 'Finished all questions with time remaining'
+                      : 'Clock ran out before completing all questions'
+                    }
+                  </div>
+                </div>
+
+                {/* Speed Rating */}
+                <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-3">
+                  <div className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+                    ⚡ Speed Rating
+                  </div>
+                  <div className="text-xs text-blue-600 dark:text-blue-400">
+                    {(stats?.averageTimePerQuestion || 0) <= 5 ? "Lightning Fast" :
+                     (stats?.averageTimePerQuestion || 0) <= 10 ? "Quick Thinker" :
+                     (stats?.averageTimePerQuestion || 0) <= 15 ? "Steady Pace" : "Take Your Time"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Tips */}
+            <div className="bg-muted/50 rounded-lg p-4">
+              <h4 className="font-medium text-sm mb-2">💡 Time Attack Tips:</h4>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                {(stats?.timeRemaining || 0) === 0 && <li>• Focus on accuracy - correct answers give +3s, wrong answers cost -2s</li>}
+                {(stats?.totalTimeExtended || 0) < 15 && <li>• Try to answer more questions correctly to extend your time</li>}
+                {stats?.eliminatedBy === 'time_expired' && <li>• Practice quick decision-making and avoid wrong answers</li>}
+                <li>• In Time Attack, correct answers give +3 seconds, wrong answers deduct -2 seconds</li>
+                <li>• Balance speed with accuracy - wrong answers hurt your survival time</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    // Test Mode - Detailed Results Analysis
+    if (quizMode === 'TEST_MODE') {
+      const stats = gameplayStats ? (typeof gameplayStats === 'string' ? JSON.parse(gameplayStats) : gameplayStats) : null
+      
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Test Results Analysis
+            </CardTitle>
+            <CardDescription>
+              Detailed breakdown of your test performance
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Test Summary */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              {/* Completion Rate */}
+              <div>
+                <div className="text-2xl font-bold text-blue-500 mb-1">
+                  {stats?.completionRate ? Math.round(stats.completionRate) : Math.round((correctAnswers / totalQuestions) * 100)}%
+                </div>
+                <div className="text-sm text-muted-foreground">Completion Rate</div>
+                <div className="text-xs text-muted-foreground">
+                  {stats?.questionsAnswered || totalQuestions}/{stats?.totalQuestions || totalQuestions} answered
+                </div>
+              </div>
+
+              {/* Accuracy */}
+              <div>
+                <div className="text-2xl font-bold text-green-500 mb-1">
+                  {Math.round(score)}%
+                </div>
+                <div className="text-sm text-muted-foreground">Accuracy</div>
+                <div className="text-xs text-muted-foreground">
+                  {correctAnswers}/{totalQuestions} correct
+                </div>
+              </div>
+
+              {/* Time Spent */}
+              <div>
+                <div className="text-2xl font-bold text-purple-500 mb-1">
+                  {Math.round((timeSpent || 0) / 60)}m
+                </div>
+                <div className="text-sm text-muted-foreground">Total Time</div>
+                <div className="text-xs text-muted-foreground">
+                  {((timeSpent || 0) / totalQuestions / 60).toFixed(1)}m per question
+                </div>
+              </div>
+
+              {/* Grade */}
+              <div>
+                <div className="text-2xl font-bold text-orange-500 mb-1">
+                  {score >= 90 ? 'A' : score >= 80 ? 'B' : score >= 70 ? 'C' : score >= 60 ? 'D' : 'F'}
+                </div>
+                <div className="text-sm text-muted-foreground">Grade</div>
+                <div className="text-xs text-muted-foreground">
+                  {score >= 90 ? 'Excellent' : 
+                   score >= 80 ? 'Good' : 
+                   score >= 70 ? 'Satisfactory' : 
+                   score >= 60 ? 'Needs Improvement' : 'Unsatisfactory'}
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Performance Insights */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">📊 Performance Insights:</h4>
+              
+              <div className="grid gap-3">
+                {/* Accuracy Insight */}
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="text-sm font-medium mb-1">
+                    🎯 Accuracy Analysis
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {score >= 90 ? "Outstanding accuracy! You demonstrated excellent mastery of the material." :
+                     score >= 80 ? "Good accuracy. You have a solid understanding with room for minor improvements." :
+                     score >= 70 ? "Satisfactory performance. Focus on reviewing missed concepts." :
+                     score >= 60 ? "Below average accuracy. Consider additional study and practice." :
+                     "Significant improvement needed. Review all material thoroughly before retaking."}
+                  </div>
+                </div>
+
+                {/* Time Management Insight */}
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="text-sm font-medium mb-1">
+                    ⏱️ Time Management
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {((timeSpent || 0) / totalQuestions / 60) < 1 ? "Efficient time usage. You completed questions quickly while maintaining accuracy." :
+                     ((timeSpent || 0) / totalQuestions / 60) < 2 ? "Good pacing. You took appropriate time to consider each question." :
+                     ((timeSpent || 0) / totalQuestions / 60) < 3 ? "Moderate pacing. Consider practicing to improve speed while maintaining accuracy." :
+                     "Slow pacing. Work on improving your response time through practice."}
+                  </div>
+                </div>
+
+                {/* Study Recommendations */}
+                <div className="bg-muted/50 rounded-lg p-3">
+                  <div className="text-sm font-medium mb-1">
+                    📚 Study Recommendations
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {score >= 90 ? "Excellent work! You're ready for advanced topics or can help others learn." :
+                     score >= 80 ? "Review the questions you missed and strengthen those specific areas." :
+                     score >= 70 ? "Focus on the fundamental concepts and practice similar questions." :
+                     score >= 60 ? "Comprehensive review needed. Consider additional resources and practice tests." :
+                     "Extensive study required. Start with basic concepts and build up gradually."}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Test Mode Tips */}
+            <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-4">
+              <h4 className="font-medium text-sm text-blue-700 dark:text-blue-300 mb-2">💡 Test Mode Benefits:</h4>
+              <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
+                <li>• No pressure from instant feedback - focus on thinking through each question</li>
+                <li>• Ability to review and change answers before submitting</li>
+                <li>• Simulates real exam conditions for better preparation</li>
+                <li>• Comprehensive results analysis helps identify knowledge gaps</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
     // Default - No specific analysis available
     return (
       <Card>
@@ -494,27 +899,29 @@ export default function QuizResultsPage() {
             {renderModeSpecificAnalysis()}
           </div>
 
-          {/* Question Review */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Question Review
-              </CardTitle>
-              <CardDescription>
-                Review your answers and see the correct solutions
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {questions.map((question: any, index: number) => (
-                <QuestionReview 
-                  key={question.id}
-                  question={question}
-                  questionNumber={index + 1}
-                />
-              ))}
-            </CardContent>
-          </Card>
+          {/* Question Review - Test Mode skips this section */}
+          {quizMode !== 'TEST_MODE' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Question Review
+                </CardTitle>
+                <CardDescription>
+                  Review your answers and see the correct solutions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {questions.map((question: any, index: number) => (
+                  <QuestionReview 
+                    key={question.id}
+                    question={question}
+                    questionNumber={index + 1}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Next Steps */}
           <Card>

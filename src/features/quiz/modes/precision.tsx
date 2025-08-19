@@ -1,23 +1,22 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useAction } from 'wasp/client/operations'
 import { getQuizAttempt, submitQuizAnswer, completeQuiz } from 'wasp/client/operations'
 import { Button } from '../../../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../../components/ui/card'
 import { Progress } from '../../../components/ui/progress'
 import { Badge } from '../../../components/ui/badge'
+import { RadioGroup, RadioGroupItem } from '../../../components/ui/radio-group'
+import { Label } from '../../../components/ui/label'
 import { toast } from '../../../hooks/use-toast'
 import { 
-  Timer, 
-  Zap, 
-  Flame,
+  Heart, 
+  Shield,
   Target,
   CheckCircle,
   XCircle,
   ArrowRight,
-  AlertTriangle,
-  Clock,
-  Plus
+  AlertTriangle
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -28,22 +27,22 @@ interface QuizAnswer {
   isAnswered: boolean
 }
 
-interface TimeAttackState {
+interface PrecisionState {
   currentQuestionIndex: number
   answers: QuizAnswer[]
   startTime: number
   questionStartTime: number
-  timeLeft: number // Main countdown timer
-  correctAnswers: number
-  totalScore: number
+  correctStreak: number
+  longestStreak: number
+  lives: number
   isCompleted: boolean
   showResult: boolean
   lastAnswerCorrect: boolean | null
-  timeExtended: number // Total time gained from correct answers
-  averageTimePerQuestion: number
+  correctAnswers: number
+  totalScore: number
 }
 
-const TimeAttackMode: React.FC = () => {
+const PrecisionMode: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const urlParams = new URLSearchParams(location.search)
@@ -51,26 +50,20 @@ const TimeAttackMode: React.FC = () => {
   
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showTimeBonus, setShowTimeBonus] = useState(false)
-  const [timeChangeAmount, setTimeChangeAmount] = useState(0)
   
-  // Time Attack specific settings
-  const TIME_BONUS = 3 // +3 seconds per correct answer
-  const TIME_PENALTY = 2 // -2 seconds per wrong answer
-  
-  const [quizState, setQuizState] = useState<TimeAttackState>({
+  const [quizState, setQuizState] = useState<PrecisionState>({
     currentQuestionIndex: 0,
     answers: [],
     startTime: Date.now(),
     questionStartTime: Date.now(),
-    timeLeft: 60, // Default, will be updated when quiz data loads
-    correctAnswers: 0,
-    totalScore: 0,
+    correctStreak: 0,
+    longestStreak: 0,
+    lives: 3, // Start with 3 lives
     isCompleted: false,
     showResult: false,
     lastAnswerCorrect: null,
-    timeExtended: 0,
-    averageTimePerQuestion: 0
+    correctAnswers: 0,
+    totalScore: 0
   })
 
   const { data: quizData, isLoading, error } = useQuery(getQuizAttempt, 
@@ -91,83 +84,27 @@ const TimeAttackMode: React.FC = () => {
         isAnswered: false
       }))
 
-      const dynamicStartingTime = Math.ceil(quizData.questions.length * 6 / 10) * 10
-      
       setQuizState(prev => ({
         ...prev,
         answers: initialAnswers,
         startTime: Date.now(),
-        questionStartTime: Date.now(),
-        timeLeft: dynamicStartingTime
+        questionStartTime: Date.now()
       }))
     }
   }, [quizData])
 
-  // Main countdown timer
+  // Watch for lives reaching 0 - end quiz immediately
   useEffect(() => {
-    if (quizState.isCompleted || quizState.timeLeft <= 0) return
-
-    const timer = setInterval(() => {
-      setQuizState(prev => {
-        const newTimeLeft = prev.timeLeft - 1
-        
-        // If time runs out, end the quiz
-        if (newTimeLeft <= 0) {
-          handleTimeUp()
-          return { ...prev, timeLeft: 0 }
-        }
-        
-        return { ...prev, timeLeft: newTimeLeft }
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [quizState.isCompleted, quizState.timeLeft])
+    if (quizState.lives === 0 && !quizState.isCompleted) {
+      handleCompleteQuiz()
+    }
+  }, [quizState.lives])
 
   const currentQuestion = quizData?.questions?.[quizState.currentQuestionIndex]
   const isLastQuestion = quizState.currentQuestionIndex === (quizData?.questions?.length || 0) - 1
 
-  const handleTimeUp = useCallback(async () => {
-    if (quizState.isCompleted) return
-
-    setQuizState(prev => ({ ...prev, isCompleted: true }))
-
-    const totalTimeSpent = Math.round((Date.now() - quizState.startTime) / 1000)
-    const answeredQuestions = quizState.answers.filter(a => a.isAnswered).length
-    const avgTimePerQuestion = answeredQuestions > 0 ? totalTimeSpent / answeredQuestions : 0
-
-    // Prepare Time Attack specific gameplay stats
-    const gameplayStats = {
-      timeAttackScore: quizState.correctAnswers,
-      timeRemaining: 0, // Time ran out
-      totalTimeExtended: quizState.timeExtended,
-      averageTimePerQuestion: avgTimePerQuestion,
-      totalScore: quizState.totalScore,
-      survivalTime: totalTimeSpent,
-      eliminatedBy: 'time_expired'
-    }
-
-    try {
-      const result = await completeQuizAction({
-        quizAttemptId: parseInt(attemptId!),
-        totalTimeSpent: totalTimeSpent,
-        gameplayStats
-      })
-
-      // Navigate to summary page
-      navigate(`/quiz/${attemptId}/summary`)
-    } catch (error) {
-      console.error('Error completing quiz:', error)
-      toast({
-        title: "Error",
-        description: "Failed to complete quiz. Please try again.",
-        variant: "destructive"
-      })
-    }
-  }, [attemptId, navigate, completeQuizAction, quizState])
-
   const handleAnswerSelect = async (answerId: number, isCorrect: boolean) => {
-    if (isSubmitting || quizState.showResult || quizState.timeLeft <= 0) return
+    if (isSubmitting || quizState.showResult) return
     
     setIsSubmitting(true)
     setSelectedAnswer(answerId)
@@ -185,20 +122,10 @@ const TimeAttackMode: React.FC = () => {
       // Calculate points (base 10 points per correct answer)
       const basePoints = 10
       let earnedPoints = 0
-      let timeChange = 0
       
       if (isCorrect) {
         earnedPoints = basePoints
-        timeChange = TIME_BONUS
-      } else {
-        // Wrong answer: deduct time
-        timeChange = -TIME_PENALTY
       }
-      
-      // Show time change animation
-      setTimeChangeAmount(timeChange)
-      setShowTimeBonus(true)
-      setTimeout(() => setShowTimeBonus(false), 2000)
 
       // Update quiz state
       setQuizState(prev => {
@@ -211,30 +138,37 @@ const TimeAttackMode: React.FC = () => {
         }
 
         const newCorrectAnswers = isCorrect ? prev.correctAnswers + 1 : prev.correctAnswers
-        const newTimeLeft = Math.max(0, prev.timeLeft + timeChange) // Don't go below 0
-        const newTimeExtended = prev.timeExtended + (timeChange > 0 ? timeChange : 0) // Only track positive time gains
+        const newLives = isCorrect ? prev.lives : prev.lives - 1
+        const newCorrectStreak = isCorrect ? prev.correctStreak + 1 : 0
+        const newLongestStreak = Math.max(prev.longestStreak, newCorrectStreak)
         const newTotalScore = prev.totalScore + earnedPoints
 
         return {
           ...prev,
           answers: newAnswers,
           correctAnswers: newCorrectAnswers,
-          timeLeft: newTimeLeft,
-          timeExtended: newTimeExtended,
+          lives: newLives,
+          correctStreak: newCorrectStreak,
+          longestStreak: newLongestStreak,
           totalScore: newTotalScore,
           lastAnswerCorrect: isCorrect,
           showResult: true
         }
       })
 
-      // Show result for 1.5 seconds, then move to next question or complete
+      // Show result for 2 seconds, then move to next question or complete
       setTimeout(() => {
+        if (quizState.lives <= 1 && !isCorrect) {
+          // Lives will be 0 after this wrong answer - quiz will end via useEffect
+          return
+        }
+        
         if (isLastQuestion) {
           handleCompleteQuiz()
         } else {
           moveToNextQuestion()
         }
-      }, 1500)
+      }, 2000)
 
     } catch (error) {
       console.error('Error submitting answer:', error)
@@ -265,18 +199,16 @@ const TimeAttackMode: React.FC = () => {
     setQuizState(prev => ({ ...prev, isCompleted: true }))
 
     const totalTimeSpent = Math.round((Date.now() - quizState.startTime) / 1000)
-    const answeredQuestions = quizState.answers.filter(a => a.isAnswered).length
-    const avgTimePerQuestion = answeredQuestions > 0 ? totalTimeSpent / answeredQuestions : 0
+    const accuracy = quizState.answers.length > 0 ? (quizState.correctAnswers / quizState.answers.filter(a => a.isAnswered).length) * 100 : 0
 
-    // Prepare Time Attack specific gameplay stats
+    // Prepare precision-specific gameplay stats
     const gameplayStats = {
-      timeAttackScore: quizState.correctAnswers,
-      timeRemaining: quizState.timeLeft,
-      totalTimeExtended: quizState.timeExtended,
-      averageTimePerQuestion: avgTimePerQuestion,
+      precisionScore: quizState.correctAnswers, // Number of correct answers before elimination
+      livesRemaining: quizState.lives,
+      survivalRate: accuracy,
+      longestStreak: quizState.longestStreak,
       totalScore: quizState.totalScore,
-      survivalTime: totalTimeSpent,
-      eliminatedBy: 'quiz_completed'
+      eliminatedBy: quizState.lives === 0 ? 'lives_exhausted' : 'quiz_completed'
     }
 
     try {
@@ -303,7 +235,7 @@ const TimeAttackMode: React.FC = () => {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Loading Time Attack...</p>
+          <p className="text-muted-foreground">Loading Precision Mode...</p>
         </div>
       </div>
     )
@@ -343,8 +275,6 @@ const TimeAttackMode: React.FC = () => {
 
   const progress = ((quizState.currentQuestionIndex + 1) / quizData.questions.length) * 100
   const correctAnswer = currentQuestion?.answers?.find((a: any) => a.isCorrect)
-  const isLowTime = quizState.timeLeft <= 10
-  const isCriticalTime = quizState.timeLeft <= 5
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
@@ -352,77 +282,23 @@ const TimeAttackMode: React.FC = () => {
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Timer className="w-6 h-6 text-orange-500" />
-              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent">
-                Time Attack ⚡
+              <Shield className="w-6 h-6 text-blue-500" />
+              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                Precision Mode ⚡
               </CardTitle>
             </div>
             <Badge variant="outline" className="text-sm">
-              Beat the Clock
+              Survival Challenge
             </Badge>
           </div>
           <p className="text-muted-foreground">
-            Correct answers: +{TIME_BONUS}s, Wrong answers: -{TIME_PENALTY}s. Quiz ends when timer hits 0.
+            Answer carefully - you only have 3 lives! One wrong answer loses a life.
           </p>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Main Timer - Prominent Display */}
-          <Card className={`p-6 text-center transition-all duration-300 ${
-            isCriticalTime ? 'bg-red-50 dark:bg-red-950 border-red-500 animate-pulse' :
-            isLowTime ? 'bg-orange-50 dark:bg-orange-950 border-orange-500' :
-            'bg-blue-50 dark:bg-blue-950 border-blue-500'
-          }`}>
-            <div className="space-y-2">
-              <div className="flex items-center justify-center gap-2">
-                <Clock className={`w-8 h-8 ${
-                  isCriticalTime ? 'text-red-500' :
-                  isLowTime ? 'text-orange-500' : 'text-blue-500'
-                }`} />
-                <div className={`text-6xl font-bold ${
-                  isCriticalTime ? 'text-red-500' :
-                  isLowTime ? 'text-orange-500' : 'text-blue-500'
-                }`}>
-                  {quizState.timeLeft}s
-                </div>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {isCriticalTime ? '🚨 CRITICAL TIME!' :
-                 isLowTime ? '⚠️ Low Time!' : 'Time Remaining'}
-              </div>
-            </div>
-          </Card>
-
-          {/* Time Change Animation */}
-          <AnimatePresence>
-            {showTimeBonus && (
-              <motion.div
-                initial={{ opacity: 0, y: -20, scale: 0.8 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.8 }}
-                className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50"
-              >
-                <div className={`text-white px-6 py-3 rounded-full text-2xl font-bold flex items-center gap-2 shadow-lg ${
-                  timeChangeAmount > 0 ? 'bg-green-500' : 'bg-red-500'
-                }`}>
-                  {timeChangeAmount > 0 ? (
-                    <>
-                      <Plus className="w-6 h-6" />
-                      {timeChangeAmount}s
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-6 h-6" />
-                      {timeChangeAmount}s
-                    </>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
             {/* Progress */}
             <Card className="p-4">
               <div className="text-2xl font-bold text-blue-500 mb-1">
@@ -431,7 +307,27 @@ const TimeAttackMode: React.FC = () => {
               <div className="text-sm text-muted-foreground">Progress</div>
             </Card>
 
-            {/* Correct Answers */}
+            {/* Lives */}
+            <Card className="p-4">
+              <div className="flex justify-center gap-1 mb-1">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <motion.div
+                    key={i}
+                    animate={quizState.lives <= i ? { scale: [1, 0.8, 1] } : {}}
+                    transition={{ duration: 0.5 }}
+                  >
+                    {quizState.lives > i ? (
+                      <Heart className="w-6 h-6 text-red-500 fill-red-500" />
+                    ) : (
+                      <Heart className="w-6 h-6 text-gray-300" />
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+              <div className="text-sm text-muted-foreground">Lives</div>
+            </Card>
+
+            {/* Score */}
             <Card className="p-4">
               <div className="text-2xl font-bold text-green-500 mb-1">
                 {quizState.correctAnswers}
@@ -439,20 +335,22 @@ const TimeAttackMode: React.FC = () => {
               <div className="text-sm text-muted-foreground">Correct</div>
             </Card>
 
-            {/* Time Extended */}
+            {/* Streak */}
             <Card className="p-4">
               <div className="text-2xl font-bold text-purple-500 mb-1">
-                +{quizState.timeExtended}s
+                {quizState.correctStreak}
               </div>
-              <div className="text-sm text-muted-foreground">Time Gained</div>
+              <div className="text-sm text-muted-foreground">Streak</div>
             </Card>
 
-            {/* Score */}
+            {/* Survival Rate */}
             <Card className="p-4">
               <div className="text-2xl font-bold text-orange-500 mb-1">
-                {quizState.totalScore}
+                {quizState.answers.filter(a => a.isAnswered).length > 0 
+                  ? Math.round((quizState.correctAnswers / quizState.answers.filter(a => a.isAnswered).length) * 100)
+                  : 100}%
               </div>
-              <div className="text-sm text-muted-foreground">Score</div>
+              <div className="text-sm text-muted-foreground">Accuracy</div>
             </Card>
           </div>
 
@@ -464,6 +362,20 @@ const TimeAttackMode: React.FC = () => {
             </div>
             <Progress value={progress} className="h-2" />
           </div>
+
+          {/* Low Lives Warning */}
+          {quizState.lives === 1 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4"
+            >
+              <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                <AlertTriangle className="w-5 h-5" />
+                <span className="font-medium">⚠️ Last Life! One wrong answer will end the quiz.</span>
+              </div>
+            </motion.div>
+          )}
 
           {/* Question */}
           <Card className="p-6">
@@ -537,14 +449,14 @@ const TimeAttackMode: React.FC = () => {
                             <>
                               <CheckCircle className="w-6 h-6 text-green-600" />
                               <span className="text-green-700 dark:text-green-300 font-medium">
-                                Correct! +{TIME_BONUS} seconds, +10 points
+                                Correct! +10 points
                               </span>
                             </>
                           ) : (
                             <>
                               <XCircle className="w-6 h-6 text-red-600" />
                               <span className="text-red-700 dark:text-red-300 font-medium">
-                                Wrong! -{TIME_PENALTY} seconds penalty
+                                Wrong! Lost a life ❤️
                               </span>
                             </>
                           )}
@@ -564,31 +476,17 @@ const TimeAttackMode: React.FC = () => {
             </div>
           </Card>
 
-          {/* Time Warning */}
-          {isLowTime && (
+          {/* Game Over Message */}
+          {quizState.lives === 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`p-4 rounded-lg border-2 ${
-                isCriticalTime 
-                  ? 'border-red-500 bg-red-50 dark:bg-red-950' 
-                  : 'border-orange-500 bg-orange-50 dark:bg-orange-950'
-              }`}
+              className="text-center space-y-4"
             >
-              <div className="flex items-center gap-2 text-center justify-center">
-                <AlertTriangle className={`w-5 h-5 ${
-                  isCriticalTime ? 'text-red-600' : 'text-orange-600'
-                }`} />
-                <span className={`font-medium ${
-                  isCriticalTime 
-                    ? 'text-red-700 dark:text-red-300' 
-                    : 'text-orange-700 dark:text-orange-300'
-                }`}>
-                  {isCriticalTime 
-                    ? '🚨 CRITICAL! Answer quickly or time runs out!' 
-                    : '⚠️ Low time! Answer correctly to gain more seconds!'}
-                </span>
-              </div>
+              <div className="text-2xl font-bold text-red-500">Game Over!</div>
+              <p className="text-muted-foreground">
+                You've run out of lives. Final score: {quizState.correctAnswers} correct answers
+              </p>
             </motion.div>
           )}
         </CardContent>
@@ -597,4 +495,4 @@ const TimeAttackMode: React.FC = () => {
   )
 }
 
-export default TimeAttackMode
+export default PrecisionMode

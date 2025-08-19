@@ -17,14 +17,29 @@ export const startGameMode: StartGameMode<
   try {
     let targetDocumentId = documentId
 
-    // If no document provided, use the demo document or create it
+    // If no document provided, choose based on mode
     if (!targetDocumentId) {
-      let demoDoc = await context.entities.Document.findFirst({
-        where: { 
-          title: 'Demo Quiz Content',
-          userId: context.user.id 
-        }
-      })
+      let demoDoc
+      
+      // For study mode, prefer physics questions
+      if (mode === 'STUDY_MODE') {
+        demoDoc = await context.entities.Document.findFirst({
+          where: { 
+            title: 'Middle School Physics Concepts',
+            userId: context.user.id 
+          }
+        })
+      }
+      
+      // Fallback to demo document if physics not found or for other modes
+      if (!demoDoc) {
+        demoDoc = await context.entities.Document.findFirst({
+          where: { 
+            title: 'Demo Quiz Content',
+            userId: context.user.id 
+          }
+        })
+      }
 
       if (!demoDoc) {
         // Create demo document if it doesn't exist
@@ -107,6 +122,11 @@ export const startGameMode: StartGameMode<
       }
 
       targetDocumentId = demoDoc.id
+    }
+
+    // Ensure we have a valid document ID
+    if (!targetDocumentId) {
+      throw new HttpError(400, 'No document available for quiz')
     }
 
     // Get questions for this document

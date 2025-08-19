@@ -22,6 +22,7 @@ import {
   IconTrophy,
   IconPlayerPlay,
   IconBrain,
+
 } from '@tabler/icons-react'
 import { AudioWaveform, Command, GalleryVerticalEnd } from 'lucide-react'
 import { type SidebarData } from '../types'
@@ -57,6 +58,12 @@ export const sidebarData: SidebarData = {
           title: 'Play',
           url: '/play',
           icon: IconPlayerPlay,
+        },
+        {
+          title: 'Social Feed',
+          url: '/feed',
+          icon: IconUsers,
+          badge: 'NEW',
         },
         {
           title: 'Nalanda',

@@ -9,6 +9,7 @@ import {
   Zap,
   Settings,
   Brain,
+  Users,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from 'wasp/client/auth';
@@ -69,6 +70,14 @@ const desktopNavItems: NavItem[] = [
     color: 'text-primary',
   },
   {
+    id: 'feed',
+    label: 'Social Feed',
+    icon: Users,
+    activeIcon: Users,
+    href: '/feed',
+    color: 'text-secondary',
+  },
+  {
     id: 'nalanda',
     label: 'Nalanda',
     icon: Brain,
@@ -124,8 +133,8 @@ export function BottomNavigation() {
 
   // Determine active item based on current path
   const getActiveItem = () => {
-            if (currentPath === '/play') return 'play';
-        if (currentPath.startsWith('/play')) return 'play';
+    if (currentPath === '/play' || currentPath.startsWith('/play')) return 'play';
+    if (currentPath === '/feed' || currentPath.startsWith('/feed')) return 'feed';
     // Treat legacy /dashboard and new /analytics as the same Analytics section
     if (currentPath === '/dashboard' || currentPath.startsWith('/analytics')) return 'analytics';
     if (currentPath.startsWith('/nalanda')) return 'nalanda';

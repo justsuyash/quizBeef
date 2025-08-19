@@ -313,3 +313,52 @@ function createQuizMetadata(questions: QuestionData[]) {
     generatedAt: new Date().toISOString()
   }
 }
+
+/**
+ * Generate personalized explanation for a student's answer using Gemini AI
+ */
+export async function generateStudentExplanation(
+  questionText: string,
+  correctAnswer: string,
+  studentAnswer: string,
+  isCorrect: boolean,
+  questionExplanation?: string
+): Promise<string> {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    
+    const prompt = `You are a helpful physics tutor explaining concepts to a middle school student. 
+
+QUESTION: ${questionText}
+CORRECT ANSWER: ${correctAnswer}
+STUDENT'S ANSWER: ${studentAnswer}
+STUDENT WAS: ${isCorrect ? 'CORRECT' : 'INCORRECT'}
+${questionExplanation ? `CONTEXT: ${questionExplanation}` : ''}
+
+Generate a personalized explanation for this student that:
+- ${isCorrect ? 'Congratulates them and reinforces their understanding' : 'Gently corrects their misconception without being discouraging'}
+- Explains the physics concept in simple, relatable terms
+- Uses real-world examples a middle schooler can understand
+- **IMPORTANTLY: Explains WHY this physics concept is important and useful in real life**
+- Shows how this knowledge helps us understand the world around us
+- Encourages curiosity and further learning
+- Keeps it to 2-3 sentences maximum
+- Uses an encouraging, friendly tone
+
+Focus on helping them understand WHY the correct answer is right, WHY this concept matters, and HOW it applies to their daily life.`
+
+    const result = await model.generateContent(prompt)
+    const response = await result.response
+    return response.text().trim()
+
+  } catch (error) {
+    console.error('Error generating student explanation:', error)
+    
+    // Fallback explanation
+    if (isCorrect) {
+      return "Great job! You really understand this concept. Keep up the excellent work!"
+    } else {
+      return "Don't worry about getting it wrong - that's how we learn! The correct answer helps us understand this important physics concept better."
+    }
+  }
+}

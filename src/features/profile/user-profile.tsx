@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useAction } from 'wasp/client/operations'
-import { getUserProfile, createBeef, getStatsOverview, getUserAchievements, getQuizHistory } from 'wasp/client/operations'
+import { getUserProfile, createBeef, getStatsOverview, getUserAchievements, getQuizHistory, getCurrentUser } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
@@ -30,9 +30,9 @@ import {
   ArrowLeft,
   MessageCircle,
   Lock,
-  CheckCircle,
   Shield,
-  Award
+  Award,
+  Users
 } from 'lucide-react'
 
 const topNav = [
@@ -79,13 +79,15 @@ export default function UserProfilePage() {
   const { userId } = useParams()
   const navigate = useNavigate()
   const { data: user } = useAuth()
-  const { data: profile, isLoading, error } = useQuery(getUserProfile, { 
-    userId: parseInt(userId || '0') 
-  })
+  // Resolve target user id: route param or current user as fallback
+  const parsedRouteId = userId ? parseInt(userId) : NaN
+  const { data: current } = useQuery(getCurrentUser, undefined, { retry: 0 })
+  const targetUserId = Number.isFinite(parsedRouteId) && parsedRouteId > 0 ? parsedRouteId : (current?.id || user?.id || 0)
+  const { data: profile, isLoading, error } = useQuery(getUserProfile, { userId: targetUserId }, { enabled: !!targetUserId })
   
   // v1.7: Get additional data for Trophy Case layout
   const { data: stats } = useQuery(getStatsOverview, { range: 30 })
-  const { data: achievements } = useQuery(getUserAchievements, {})
+  const { data: achievementsResp } = useQuery(getUserAchievements, {})
   const { data: recentActivityResp } = useQuery(getQuizHistory, { page: 1, pageSize: 10 })
   
   const createBeefFn = useAction(createBeef)
@@ -183,8 +185,11 @@ export default function UserProfilePage() {
   const profileData = profile as UserProfile
 
   // Get earned and locked achievements
-  const earnedAchievements = achievements?.filter(a => a.isCompleted) || []
+  const achievements = (achievementsResp as any)?.achievements || []
+  const earnedAchievements = (achievements || []).filter((a: any) => a?.isUnlocked || a?.isCompleted)
   const allPossibleAchievements = achievements || []
+  const getAchName = (a: any) => (a?.achievement?.name ?? a?.name ?? 'Achievement')
+  const getAchDesc = (a: any) => (a?.achievement?.description ?? a?.description ?? '')
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
@@ -276,209 +281,132 @@ export default function UserProfilePage() {
           </CardContent>
         </Card>
 
-        {/* v1.7: Core Stats Row */}
-        <div className="grid gap-4 md:grid-cols-5">
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Streak</p>
-                  <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                    {stats?.streak || 0}
-                  </p>
-                </div>
-                <Flame className="h-8 w-8 text-orange-500" />
+        {/* Unified snapshot banner: same visual style, single row */}
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-7">
+          {/* Followers */}
+          <Card className="bg-white">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Followers</p>
+                <p className="text-2xl font-semibold">{(profileData?.stats as any)?.followers ?? 0}</p>
               </div>
+              <Users className="h-5 w-5 text-muted-foreground" />
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">QLO</p>
-                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-                    {profileData.qlo ?? 100}
-                  </p>
-                </div>
-                <Shield className="h-8 w-8 text-blue-500" />
+          {/* Following */}
+          <Card className="bg-white">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Following</p>
+                <p className="text-2xl font-semibold">{(profileData?.stats as any)?.following ?? 0}</p>
               </div>
+              <Users className="h-5 w-5 text-muted-foreground" />
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950/20 dark:to-yellow-900/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">Medals</p>
-                  <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
-                    {stats?.medalsCount || 0}
-                  </p>
-                </div>
-                <Trophy className="h-8 w-8 text-yellow-500" />
+          {/* Rivals */}
+          <Card className="bg-white">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Rivals</p>
+                <p className="text-2xl font-semibold">{stats?.rivalsCount ?? 0}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(profileData as any)?.profileSnapshot?.rivalsSummary
+                    ? `${(profileData as any).profileSnapshot.rivalsSummary.outstanding} outstanding · ${(profileData as any).profileSnapshot.rivalsSummary.avenged} avenged`
+                    : null}
+                </p>
               </div>
+              <span className="text-lg">🥷</span>
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-900/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-600 dark:text-green-400">Quizzes</p>
-                  <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                    {stats?.totals?.totalQuizzes || 0}
-                  </p>
-                </div>
-                <BarChart3 className="h-8 w-8 text-green-500" />
+          {/* QLO */}
+          <Card className="bg-white">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">QLO</p>
+                <p className="text-2xl font-semibold">{profileData.qlo ?? 100}</p>
+                <p className="text-xs text-muted-foreground">Avg 30d: {(profileData as any)?.profileSnapshot?.avgQlo30d ?? (profileData.qlo ?? 100)}</p>
               </div>
+              <Shield className="h-5 w-5 text-muted-foreground" />
             </CardContent>
           </Card>
-          
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Accuracy</p>
-                  <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">
-                    {stats?.accuracy?.toFixed(1) || 0}%
-                  </p>
-                </div>
-                <Target className="h-8 w-8 text-purple-500" />
+          {/* Streak */}
+          <Card className="bg-white">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Streak</p>
+                <p className="text-2xl font-semibold">{stats?.streak || 0}</p>
+                <p className="text-xs text-muted-foreground">Avg 30d: {(profileData as any)?.profileSnapshot?.avgStreak30d ?? 0}</p>
               </div>
+              <Flame className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+          {/* Medals (clickable) */}
+          <Card className="bg-white cursor-pointer" onClick={() => navigate(`/user/${profileData.id}/medals`)}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Medals</p>
+                <p className="text-2xl font-semibold">{stats?.medalsCount || 0}</p>
+              </div>
+              <Trophy className="h-5 w-5 text-muted-foreground" />
+            </CardContent>
+          </Card>
+          {/* Quizzes */}
+          <Card className="bg-white">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Quizzes</p>
+                <p className="text-2xl font-semibold">{stats?.totals?.totalQuizzes || 0}</p>
+              </div>
+              <BarChart3 className="h-5 w-5 text-muted-foreground" />
             </CardContent>
           </Card>
         </div>
 
-        {/* v1.7: Achievements Grid */}
-        <Card className="bg-white dark:bg-gray-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-yellow-500" />
-              Trophy Case
-            </CardTitle>
-            <CardDescription>
-              {earnedAchievements.length} of {allPossibleAchievements.length} achievements unlocked
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-              {/* Earned Achievements */}
-              {earnedAchievements.slice(0, 8).map((achievement) => (
-                <div
-                  key={achievement.id}
-                  className="flex items-center p-3 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950/20 dark:to-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-500 rounded-full">
-                      <Award className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-sm text-yellow-800 dark:text-yellow-200">
-                        {achievement.achievement.name}
-                      </p>
-                      <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                        {achievement.achievement.description}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {/* Locked Achievements (show a few) */}
-              {allPossibleAchievements
-                .filter(a => !a.isCompleted)
-                .slice(0, 4 - Math.min(earnedAchievements.length, 4))
-                .map((achievement) => (
-                  <div
-                    key={achievement.id}
-                    className="flex items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 opacity-60"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gray-400 rounded-full">
-                        <Lock className="h-4 w-4 text-white" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm text-gray-600 dark:text-gray-400">
-                          {achievement.achievement.name}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-500">
-                          Locked
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-            
-            {allPossibleAchievements.length > 8 && (
-              <div className="mt-4 text-center">
-                <Button variant="outline" onClick={() => navigate('/achievements')}>
-                  View All Achievements
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Medals banner removed per request */}
 
-        {/* v1.7: Recent Activity */}
-        <Card className="bg-white dark:bg-gray-800">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-blue-500" />
-              Recent Activity
-            </CardTitle>
-            <CardDescription>
-              Latest 10 quiz attempts and results
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {recentActivityResp && (recentActivityResp as any).items?.length > 0 ? (
-                (recentActivityResp as any).items.map((activity: any, index: number) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-2 rounded-full",
-                        activity.score >= 80 ? "bg-green-500" : 
-                        activity.score >= 60 ? "bg-yellow-500" : "bg-red-500"
-                      )}>
-                        {activity.score >= 80 ? 
-                          <CheckCircle className="h-4 w-4 text-white" /> :
-                          activity.score >= 60 ?
-                          <Clock className="h-4 w-4 text-white" /> :
-                          <Target className="h-4 w-4 text-white" />
-                        }
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">
-                          {activity.document?.title || 'Quiz'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(activity.createdAt)}
-                        </p>
-                      </div>
+        {/* Recent Activity intentionally removed per request */}
+
+        {/* Masonry-like feed of user's quizzes (Pinterest style) */}
+        <div className="space-y-2">
+          {/* Masonry column container shim (keeps columns balanced) */}
+          {Array.isArray(profileData.recentDocuments) && profileData.recentDocuments.length > 0 ? (
+            <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 [column-fill:_balance]"></div>
+          ) : null}
+          <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
+            {Array.isArray(profileData.recentDocuments) && profileData.recentDocuments.length > 0 ? (
+              profileData.recentDocuments.map((doc: any) => {
+                const category = doc.category || 'General'
+                const rawTags = Array.isArray(doc.tags) ? doc.tags : []
+                const tags = [category, ...rawTags].filter(Boolean).slice(0, 5)
+                const rawDesc = (doc.contentJson?.summary || doc.contentJson?.content || '').toString()
+                const description = rawDesc ? rawDesc.slice(0, 140) : ''
+                return (
+                  <div key={doc.id} className="mb-4 break-inside-avoid rounded-md border bg-white p-4 shadow-sm hover:shadow transition">
+                    <div className="text-xs text-muted-foreground mb-1">{category}</div>
+                    <div className="font-medium mb-1 line-clamp-2">{doc.title}</div>
+                    <div className="text-sm text-muted-foreground mb-2 line-clamp-3 min-h-[3.25rem]">{description || ' '}</div>
+                    <div className="flex flex-wrap gap-1 mb-2 min-h-[1.5rem]">
+                      {tags.map((t: string, i: number) => (
+                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">#{t}</span>
+                      ))}
                     </div>
-                    
-                    <div className="text-right">
-                      <div className="font-semibold text-sm">{activity.score}%</div>
-                      <div className="text-xs text-muted-foreground">
-                        {activity.correctAnswers}/{activity.totalQuestions}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
+                      <div className="flex items-center gap-4">
+                        <span title="Likes">❤ {(doc.likeCount ?? 0)}</span>
+                        <span title="Comments">💬 {(doc.commentCount ?? 0)}</span>
+                        <span title="Views">▣ {(doc.viewCount ?? 0)}</span>
+                        <button className="text-primary hover:underline" onClick={() => navigator.share ? navigator.share({ title: 'QuizBeef Quiz', text: doc.title, url: `/quiz/${doc.id}/settings` }).catch(()=>{}) : window.open(`/quiz/${doc.id}/settings`, '_blank')}>Share</button>
                       </div>
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>No recent activity</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                )
+              })
+            ) : (
+              <div className="text-center text-muted-foreground py-8">No quizzes yet.</div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

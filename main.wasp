@@ -90,6 +90,14 @@ page PlayRecommendedPage {
   authRequired: true
 }
 
+route SocialFeedRoute { path: "/feed", to: SocialFeedPage }
+page SocialFeedPage {
+  component: import SocialFeedPage from "@src/features/social/feed",
+  authRequired: true
+}
+
+
+
 route UploadRoute { path: "/upload", to: UploadPage }
 page UploadPage {
   component: import UploadPage from "@src/features/documents/upload",
@@ -144,6 +152,30 @@ page TimeAttackPage {
   authRequired: true
 }
 
+route PrecisionRoute { path: "/quiz/precision", to: PrecisionPage }
+page PrecisionPage {
+  component: import PrecisionPage from "@src/features/quiz/modes/precision",
+  authRequired: true
+}
+
+route TestModeRoute { path: "/quiz/test-mode", to: TestModePage }
+page TestModePage {
+  component: import TestModePage from "@src/features/quiz/modes/test-mode",
+  authRequired: true
+}
+
+route TestReviewRoute { path: "/quiz/:attemptId/test-review", to: TestReviewPage }
+page TestReviewPage {
+  component: import TestReviewPage from "@src/features/quiz/test-review",
+  authRequired: true
+}
+
+route StudyModeRoute { path: "/quiz/study-mode", to: StudyModePage }
+page StudyModePage {
+  component: import StudyModePage from "@src/features/quiz/modes/study-mode",
+  authRequired: true
+}
+
 route QuizResultsRoute { path: "/quiz/:attemptId/results", to: QuizResultsPage }
 page QuizResultsPage {
   component: import QuizResultsPage from "@src/features/quiz/results",
@@ -185,6 +217,12 @@ page BeefChallengePage {
 route UserProfileRoute { path: "/user/:userId", to: UserProfilePage }
 page UserProfilePage {
   component: import UserProfilePage from "@src/features/profile/user-profile",
+  authRequired: false
+}
+
+route MedalsRoute { path: "/user/:userId/medals", to: MedalsPage }
+page MedalsPage {
+  component: import MedalsPage from "@src/features/achievements/medals-page",
   authRequired: false
 }
 
@@ -363,11 +401,6 @@ action submitQuizAnswer {
 action completeQuiz {
   fn: import { completeQuiz } from "@src/features/quiz/operations",
   entities: [QuizAttempt, UserQuestionHistory, Question, User]
-}
-
-action seedQuizData {
-  fn: import { seedQuizData } from "@src/features/quiz/seed-data",
-  entities: [Document, Question, Answer, User]
 }
 
 action startGameMode {
@@ -585,7 +618,7 @@ query getRivalList {
 // Profile & User operations
 query getUserProfile {
   fn: import { getUserProfile } from "@src/features/profile/operations",
-  entities: [User, Document, QuizAttempt, BeefParticipant, BeefChallenge]
+  entities: [User, Document, QuizAttempt, BeefParticipant, BeefChallenge, UserFollow, QloHistory]
 }
 
 action updateUserProfile {
@@ -624,6 +657,16 @@ action seedDatabase {
     entities: [User, Document, QuizAttempt, Achievement, UserAchievement, Folder, Question, Answer, UserQuestionHistory, QloHistory, Group, GroupMembership]
 }
 
+action seedQuizData {
+    fn: import { seedQuizData } from "@src/features/quiz/seed-data",
+    entities: [Document, Question, Answer, User]
+}
+
+action generateStudentExplanation {
+    fn: import { generateStudentExplanation } from "@src/features/quiz/operations",
+    entities: [User]
+}
+
 action resetMySeededData {
   fn: import { resetMySeededData } from "@src/features/admin/operations",
   entities: [User, Document, Folder, Question, Answer, QuizAttempt, UserQuestionHistory, UserAchievement, QloHistory]
@@ -653,4 +696,88 @@ action rebuildLeaderboardStatsAll {
   fn: import { rebuildLeaderboardStatsAll } from "@src/features/admin/operations",
   entities: [User, QuizAttempt]
 }
+
+//#region Feedback System
+action toggleDocumentLike {
+  fn: import { toggleDocumentLike } from "@src/features/feedback/operations",
+  entities: [User, Document, DocumentLike]
+}
+
+action addDocumentComment {
+  fn: import { addDocumentComment } from "@src/features/feedback/operations",
+  entities: [User, Document, DocumentComment]
+}
+
+query getDocumentComments {
+  fn: import { getDocumentComments } from "@src/features/feedback/operations",
+  entities: [Document, DocumentComment, User]
+}
+
+action toggleQuestionFeedback {
+  fn: import { toggleQuestionFeedback } from "@src/features/feedback/operations",
+  entities: [User, Question, QuestionFeedback]
+}
+
+action incrementDocumentViews {
+  fn: import { incrementDocumentViews } from "@src/features/feedback/operations",
+  entities: [Document]
+}
+
+query getDocumentEngagement {
+  fn: import { getDocumentEngagement } from "@src/features/feedback/operations",
+  entities: [Document, DocumentLike, User]
+}
+//#endregion
+
+//#region Social Feed System
+action followUser {
+  fn: import { followUser } from "@src/features/social/operations",
+  entities: [User, UserFollow, FeedActivity]
+}
+
+action unfollowUser {
+  fn: import { unfollowUser } from "@src/features/social/operations",
+  entities: [User, UserFollow]
+}
+
+query getUserFeed {
+  fn: import { getUserFeed } from "@src/features/social/operations",
+  entities: [User, UserFollow, FeedActivity, Document, QuizAttempt]
+}
+
+query getFollowSuggestions {
+  fn: import { getFollowSuggestions } from "@src/features/social/operations",
+  entities: [User, UserFollow, QuizAttempt, Document]
+}
+
+query getUserFollowStats {
+  fn: import { getUserFollowStats } from "@src/features/social/operations",
+  entities: [User, UserFollow]
+}
+
+action createFeedActivity {
+  fn: import { createFeedActivity } from "@src/features/social/operations",
+  entities: [User, FeedActivity, Document, QuizAttempt]
+}
+ 
+ query getTrending {
+   fn: import { getTrending } from "@src/features/social/operations",
+   entities: [Document, QuizAttempt]
+ }
+ 
+ query getRelatedToUserTopics {
+   fn: import { getRelatedToUserTopics } from "@src/features/social/operations",
+   entities: [User, Document, QuizAttempt]
+ }
+ 
+ query getReviseList {
+   fn: import { getReviseList } from "@src/features/social/operations",
+   entities: [User, QuizAttempt, Document]
+ }
+ 
+ query searchFeedSuggestions {
+   fn: import { searchFeedSuggestions } from "@src/features/social/operations",
+   entities: [User, UserFollow, Document]
+ }
+//#endregion
 

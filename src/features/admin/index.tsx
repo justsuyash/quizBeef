@@ -5,7 +5,7 @@ import { Switch } from '../../components/ui/switch'
 import { Alert, AlertDescription } from '../../components/ui/alert'
 import { Badge } from '../../components/ui/badge'
 import { Loader2, Database, Users, FileText, Trophy, Brain, RefreshCcw, Medal, TrendingUp, BarChart3, Swords, Undo2 } from 'lucide-react'
-import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedQloHistoryAll, rebuildLeaderboardStatsAll, getCurrentUser, resetMySeededData, addRandomNinjas } from 'wasp/client/operations'
+import { seedDatabase, backfillMyAccount, grantDemoAchievementsAll, seedQloHistoryAll, rebuildLeaderboardStatsAll, getCurrentUser, resetMySeededData, addRandomNinjas, seedQuizData } from 'wasp/client/operations'
 import { useQuery } from 'wasp/client/operations'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 
@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null)
   const [isResetting, setIsResetting] = useState(false)
   const [isAddingNinjas, setIsAddingNinjas] = useState(false)
+  const [isSeedingQuizData, setIsSeedingQuizData] = useState(false)
   const { data: currentUser } = useQuery(getCurrentUser)
 
   const handleSeedDatabase = async () => {
@@ -82,6 +83,21 @@ export default function AdminPage() {
       setError(err.message || 'Failed to seed QLO history')
     } finally {
       setIsSeedingQlo(false)
+    }
+  }
+
+  const handleSeedQuizData = async () => {
+    try {
+      setIsSeedingQuizData(true)
+      setError(null)
+      console.log('📚 Seeding quiz data with physics questions...')
+      const result = await seedQuizData()
+      alert(`Quiz data seeded! Created ${result.questionCount} demo questions and ${result.physicsQuestionCount} physics questions.`)
+    } catch (err: any) {
+      console.error('Seed quiz data error:', err)
+      setError(err.message || 'Failed to seed quiz data')
+    } finally {
+      setIsSeedingQuizData(false)
     }
   }
 
@@ -186,6 +202,46 @@ export default function AdminPage() {
               {process.env.NODE_ENV === 'production' && (
                 <span className="text-xs text-red-600">Seeding disabled in production</span>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quiz Data Seeding */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" />
+              Quiz Content Seeding
+            </CardTitle>
+            <CardDescription>
+              Create demo quiz questions and middle school physics questions for Study Mode
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium">Demo Questions & Physics Content</h4>
+                <p className="text-sm text-muted-foreground">
+                  Creates general knowledge questions and conceptual middle school physics questions with explanations
+                </p>
+              </div>
+              <Button 
+                onClick={handleSeedQuizData}
+                disabled={isSeedingQuizData}
+                size="lg"
+              >
+                {isSeedingQuizData ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Seeding Quiz Data...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Seed Quiz Questions
+                  </>
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>

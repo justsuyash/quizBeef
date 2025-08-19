@@ -31,6 +31,12 @@ export const getUserProfile: GetUserProfile<{ userId: number }, any> = async (ar
             title: true,
             sourceType: true,
             createdAt: true,
+            category: true,
+            tags: true,
+            contentJson: true,
+            likeCount: true,
+            commentCount: true,
+            viewCount: true,
             _count: {
               select: {
                 questions: true,
@@ -87,6 +93,10 @@ export const getUserProfile: GetUserProfile<{ userId: number }, any> = async (ar
     })
 
     if (!user) {
+      // If querying own id, return a minimal shell without creating anything
+      if (context.user?.id === userId) {
+        return { id: userId, handle: null, profileType: 'ADULT', joinedAt: new Date().toISOString(), totalScore: 0, totalQuizzes: 0, totalBeefWins: 0, winStreak: 0, longestWinStreak: 0, averageAccuracy: 0, isPublicProfile: true, totalBeefParticipations: 0, beefWins: 0, beefWinRate: 0, averageQuizScore: 0, recentDocuments: [], recentQuizAttempts: [], recentBeefWins: [], stats: { totalDocuments: 0, totalQuizAttempts: 0, totalBeefChallengesCreated: 0, totalBeefParticipations: 0, followers: 0, following: 0 }, isOwnProfile: true }
+      }
       throw new HttpError(404, 'User not found')
     }
 
@@ -114,7 +124,51 @@ export const getUserProfile: GetUserProfile<{ userId: number }, any> = async (ar
       }
     })
 
+    // Profile snapshot: avg QLO 30d, avg streak 30d, rivals summary
+    const now = new Date()
+    const since30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    const since90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+
+    // Avg QLO 30d from QloHistory (fallback to current QLO if none)
+    const qloHistory = await context.entities.QloHistory.findMany({
+      where: { userId: user.id, changedAt: { gte: since30 } },
+      select: { qlo: true }
+    })
+    const avgQlo30d = qloHistory.length > 0
+      ? Math.round(qloHistory.reduce((s, h) => s + h.qlo, 0) / qloHistory.length)
+      : user.qlo
+
+    // Avg Streak 30d: compute daily streak progression over last 30d
+    const attempts30 = await context.entities.QuizAttempt.findMany({
+      where: { userId: user.id, completedAt: { gte: since30, lte: now } },
+      select: { completedAt: true }
+    })
+    const activityDays = new Set<string>(
+      attempts30.map(a => new Date(a.completedAt as any).toISOString().slice(0, 10))
+    )
+    let curStreak = 0
+    let streakSum = 0
+    for (let d = 0; d < 30; d++) {
+      const day = new Date(now.getTime() - d * 24 * 60 * 60 * 1000)
+      const key = day.toISOString().slice(0, 10)
+      if (activityDays.has(key)) curStreak += 1
+      else curStreak = 0
+      streakSum += curStreak
+    }
+    const avgStreak30d = Math.round((streakSum / 30) * 10) / 10
+
+    // Rivals summary (approximate: wins vs losses in last 90d)
+    const recentBeefs = await context.entities.BeefParticipant.findMany({
+      where: { userId: user.id, createdAt: { gte: since90, lte: now } },
+      select: { position: true }
+    })
+    const wins = recentBeefs.filter(b => b.position === 1).length
+    const losses = recentBeefs.filter(b => b.position !== 1).length
+
     // Remove sensitive information for public profiles
+    const followersCount = await (context.entities as any).UserFollow.count({ where: { followingId: user.id } })
+    const followingCount = await (context.entities as any).UserFollow.count({ where: { followerId: user.id } })
+
     const publicUser = {
       id: user.id,
       handle: user.handle,
@@ -137,6 +191,11 @@ export const getUserProfile: GetUserProfile<{ userId: number }, any> = async (ar
       beefWins,
       beefWinRate: totalBeefParticipations > 0 ? (beefWins / totalBeefParticipations) * 100 : 0,
       averageQuizScore: avgQuizScore._avg.score || 0,
+      profileSnapshot: {
+        avgQlo30d,
+        avgStreak30d,
+        rivalsSummary: { outstanding: losses, avenged: wins }
+      },
       
       // Related data
       recentDocuments: user.documents,
@@ -148,7 +207,9 @@ export const getUserProfile: GetUserProfile<{ userId: number }, any> = async (ar
         totalDocuments: user._count.documents,
         totalQuizAttempts: user._count.quizAttempts,
         totalBeefChallengesCreated: user._count.createdBeefs,
-        totalBeefParticipations: user._count.beefParticipations
+        totalBeefParticipations: user._count.beefParticipations,
+        followers: followersCount,
+        following: followingCount,
       },
       
       // Privacy flag

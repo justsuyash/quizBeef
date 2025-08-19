@@ -5,6 +5,7 @@ import { getQuizAttempt } from 'wasp/client/operations'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Badge } from '../../components/ui/badge'
+import { Separator } from '../../components/ui/separator'
 import { 
   Trophy, 
   Target, 
@@ -15,7 +16,9 @@ import {
   Lightbulb,
   TrendingUp,
   Zap,
-  Brain
+  Brain,
+  Play,
+  FileText
 } from 'lucide-react'
 
 export default function QuizSummaryPage() {
@@ -116,6 +119,28 @@ export default function QuizSummaryPage() {
       if (totalQuestions > 5) {
         tips.push("🎯 Practice harder questions - they give 2x base points in Rapid Fire")
       }
+    } else if (quizMode === 'FLASHCARD_FRENZY') {
+      tips.push("🧠 In Flashcard Frenzy, calibrate your confidence: high confidence for sure answers, low for guesses.")
+      tips.push("💡 High confidence correct = +3 points, Low confidence correct = +1 point. Choose wisely!")
+    } else if (quizMode === 'PRECISION') {
+      tips.push("🛡️ In Precision Mode, accuracy is everything - one wrong answer costs a life!")
+      tips.push("🎯 Take your time to read questions carefully - speed doesn't matter here")
+      if (gameplayStats?.livesRemaining === 0) {
+        tips.push("💀 You were eliminated! Review your mistakes to avoid them next time")
+      } else if (gameplayStats?.livesRemaining === 3) {
+        tips.push("🏆 Perfect survival! You didn't lose a single life - incredible precision!")
+      }
+    } else if (quizMode === 'TIME_ATTACK') {
+      tips.push("⏰ In Time Attack, correct answers give +3s, wrong answers cost -2s!")
+      tips.push("⚡ Balance speed with accuracy - wrong answers hurt your survival time")
+      if (gameplayStats?.timeRemaining === 0) {
+        tips.push("🕐 Time ran out! Avoid wrong answers to prevent time penalties")
+      } else if ((gameplayStats?.timeRemaining || 0) > 30) {
+        tips.push("🏆 Excellent time management! You finished with plenty of time left")
+      }
+      if ((gameplayStats?.totalTimeExtended || 0) < 15) {
+        tips.push("🎯 Try to answer more questions correctly to extend your survival time")
+      }
     }
 
     // General improvement
@@ -135,7 +160,7 @@ export default function QuizSummaryPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
+    <div className="container mx-auto px-4 py-8 max-w-3xl">
       <div className="space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
@@ -146,26 +171,25 @@ export default function QuizSummaryPage() {
           </Badge>
         </div>
 
-        {/* Summary Card - Clickable */}
-        <Card 
-          className="cursor-pointer hover:shadow-lg transition-all duration-200 border-2 hover:border-primary/50"
-          onClick={handleViewDetails}
-        >
-          <CardHeader className="text-center">
+        {/* Combined Summary & Coaching Tips Card */}
+        <Card className="overflow-hidden">
+          {/* Summary Section */}
+          <CardHeader className="text-center pb-4">
             <CardTitle className="flex items-center justify-center gap-2">
               <Trophy className="h-6 w-6 text-yellow-500" />
               Performance Summary
-              <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </CardTitle>
             <CardDescription>
-              Click to view detailed analysis and question review
+              Your quiz results and key metrics
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          
+          <CardContent className="space-y-6">
+            {/* Performance Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
               {/* Final Score */}
               <div className="space-y-1">
-                <div className="text-2xl font-bold text-green-500">
+                <div className="text-3xl font-bold text-green-500">
                   {Math.round(score)}%
                 </div>
                 <div className="text-sm text-muted-foreground">Final Score</div>
@@ -174,50 +198,111 @@ export default function QuizSummaryPage() {
                 </div>
               </div>
 
-              {/* Max Combo */}
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-orange-500">
-                  {maxCombo}x
-                </div>
-                <div className="text-sm text-muted-foreground">Max Combo</div>
-                <div className="text-xs text-muted-foreground">
-                  {maxCombo >= 10 ? "🔥 Legendary!" :
-                   maxCombo >= 5 ? "🚀 Great!" :
-                   maxCombo >= 3 ? "⚡ Good!" : "Keep trying!"}
-                </div>
-              </div>
+              {/* Mode-specific metrics */}
+              {quizMode === 'PRECISION' ? (
+                <>
+                  {/* Lives Remaining */}
+                  <div className="space-y-1">
+                    <div className="flex justify-center gap-1">
+                      {Array.from({ length: 3 }, (_, i) => (
+                        <div key={i} className="text-xl">
+                          {(gameplayStats?.livesRemaining || 0) > i ? '❤️' : '💀'}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Lives Left</div>
+                  </div>
 
-              {/* Perfect Streak */}
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-purple-500">
-                  {perfectStreak}
-                </div>
-                <div className="text-sm text-muted-foreground">Perfect Streak</div>
-                <div className="text-xs text-muted-foreground">
-                  {perfectStreak >= 15 ? "🛡️ Invincible!" :
-                   perfectStreak >= 10 ? "🔥 Double pts!" :
-                   perfectStreak >= 5 ? "🎯 Accurate!" : "Practice more!"}
-                </div>
-              </div>
+                  {/* Survival Score */}
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold text-blue-500">
+                      {gameplayStats?.precisionScore || correctAnswers}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Survival Score</div>
+                  </div>
 
-              {/* Average Time */}
-              <div className="space-y-1">
-                <div className="text-2xl font-bold text-blue-500">
-                  {avgTimePerQuestion}s
-                </div>
-                <div className="text-sm text-muted-foreground">Avg Time</div>
-                <div className="text-xs text-muted-foreground">
-                  {parseFloat(avgTimePerQuestion) <= 3 ? "⚡ Lightning!" :
-                   parseFloat(avgTimePerQuestion) <= 7 ? "🚀 Fast!" :
-                   parseFloat(avgTimePerQuestion) <= 12 ? "🎯 Normal" : "⚠️ Slow"}
-                </div>
-              </div>
+                  {/* Precision Rating */}
+                  <div className="space-y-1">
+                    <div className="text-3xl">
+                      {score >= 95 ? "🎯" : score >= 85 ? "🏹" : score >= 75 ? "🎪" : "🎯"}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Precision</div>
+                  </div>
+                </>
+              ) : quizMode === 'TIME_ATTACK' ? (
+                <>
+                  {/* Time Remaining */}
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold text-orange-500">
+                      {gameplayStats?.timeRemaining || 0}s
+                    </div>
+                    <div className="text-sm text-muted-foreground">Time Left</div>
+                  </div>
+
+                  {/* Time Extended */}
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold text-green-500">
+                      +{gameplayStats?.totalTimeExtended || 0}s
+                    </div>
+                    <div className="text-sm text-muted-foreground">Time Gained</div>
+                  </div>
+
+                  {/* Survival Time */}
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold text-purple-500">
+                      {gameplayStats?.survivalTime || 0}s
+                    </div>
+                    <div className="text-sm text-muted-foreground">Survival Time</div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Max Combo */}
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold text-orange-500">
+                      {maxCombo}x
+                    </div>
+                    <div className="text-sm text-muted-foreground">Max Combo</div>
+                    <div className="text-xs text-muted-foreground">
+                      {maxCombo >= 10 ? "🔥 Legendary!" :
+                       maxCombo >= 5 ? "🚀 Great!" :
+                       maxCombo >= 3 ? "⚡ Good!" : "Keep trying!"}
+                    </div>
+                  </div>
+
+                  {/* Perfect Streak */}
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold text-purple-500">
+                      {perfectStreak}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Perfect Streak</div>
+                    <div className="text-xs text-muted-foreground">
+                      {perfectStreak >= 15 ? "🛡️ Invincible!" :
+                       perfectStreak >= 10 ? "🔥 Double pts!" :
+                       perfectStreak >= 5 ? "🎯 Accurate!" : "Practice more!"}
+                    </div>
+                  </div>
+
+                  {/* Average Time */}
+                  <div className="space-y-1">
+                    <div className="text-3xl font-bold text-blue-500">
+                      {avgTimePerQuestion}s
+                    </div>
+                    <div className="text-sm text-muted-foreground">Avg Time</div>
+                    <div className="text-xs text-muted-foreground">
+                      {parseFloat(avgTimePerQuestion) <= 3 ? "⚡ Lightning!" :
+                       parseFloat(avgTimePerQuestion) <= 7 ? "🚀 Fast!" :
+                       parseFloat(avgTimePerQuestion) <= 12 ? "🎯 Normal" : "⚠️ Slow"}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Total Score (if available) */}
             {totalScore > 0 && (
-              <div className="mt-4 pt-4 border-t text-center">
-                <div className="text-lg font-semibold text-primary">
+              <div className="text-center p-4 bg-muted/30 rounded-lg">
+                <div className="text-xl font-bold text-primary">
                   Total Points: {totalScore}
                 </div>
                 <div className="text-sm text-muted-foreground">
@@ -225,56 +310,56 @@ export default function QuizSummaryPage() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
 
-        {/* AI Tips Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-purple-500" />
-              AI Coaching Tips
-            </CardTitle>
-            <CardDescription>
-              Personalized suggestions to improve your performance
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            <Separator />
+
+            {/* AI Coaching Tips Section - More Discreet */}
             <div className="space-y-3">
-              {aiTips.map((tip, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="flex-shrink-0 w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-bold text-primary">
-                    {index + 1}
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-medium text-muted-foreground">Quick Tips</h3>
+              </div>
+              
+              <div className="space-y-2">
+                {aiTips.slice(0, 3).map((tip, index) => (
+                  <div key={index} className="flex items-start gap-2 text-xs text-muted-foreground/80">
+                    <div className="flex-shrink-0 w-4 h-4 bg-muted/30 rounded-full flex items-center justify-center text-xs font-medium text-muted-foreground/60 mt-0.5">
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 leading-relaxed">
+                      {tip}
+                    </div>
                   </div>
-                  <div className="text-sm text-muted-foreground flex-1">
-                    {tip}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Action Buttons Inside Card */}
+            <div className="flex items-center justify-center gap-6 pt-2">
+              {/* Review Button */}
+              <Button 
+                onClick={handleViewDetails}
+                size="lg"
+                className="px-8"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Review
+              </Button>
+              
+              {/* Circular Play Again Button */}
+              <Button 
+                onClick={() => navigate('/play')}
+                size="lg"
+                variant="outline"
+                className="rounded-full w-16 h-16 p-0"
+              >
+                <Play className="h-6 w-6 fill-current" />
+              </Button>
             </div>
           </CardContent>
         </Card>
-
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Button 
-            onClick={handleViewDetails}
-            className="flex-1"
-            size="lg"
-          >
-            <Target className="h-4 w-4 mr-2" />
-            View Detailed Analysis
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/play')}
-            className="flex-1"
-            size="lg"
-          >
-            <Zap className="h-4 w-4 mr-2" />
-            Play Again
-          </Button>
-        </div>
       </div>
     </div>
   )
