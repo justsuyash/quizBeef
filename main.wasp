@@ -150,6 +150,12 @@ page QuizResultsPage {
   authRequired: true
 }
 
+route QuizSummaryRoute { path: "/quiz/:attemptId/summary", to: QuizSummaryPage }
+page QuizSummaryPage {
+  component: import QuizSummaryPage from "@src/features/quiz/summary",
+  authRequired: true
+}
+
 route QuizHistoryRoute { path: "/quiz-history", to: QuizHistoryPage }
 page QuizHistoryPage {
   component: import QuizHistoryPage from "@src/features/quiz/history",

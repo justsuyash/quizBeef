@@ -378,14 +378,45 @@ export default function FlashcardFrenzyQuiz() {
     try {
       const totalTime = Math.floor((Date.now() - quizState.startTime) / 1000)
       
+      // Calculate confidence statistics
+      const highConfidenceAnswers = quizState.answers.filter(a => a.confidenceLevel >= 4)
+      const lowConfidenceAnswers = quizState.answers.filter(a => a.confidenceLevel <= 2)
+      
+      // Calculate correct answers for confidence analysis
+      let correctAnswersCount = 0
+      questions.forEach((q: any, index: number) => {
+        if (q.wasCorrect) correctAnswersCount++
+      })
+      
+      const correctHighConfidence = questions.filter((q: any, index: number) => {
+        const answer = quizState.answers[index]
+        return answer?.confidenceLevel >= 4 && q.wasCorrect
+      }).length
+      const correctLowConfidence = questions.filter((q: any, index: number) => {
+        const answer = quizState.answers[index]
+        return answer?.confidenceLevel <= 2 && q.wasCorrect
+      }).length
+      
       await completeQuizFn({
         quizAttemptId: parseInt(attemptId || '0'),
         averageConfidence: quizState.averageConfidence,
-        totalTimeSpent: totalTime
+        totalTimeSpent: totalTime,
+        gameplayStats: {
+          averageConfidence: quizState.averageConfidence,
+          totalScore: quizState.currentScore,
+          maxStreak: quizState.currentStreak,
+          confidenceStats: {
+            highConfidenceCorrect: correctHighConfidence,
+            lowConfidenceCorrect: correctLowConfidence,
+            totalHighConfidence: highConfidenceAnswers.length,
+            totalLowConfidence: lowConfidenceAnswers.length,
+            confidenceAccuracy: quizState.averageConfidence > 0 ? (correctAnswersCount / totalQuestions) * 100 * (quizState.averageConfidence / 5) : 0
+          }
+        }
       })
 
       // Navigate to results
-      navigate(`/quiz/${attemptId}/results`)
+      navigate(`/quiz/${attemptId}/summary`)
     } catch (error) {
       console.error('Error completing quiz:', error)
       toast({
@@ -717,46 +748,95 @@ export default function FlashcardFrenzyQuiz() {
                   {!quizState.showAnswer && (
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">
-                        Think about your answer, then rate your confidence before revealing the options.
+                        Think about your answer, then choose your confidence and reveal the options.
                       </p>
                       
-                      {/* Bar Graph Confidence Rating */}
-                      <div className="space-y-6 max-w-sm mx-auto">
-                        <div className="flex items-end justify-center gap-3 py-6">
-                          {[1, 2, 3, 4, 5].map((level) => {
-                            const isSelected = confidence >= level;
-                            const barHeight = 20 + (level * 8); // 28px to 60px height
-                            
-                            return (
-                              <button
-                                key={level}
-                                type="button"
-                                onClick={() => setConfidence(level)}
-                                className={cn(
-                                  "w-8 rounded-full transition-all duration-300 active:scale-95",
-                                  "hover:scale-105 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-                                  isSelected
-                                    ? "bg-gradient-to-t from-blue-500 to-blue-400 shadow-lg"
-                                    : "bg-gray-200 hover:bg-gray-300"
-                                )}
-                                style={{ 
-                                  height: `${barHeight}px`
-                                }}
-                                aria-label={`Confidence level ${level}`}
-                              />
-                            );
-                          })}
-                        </div>
+                      {/* Confidence + Reveal Button Row */}
+                      <div className="flex items-center justify-center gap-4">
+                        {/* Low Confidence Button (Down Arrow) */}
+                        <motion.button
+                          whileHover={{ scale: 1.1, y: -2 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setConfidence(2)}
+                          className={`group relative p-4 rounded-full transition-all duration-300 ${
+                            confidence === 2 
+                              ? 'bg-gradient-to-b from-orange-400 to-orange-600 shadow-lg shadow-orange-500/50' 
+                              : 'bg-gradient-to-b from-gray-300 to-gray-400 hover:from-orange-300 hover:to-orange-500'
+                          }`}
+                          style={{
+                            boxShadow: confidence === 2 
+                              ? '0 8px 25px rgba(251, 146, 60, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3)' 
+                              : '0 4px 15px rgba(0, 0, 0, 0.2)'
+                          }}
+                        >
+                          <div className={`text-2xl transition-all duration-300 ${
+                            confidence === 2 ? 'text-white' : 'text-gray-600 group-hover:text-white'
+                          }`}>
+                            ⬇️
+                          </div>
+                          {/* Glow effect */}
+                          {confidence === 2 && (
+                            <div className="absolute -inset-1 rounded-full bg-gradient-to-b from-orange-400/50 to-orange-600/50 opacity-75 blur-sm -z-10 animate-pulse" />
+                          )}
+                        </motion.button>
+
+                        {/* Reveal Options Button */}
+                        <Button 
+                          onClick={handleRevealAnswer}
+                          size="lg"
+                          disabled={confidence === 3} // Require confidence selection
+                          className={`bg-purple-500 hover:bg-purple-600 transition-all duration-300 ${
+                            confidence === 3 ? 'opacity-50 cursor-not-allowed' : 'shadow-lg hover:shadow-xl'
+                          }`}
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Reveal Options
+                        </Button>
+
+                        {/* High Confidence Button (Up Arrow) */}
+                        <motion.button
+                          whileHover={{ scale: 1.1, y: -2 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setConfidence(5)}
+                          className={`group relative p-4 rounded-full transition-all duration-300 ${
+                            confidence === 5 
+                              ? 'bg-gradient-to-b from-green-400 to-green-600 shadow-lg shadow-green-500/50' 
+                              : 'bg-gradient-to-b from-gray-300 to-gray-400 hover:from-green-300 hover:to-green-500'
+                          }`}
+                          style={{
+                            boxShadow: confidence === 5 
+                              ? '0 8px 25px rgba(34, 197, 94, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 20px rgba(34, 197, 94, 0.4)' 
+                              : '0 4px 15px rgba(0, 0, 0, 0.2)'
+                          }}
+                        >
+                          <div className={`text-2xl transition-all duration-300 ${
+                            confidence === 5 ? 'text-white' : 'text-gray-600 group-hover:text-white'
+                          }`}>
+                            ⬆️
+                          </div>
+                          {/* Glow effect */}
+                          {confidence === 5 && (
+                            <div className="absolute -inset-1 rounded-full bg-gradient-to-b from-green-400/50 to-green-600/50 opacity-75 blur-sm -z-10 animate-pulse" />
+                          )}
+                        </motion.button>
                       </div>
                       
-                      <Button 
-                        onClick={handleRevealAnswer}
-                        size="lg"
-                        className="bg-purple-500 hover:bg-purple-600"
-                      >
-                        <Eye className="w-4 h-4 mr-2" />
-                        Reveal Options
-                      </Button>
+                      {/* Confidence Indicator */}
+                      {confidence !== 3 && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="text-center"
+                        >
+                          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${
+                            confidence === 2 
+                              ? 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300' 
+                              : 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                          }`}>
+                            {confidence === 2 ? '🤔 Low Confidence' : '💪 High Confidence'}
+                          </div>
+                        </motion.div>
+                      )}
                     </div>
                   )}
                   
@@ -765,28 +845,43 @@ export default function FlashcardFrenzyQuiz() {
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="space-y-3"
+                      className="space-y-6"
                     >
-                      {currentQuestion.answers.map((answer: any, index: number) => (
-                        <motion.button
-                          key={answer.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                          className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${
-                            selectedAnswer === answer.id ? 'border-primary bg-primary/10' : 'border-border'
-                          } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                          onClick={() => !isSubmitting && handleAnswerSelect(answer.id, answer.isCorrect)}
-                          disabled={isSubmitting || quizState.showResult}
+                      {!quizState.showResult ? (
+                        // Show answer options with confidence already selected
+                        <motion.div
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="space-y-4"
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{answer.answerText}</span>
-                            {!isLastQuestion && (
-                              <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                            )}
+                          <div className="text-center p-3 bg-muted/30 rounded-lg">
+                            <p className="text-sm text-muted-foreground">
+                              Confidence: {confidence === 2 ? '🤔 Low Confidence' : '💪 High Confidence'}
+                            </p>
                           </div>
-                        </motion.button>
-                      ))}
+                          
+                          {currentQuestion.answers.map((answer: any, index: number) => (
+                            <motion.button
+                              key={answer.id}
+                              initial={{ opacity: 0, x: -20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className={`w-full p-4 text-left rounded-lg border-2 transition-all hover:bg-muted/50 ${
+                                selectedAnswer === answer.id ? 'border-primary bg-primary/10' : 'border-border'
+                              } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                              onClick={() => !isSubmitting && handleAnswerSelect(answer.id, answer.isCorrect)}
+                              disabled={isSubmitting || quizState.showResult}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{answer.answerText}</span>
+                                {!isLastQuestion && (
+                                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                                )}
+                              </div>
+                            </motion.button>
+                          ))}
+                        </motion.div>
+                      ) : null}
                       
                       {/* Show explanation in study mode */}
                       {quizState.studyMode && correctAnswer?.explanation && (

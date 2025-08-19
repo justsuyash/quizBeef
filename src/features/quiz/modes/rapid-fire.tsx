@@ -39,6 +39,14 @@ interface RapidFireState {
   isCompleted: boolean
   showResult: boolean
   lastAnswerCorrect: boolean | null
+  currentCombo: number
+  maxCombo: number
+  perfectStreak: number
+  doublePointsRemaining: number
+  isInvincible: boolean
+  totalScore: number
+  speedZone: 'lightning' | 'fast' | 'normal' | 'danger'
+  comboMultiplier: number
 }
 
 export default function RapidFireQuiz() {
@@ -53,6 +61,50 @@ export default function RapidFireQuiz() {
   const BONUS_TIME_THRESHOLD = 5 // bonus if answered within 5 seconds
   const STREAK_BONUS_THRESHOLD = 3 // bonus points for 3+ streak
 
+  // Advanced enhancement functions
+  const getSpeedZone = (timeSpent: number): 'lightning' | 'fast' | 'normal' | 'danger' => {
+    if (timeSpent <= 3) return 'lightning'
+    if (timeSpent <= 7) return 'fast'
+    if (timeSpent <= 12) return 'normal'
+    return 'danger'
+  }
+
+  const getSpeedMultiplier = (speedZone: string): number => {
+    switch (speedZone) {
+      case 'lightning': return 3
+      case 'fast': return 2
+      case 'normal': return 1
+      case 'danger': return 0.5
+      default: return 1
+    }
+  }
+
+  const getComboMultiplier = (combo: number): number => {
+    if (combo >= 10) return 4
+    if (combo >= 5) return 3
+    if (combo >= 3) return 2
+    return 1
+  }
+
+  const getDifficultyMultiplier = (difficulty: string): number => {
+    switch (difficulty) {
+      case 'HARD': return 2
+      case 'MEDIUM': return 1.5
+      case 'EASY': return 1
+      default: return 1
+    }
+  }
+
+  const getDynamicTimeLimit = (questionIndex: number, totalQuestions: number): number => {
+    const isLastTwentyPercent = questionIndex >= Math.floor(totalQuestions * 0.8)
+    return isLastTwentyPercent ? Math.floor(QUESTION_TIME_LIMIT * 0.6) : QUESTION_TIME_LIMIT // 40% reduction = 60% of original
+  }
+
+  const getBasePointsForLastTwentyPercent = (questionIndex: number, totalQuestions: number): number => {
+    const isLastTwentyPercent = questionIndex >= Math.floor(totalQuestions * 0.8)
+    return isLastTwentyPercent ? 2 : 1 // 2x base points for last 20%
+  }
+
   const [quizState, setQuizState] = useState<RapidFireState>({
     currentQuestionIndex: 0,
     answers: [],
@@ -63,7 +115,15 @@ export default function RapidFireQuiz() {
     timeLeft: QUESTION_TIME_LIMIT,
     isCompleted: false,
     showResult: false,
-    lastAnswerCorrect: null
+    lastAnswerCorrect: null,
+    currentCombo: 0,
+    maxCombo: 0,
+    perfectStreak: 0,
+    doublePointsRemaining: 0,
+    isInvincible: false,
+    totalScore: 0,
+    speedZone: 'normal',
+    comboMultiplier: 1
   })
 
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
@@ -93,12 +153,14 @@ export default function RapidFireQuiz() {
         isAnswered: false
       }))
 
+      const dynamicTimeLimit = getDynamicTimeLimit(0, quizData.questions.length)
+
       setQuizState(prev => ({
         ...prev,
         answers: initialAnswers,
         startTime: Date.now(),
         questionStartTime: Date.now(),
-        timeLeft: QUESTION_TIME_LIMIT
+        timeLeft: dynamicTimeLimit
       }))
     }
   }, [quizData])
@@ -137,12 +199,18 @@ export default function RapidFireQuiz() {
       })
 
       // Update state for incorrect answer
-      setQuizState(prev => ({
-        ...prev,
-        lastAnswerCorrect: false,
-        correctStreak: 0,
-        showResult: true
-      }))
+      setQuizState(prev => {
+        const shouldResetCombo = !prev.isInvincible
+        return {
+          ...prev,
+          lastAnswerCorrect: false,
+          correctStreak: 0,
+          currentCombo: shouldResetCombo ? 0 : prev.currentCombo, // Don't reset combo if invincible
+          isInvincible: false, // Use up invincible mode
+          showResult: true,
+          speedZone: 'danger'
+        }
+      })
 
       // Show result briefly then move to next
       setTimeout(() => {
@@ -172,7 +240,8 @@ export default function RapidFireQuiz() {
     setIsSubmitting(true)
 
     try {
-      const timeSpent = QUESTION_TIME_LIMIT - quizState.timeLeft
+      const dynamicTimeLimit = getDynamicTimeLimit(quizState.currentQuestionIndex, totalQuestions)
+      const timeSpent = dynamicTimeLimit - quizState.timeLeft
       
       await submitAnswerFn({
         quizAttemptId: parseInt(attemptId || '0'),
@@ -185,34 +254,92 @@ export default function RapidFireQuiz() {
       const correctAnswer = currentQuestion.answers.find((a: any) => a.isCorrect)
       const isCorrect = answerId === correctAnswer?.id
 
-      // Calculate bonus points
-      let bonus = 0
+      // Calculate comprehensive scoring
+      let totalPoints = 0
       if (isCorrect) {
-        // Speed bonus
-        if (timeSpent <= BONUS_TIME_THRESHOLD) {
-          bonus += 10
-        }
+        // Base points (10 points base)
+        const basePoints = 10
         
-        // Streak bonus
-        const newStreak = quizState.correctStreak + 1
-        if (newStreak >= STREAK_BONUS_THRESHOLD) {
-          bonus += newStreak * 5
-        }
+        // Difficulty multiplier
+        const difficultyMultiplier = getDifficultyMultiplier(currentQuestion.difficulty)
+        
+        // Speed zone and multiplier
+        const speedZone = getSpeedZone(timeSpent)
+        const speedMultiplier = getSpeedMultiplier(speedZone)
+        
+        // Combo multiplier (based on current combo before increment)
+        const comboMultiplier = getComboMultiplier(quizState.currentCombo + 1)
+        
+        // Last 20% bonus
+        const lastTwentyPercentMultiplier = getBasePointsForLastTwentyPercent(quizState.currentQuestionIndex, totalQuestions)
+        
+        // Double points mode
+        const doublePointsMultiplier = quizState.doublePointsRemaining > 0 ? 2 : 1
+        
+        // Calculate final points
+        totalPoints = Math.floor(
+          basePoints * 
+          difficultyMultiplier * 
+          speedMultiplier * 
+          comboMultiplier * 
+          lastTwentyPercentMultiplier * 
+          doublePointsMultiplier
+        )
+
+        // Perfect streak bonus (+5 for every correct answer)
+        totalPoints += 5
       }
 
-      setBonusPoints(prev => prev + bonus)
-
-      // Update quiz state
+      // Update quiz state with all new mechanics
       setQuizState(prev => {
         const newStreak = isCorrect ? prev.correctStreak + 1 : 0
+        const newCombo = isCorrect ? prev.currentCombo + 1 : (prev.isInvincible ? prev.currentCombo : 0)
+        const newMaxCombo = Math.max(prev.maxCombo, newCombo)
+        const newPerfectStreak = isCorrect ? prev.perfectStreak + 1 : prev.perfectStreak
+        
+        // Check for streak bonuses
+        let newDoublePointsRemaining = prev.doublePointsRemaining
+        let newIsInvincible = prev.isInvincible
+        
+        if (isCorrect && newPerfectStreak === 10) {
+          newDoublePointsRemaining = 3 // Next 3 questions get double points
+        }
+        
+        if (isCorrect && newPerfectStreak === 15) {
+          newIsInvincible = true // Next wrong answer won't break combo
+        }
+        
+        // Decrease double points counter
+        if (newDoublePointsRemaining > 0) {
+          newDoublePointsRemaining -= 1
+        }
+        
+        // Use up invincible mode if wrong answer
+        if (!isCorrect && prev.isInvincible) {
+          newIsInvincible = false
+        }
+        
+        const speedZone = isCorrect ? getSpeedZone(dynamicTimeLimit - prev.timeLeft) : 'danger'
+        const comboMultiplier = getComboMultiplier(newCombo)
+        
         return {
           ...prev,
           lastAnswerCorrect: isCorrect,
           correctStreak: newStreak,
           longestStreak: Math.max(prev.longestStreak, newStreak),
+          currentCombo: newCombo,
+          maxCombo: newMaxCombo,
+          perfectStreak: newPerfectStreak,
+          doublePointsRemaining: newDoublePointsRemaining,
+          isInvincible: newIsInvincible,
+          totalScore: prev.totalScore + totalPoints,
+          speedZone,
+          comboMultiplier,
           showResult: true
         }
       })
+
+      setBonusPoints(prev => prev + totalPoints)
 
       // Show result briefly then move to next
       setTimeout(() => {
@@ -236,14 +363,20 @@ export default function RapidFireQuiz() {
   }
 
   const moveToNextQuestion = () => {
-    setQuizState(prev => ({
-      ...prev,
-      currentQuestionIndex: prev.currentQuestionIndex + 1,
-      questionStartTime: Date.now(),
-      timeLeft: QUESTION_TIME_LIMIT,
-      showResult: false,
-      lastAnswerCorrect: null
-    }))
+    setQuizState(prev => {
+      const nextQuestionIndex = prev.currentQuestionIndex + 1
+      const dynamicTimeLimit = getDynamicTimeLimit(nextQuestionIndex, totalQuestions)
+      
+      return {
+        ...prev,
+        currentQuestionIndex: nextQuestionIndex,
+        questionStartTime: Date.now(),
+        timeLeft: dynamicTimeLimit,
+        showResult: false,
+        lastAnswerCorrect: null,
+        speedZone: 'normal' // Reset speed zone for new question
+      }
+    })
     setSelectedAnswer(null)
   }
 
@@ -253,13 +386,25 @@ export default function RapidFireQuiz() {
       
       await completeQuizFn({
         quizAttemptId: parseInt(attemptId || '0'),
-        bonusPoints,
+        bonusPoints: quizState.totalScore,
         perfectStreak: quizState.longestStreak,
-        totalTimeSpent: totalTime
+        totalTimeSpent: totalTime,
+        gameplayStats: {
+          maxCombo: quizState.maxCombo,
+          perfectStreak: quizState.perfectStreak,
+          totalScore: quizState.totalScore,
+          highestComboMultiplier: Math.max(...Array.from({length: quizState.maxCombo + 1}, (_, i) => getComboMultiplier(i))),
+          speedZoneBreakdown: {
+            lightning: 0, // Could track these if needed
+            fast: 0,
+            normal: 0,
+            danger: 0
+          }
+        }
       })
 
       // Navigate to results
-      navigate(`/quiz/${attemptId}/results`)
+      navigate(`/quiz/${attemptId}/summary`)
     } catch (error) {
       console.error('Error completing quiz:', error)
       toast({
@@ -307,7 +452,8 @@ export default function RapidFireQuiz() {
   }
 
   const progressPercentage = ((quizState.currentQuestionIndex + 1) / totalQuestions) * 100
-  const timePercentage = (quizState.timeLeft / QUESTION_TIME_LIMIT) * 100
+  const currentTimeLimit = getDynamicTimeLimit(quizState.currentQuestionIndex, totalQuestions)
+  const timePercentage = (quizState.timeLeft / currentTimeLimit) * 100
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950 dark:to-red-950 p-4">
@@ -322,8 +468,8 @@ export default function RapidFireQuiz() {
           <p className="text-muted-foreground">Answer fast, think faster!</p>
         </div>
 
-        {/* Progress and Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Progress and Enhanced Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-primary">
@@ -333,45 +479,102 @@ export default function RapidFireQuiz() {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card className={`${quizState.currentCombo >= 10 ? 'ring-2 ring-gold-500 bg-gradient-to-br from-yellow-50 to-orange-50' : 
+                              quizState.currentCombo >= 5 ? 'ring-2 ring-red-500 bg-gradient-to-br from-red-50 to-pink-50' :
+                              quizState.currentCombo >= 3 ? 'ring-2 ring-orange-500 bg-gradient-to-br from-orange-50 to-red-50' : ''}`}>
             <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold text-orange-500">
-                {quizState.correctStreak}
+              <div className={`text-2xl font-bold ${
+                quizState.currentCombo >= 10 ? 'text-yellow-600 animate-pulse' :
+                quizState.currentCombo >= 5 ? 'text-red-500' :
+                quizState.currentCombo >= 3 ? 'text-orange-500' : 'text-gray-500'
+              }`}>
+                {quizState.currentCombo}x
               </div>
-              <div className="text-sm text-muted-foreground">Streak</div>
+              <div className="text-sm text-muted-foreground">
+                Combo {quizState.comboMultiplier > 1 && `(${quizState.comboMultiplier}x)`}
+              </div>
             </CardContent>
           </Card>
           
           <Card>
             <CardContent className="p-4 text-center">
               <div className="text-2xl font-bold text-green-500">
-                {bonusPoints}
+                {quizState.totalScore}
               </div>
-              <div className="text-sm text-muted-foreground">Bonus</div>
+              <div className="text-sm text-muted-foreground">Score</div>
+            </CardContent>
+          </Card>
+
+          <Card className={`${quizState.speedZone === 'lightning' ? 'ring-2 ring-blue-500 bg-gradient-to-br from-blue-50 to-cyan-50' :
+                              quizState.speedZone === 'fast' ? 'ring-2 ring-green-500 bg-gradient-to-br from-green-50 to-emerald-50' :
+                              quizState.speedZone === 'danger' ? 'ring-2 ring-red-500 bg-gradient-to-br from-red-50 to-pink-50' : ''}`}>
+            <CardContent className="p-4 text-center">
+              <div className={`text-lg font-bold ${
+                quizState.speedZone === 'lightning' ? 'text-blue-600' :
+                quizState.speedZone === 'fast' ? 'text-green-600' :
+                quizState.speedZone === 'normal' ? 'text-gray-600' :
+                'text-red-600'
+              }`}>
+                {quizState.speedZone === 'lightning' ? '⚡' :
+                 quizState.speedZone === 'fast' ? '🚀' :
+                 quizState.speedZone === 'normal' ? '🎯' : '⚠️'}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {quizState.speedZone === 'lightning' ? '3x Speed' :
+                 quizState.speedZone === 'fast' ? '2x Speed' :
+                 quizState.speedZone === 'normal' ? 'Normal' : '0.5x Speed'}
+              </div>
             </CardContent>
           </Card>
           
           <Card>
             <CardContent className="p-4 text-center">
               <div className={`text-2xl font-bold ${
-                quizState.timeLeft <= 5 ? 'text-red-500 animate-pulse' : 
-                quizState.timeLeft <= 10 ? 'text-orange-500' : 'text-green-500'
+                quizState.timeLeft <= 3 ? 'text-red-500 animate-pulse' : 
+                quizState.timeLeft <= 7 ? 'text-orange-500' : 'text-green-500'
               }`}>
                 {quizState.timeLeft}s
               </div>
-              <div className="text-sm text-muted-foreground">Time Left</div>
+              <div className="text-sm text-muted-foreground">
+                {getDynamicTimeLimit(quizState.currentQuestionIndex, totalQuestions) < QUESTION_TIME_LIMIT ? 'Blitz!' : 'Time'}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={`${quizState.perfectStreak >= 15 ? 'ring-2 ring-purple-500 bg-gradient-to-br from-purple-50 to-indigo-50' :
+                              quizState.perfectStreak >= 10 ? 'ring-2 ring-blue-500 bg-gradient-to-br from-blue-50 to-cyan-50' : ''}`}>
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-bold text-purple-500">
+                {quizState.perfectStreak}
+                {quizState.isInvincible && '🛡️'}
+                {quizState.doublePointsRemaining > 0 && '🔥'}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Perfect
+                {quizState.doublePointsRemaining > 0 && ` (2x×${quizState.doublePointsRemaining})`}
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Timer Progress */}
-        <Card>
+        {/* Enhanced Timer Progress */}
+        <Card className={`${quizState.timeLeft <= 3 ? 'ring-2 ring-red-500' : ''}`}>
           <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">
+                {quizState.speedZone === 'lightning' ? '⚡ Lightning Zone!' :
+                 quizState.speedZone === 'fast' ? '🚀 Fast Zone!' :
+                 quizState.speedZone === 'danger' ? '⚠️ Danger Zone!' : '🎯 Normal Zone'}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {getDynamicTimeLimit(quizState.currentQuestionIndex, totalQuestions) < QUESTION_TIME_LIMIT && '⚡ Blitz Mode'}
+              </span>
+            </div>
             <Progress 
               value={timePercentage} 
-              className={`h-3 ${
-                quizState.timeLeft <= 5 ? 'bg-red-100' : 
-                quizState.timeLeft <= 10 ? 'bg-orange-100' : 'bg-green-100'
+              className={`h-4 ${
+                quizState.timeLeft <= 3 ? 'bg-red-100' : 
+                quizState.timeLeft <= 7 ? 'bg-orange-100' : 'bg-green-100'
               }`}
             />
           </CardContent>
@@ -406,10 +609,40 @@ export default function RapidFireQuiz() {
                     <div className="text-2xl font-bold text-white">
                       {quizState.lastAnswerCorrect ? 'Correct!' : 'Incorrect!'}
                     </div>
-                    {quizState.lastAnswerCorrect && bonusPoints > 0 && (
-                      <div className="text-lg text-yellow-300">
-                        +{bonusPoints} Bonus Points!
+                    
+                    {quizState.lastAnswerCorrect && (
+                      <div className="space-y-1">
+                        <div className="text-lg text-yellow-300 font-bold">
+                          +{Math.floor((quizState.totalScore - (quizState.perfectStreak - 1) * 5) / quizState.perfectStreak)} Points!
+                        </div>
+                        
+                        {quizState.speedZone === 'lightning' && (
+                          <div className="text-sm text-blue-300">⚡ Lightning Speed! 3x Multiplier</div>
+                        )}
+                        {quizState.speedZone === 'fast' && (
+                          <div className="text-sm text-green-300">🚀 Fast Answer! 2x Multiplier</div>
+                        )}
+                        
+                        {quizState.comboMultiplier > 1 && (
+                          <div className="text-sm text-orange-300">🔥 Combo {quizState.comboMultiplier}x Multiplier!</div>
+                        )}
+                        
+                        {quizState.doublePointsRemaining > 0 && (
+                          <div className="text-sm text-purple-300">💎 Double Points Active!</div>
+                        )}
+                        
+                        {quizState.perfectStreak === 10 && (
+                          <div className="text-sm text-blue-300 animate-pulse">🎉 10 Perfect! Double Points Unlocked!</div>
+                        )}
+                        
+                        {quizState.perfectStreak === 15 && (
+                          <div className="text-sm text-purple-300 animate-pulse">🛡️ 15 Perfect! Invincible Mode Activated!</div>
+                        )}
                       </div>
+                    )}
+                    
+                    {!quizState.lastAnswerCorrect && quizState.isInvincible && (
+                      <div className="text-sm text-purple-300">🛡️ Invincible Mode Protected Your Combo!</div>
                     )}
                   </div>
                 </motion.div>

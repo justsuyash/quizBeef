@@ -243,7 +243,7 @@ export default function QuizTakePage() {
         })
 
         // Navigate to results page
-        navigate(`/quiz/${attemptId}/results`)
+        navigate(`/quiz/${attemptId}/summary`)
       }
     } catch (error) {
       console.error('Error completing quiz:', error)

@@ -98,6 +98,271 @@ export default function QuizResultsPage() {
     return `${remainingSeconds}s`
   }
 
+  // Render mode-specific analysis based on quiz mode and gameplayStats
+  const renderModeSpecificAnalysis = () => {
+    const { quizMode, gameplayStats, timeSpent, totalQuestions, score } = quizData
+
+    // Flashcard Frenzy - Confidence Analysis
+    if (quizMode === 'FLASHCARD_FRENZY') {
+      const stats = gameplayStats ? (typeof gameplayStats === 'string' ? JSON.parse(gameplayStats) : gameplayStats) : null
+      
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" />
+              Confidence Analysis
+            </CardTitle>
+            <CardDescription>
+              How well your confidence matched your performance
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {stats?.confidenceStats || confidenceAccuracy !== null ? (
+              <>
+                {/* Main Confidence Accuracy */}
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary mb-2">
+                    {stats?.confidenceStats?.confidenceAccuracy ? 
+                      Math.round(stats.confidenceStats.confidenceAccuracy) : 
+                      Math.round(confidenceAccuracy || 0)}%
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Confidence Accuracy
+                  </div>
+                </div>
+
+                {/* Enhanced Stats from gameplayStats */}
+                {stats?.confidenceStats && (
+                  <>
+                    <Separator />
+                    
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <div className="text-2xl font-bold text-green-500">
+                          {stats.confidenceStats.highConfidenceCorrect}/{stats.confidenceStats.totalHighConfidence}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          High Confidence Correct
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {stats.confidenceStats.totalHighConfidence > 0 ? 
+                            Math.round((stats.confidenceStats.highConfidenceCorrect / stats.confidenceStats.totalHighConfidence) * 100) : 0}% accuracy
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-2xl font-bold text-orange-500">
+                          {stats.confidenceStats.lowConfidenceCorrect}/{stats.confidenceStats.totalLowConfidence}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          Low Confidence Correct
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {stats.confidenceStats.totalLowConfidence > 0 ? 
+                            Math.round((stats.confidenceStats.lowConfidenceCorrect / stats.confidenceStats.totalLowConfidence) * 100) : 0}% accuracy
+                        </div>
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-500 mb-2">
+                        {stats.averageConfidence?.toFixed(1) || '0.0'}/5.0
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Average Confidence Level
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                                          <div className="text-sm text-muted-foreground text-center">
+                            {(stats?.confidenceStats?.confidenceAccuracy || confidenceAccuracy || 0) >= 70 
+                              ? "🎯 Excellent! Your confidence levels aligned well with your actual performance."
+                              : (stats?.confidenceStats?.confidenceAccuracy || confidenceAccuracy || 0) >= 50
+                              ? "👍 Good! You're developing good intuition about your knowledge."
+                              : "📚 Consider calibrating your confidence levels with more practice."
+                            }
+                          </div>
+              </>
+            ) : (
+              <div className="text-center text-muted-foreground">
+                No confidence data available for this quiz.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )
+    }
+
+    // Rapid Fire - Performance Analysis
+    if (quizMode === 'RAPID_FIRE') {
+      const stats = gameplayStats ? (typeof gameplayStats === 'string' ? JSON.parse(gameplayStats) : gameplayStats) : null
+      
+      // Calculate average time per question
+      const avgTimePerQuestion = timeSpent && totalQuestions ? ((timeSpent || 0) / totalQuestions).toFixed(1) : '0.0'
+      
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Rapid Fire Performance
+            </CardTitle>
+            <CardDescription>
+              Your speed and combo performance breakdown
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Performance Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+              {/* Max Combo */}
+              <div>
+                <div className="text-2xl font-bold text-orange-500 mb-1">
+                  {stats?.maxCombo || 0}x
+                </div>
+                <div className="text-sm text-muted-foreground">Max Combo</div>
+                <div className="text-xs text-muted-foreground">
+                  {(stats?.maxCombo || 0) >= 10 ? "🔥 Legendary!" :
+                   (stats?.maxCombo || 0) >= 5 ? "🚀 Great!" :
+                   (stats?.maxCombo || 0) >= 3 ? "⚡ Good!" : "Keep trying!"}
+                </div>
+              </div>
+
+              {/* Perfect Streak */}
+              <div>
+                <div className="text-2xl font-bold text-purple-500 mb-1">
+                  {stats?.perfectStreak || 0}
+                </div>
+                <div className="text-sm text-muted-foreground">Perfect Streak</div>
+                <div className="text-xs text-muted-foreground">
+                  {(stats?.perfectStreak || 0) >= 15 ? "🛡️ Invincible!" :
+                   (stats?.perfectStreak || 0) >= 10 ? "🔥 Double pts!" :
+                   (stats?.perfectStreak || 0) >= 5 ? "🎯 Accurate!" : "Practice more!"}
+                </div>
+              </div>
+
+              {/* Average Time */}
+              <div>
+                <div className="text-2xl font-bold text-blue-500 mb-1">
+                  {avgTimePerQuestion}s
+                </div>
+                <div className="text-sm text-muted-foreground">Avg Time</div>
+                <div className="text-xs text-muted-foreground">
+                  {parseFloat(avgTimePerQuestion) <= 3 ? "⚡ Lightning!" :
+                   parseFloat(avgTimePerQuestion) <= 7 ? "🚀 Fast!" :
+                   parseFloat(avgTimePerQuestion) <= 12 ? "🎯 Normal" : "⚠️ Slow"}
+                </div>
+              </div>
+
+              {/* Total Score */}
+              <div>
+                <div className="text-2xl font-bold text-green-500 mb-1">
+                  {stats?.totalScore || Math.round(score * 10) || 0}
+                </div>
+                <div className="text-sm text-muted-foreground">Total Score</div>
+                <div className="text-xs text-muted-foreground">
+                  With bonuses
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Streak & Bonus Breakdown */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">🏆 Achievements Unlocked:</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Speed Bonuses */}
+                <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-3">
+                  <div className="text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+                    ⚡ Speed Bonuses
+                  </div>
+                  <div className="text-xs text-blue-600 dark:text-blue-400">
+                    Lightning Zone (0-3s): 3x points<br/>
+                    Fast Zone (3-7s): 2x points<br/>
+                    Normal Zone (7-12s): 1x points
+                  </div>
+                </div>
+
+                {/* Combo Multipliers */}
+                <div className="bg-orange-50 dark:bg-orange-950 rounded-lg p-3">
+                  <div className="text-sm font-medium text-orange-700 dark:text-orange-300 mb-1">
+                    🔥 Combo Multipliers
+                  </div>
+                  <div className="text-xs text-orange-600 dark:text-orange-400">
+                    3+ combo: 2x multiplier<br/>
+                    5+ combo: 3x multiplier<br/>
+                    10+ combo: 4x multiplier
+                  </div>
+                </div>
+
+                {/* Streak Bonuses */}
+                <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-3">
+                  <div className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-1">
+                    🎯 Streak Bonuses
+                  </div>
+                  <div className="text-xs text-purple-600 dark:text-purple-400">
+                    Every correct: +5 points<br/>
+                    10 perfect: Double points mode<br/>
+                    15 perfect: Invincible mode
+                  </div>
+                </div>
+
+                {/* Difficulty Bonuses */}
+                <div className="bg-green-50 dark:bg-green-950 rounded-lg p-3">
+                  <div className="text-sm font-medium text-green-700 dark:text-green-300 mb-1">
+                    📚 Difficulty Bonuses
+                  </div>
+                  <div className="text-xs text-green-600 dark:text-green-400">
+                    Easy: 1x base points<br/>
+                    Medium: 1.5x base points<br/>
+                    Hard: 2x base points
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Tips */}
+            <div className="bg-muted/50 rounded-lg p-4">
+              <h4 className="font-medium text-sm mb-2">💡 Tips to Improve:</h4>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                {parseFloat(avgTimePerQuestion) > 7 && <li>• Try to answer within 7 seconds for speed bonuses</li>}
+                {(stats?.maxCombo || 0) < 5 && <li>• Build longer combos for higher multipliers</li>}
+                {(stats?.perfectStreak || 0) < 10 && <li>• Get 10 perfect answers to unlock double points</li>}
+                <li>• Last 20% of questions have reduced time but 2x base points</li>
+                <li>• Focus on accuracy first, then speed</li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    // Default - No specific analysis available
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Performance Analysis
+          </CardTitle>
+          <CardDescription>
+            Quiz mode analysis not available
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center text-muted-foreground">
+            No specific performance analysis available for this quiz mode.
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <main className="w-full flex flex-col px-4 sm:px-6 lg:px-8 py-6 md:py-8 min-h-screen bg-gradient-to-br from-background to-muted/20">
       {/* Header */}
@@ -225,44 +490,8 @@ export default function QuizResultsPage() {
               </CardContent>
             </Card>
 
-            {/* Confidence Analysis */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5" />
-                  Confidence Analysis
-                </CardTitle>
-                <CardDescription>
-                  How well your confidence matched your performance
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {confidenceAccuracy !== null ? (
-                  <>
-                    <div className="text-center">
-                      <div className="text-3xl font-bold text-primary mb-2">
-                        {Math.round(confidenceAccuracy)}%
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Confidence Accuracy
-                      </div>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {confidenceAccuracy >= 70 
-                        ? "Great! Your confidence levels aligned well with your actual performance."
-                        : confidenceAccuracy >= 50
-                        ? "Good! You're developing good intuition about your knowledge."
-                        : "Consider calibrating your confidence levels with more practice."
-                      }
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center text-muted-foreground">
-                    No confidence data available for this quiz.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Mode-Specific Analysis */}
+            {renderModeSpecificAnalysis()}
           </div>
 
           {/* Question Review */}

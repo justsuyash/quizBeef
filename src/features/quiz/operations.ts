@@ -213,6 +213,7 @@ export const completeQuiz: CompleteQuiz<
     bonusPoints?: number
     perfectStreak?: number
     averageConfidence?: number
+    gameplayStats?: any // JSON object for mode-specific stats
   },
   any
 > = async (args, context) => {
@@ -225,7 +226,8 @@ export const completeQuiz: CompleteQuiz<
     totalTimeSpent = 0, 
     bonusPoints = 0, 
     perfectStreak = 0, 
-    averageConfidence 
+    averageConfidence,
+    gameplayStats
   } = args
 
   try {
@@ -265,6 +267,7 @@ export const completeQuiz: CompleteQuiz<
         bonusPoints,
         longestStreak: perfectStreak,
         averageConfidence,
+        gameplayStats,
         completedAt: new Date()
       }
     })
@@ -418,6 +421,11 @@ export const getQuizAttempt: GetQuizAttempt<
       totalQuestions: quizAttempt.totalQuestions,
       timeSpent: quizAttempt.timeSpent,
       completedAt: quizAttempt.completedAt,
+      quizMode: quizAttempt.quizMode,
+      gameplayStats: quizAttempt.gameplayStats,
+      bonusPoints: quizAttempt.bonusPoints,
+      longestStreak: quizAttempt.longestStreak,
+      averageConfidence: quizAttempt.averageConfidence,
       document: {
         id: quizAttempt.document.id,
         title: quizAttempt.document.title

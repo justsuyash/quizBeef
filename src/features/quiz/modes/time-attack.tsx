@@ -166,7 +166,7 @@ export default function TimeAttackQuiz() {
       })
 
       // Navigate to results
-      navigate(`/quiz/${attemptId}/results`)
+      navigate(`/quiz/${attemptId}/summary`)
     } catch (error) {
       console.error('Error completing quiz:', error)
     }
@@ -307,7 +307,7 @@ export default function TimeAttackQuiz() {
       })
 
       // Navigate to results
-      navigate(`/quiz/${attemptId}/results`)
+      navigate(`/quiz/${attemptId}/summary`)
     } catch (error) {
       console.error('Error completing quiz:', error)
       toast({

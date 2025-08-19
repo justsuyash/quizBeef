@@ -189,6 +189,7 @@ model QuizAttempt {
   longestStreak             Int           @default(0)  // Best streak in this attempt
   bonusPoints               Int           @default(0)  // Extra points from streaks/speed
   difficultyDistribution    Json?         // Track questions by difficulty
+  gameplayStats             Json?         // Mode-specific gameplay statistics (combo, lives, confidence, etc.)
   
   // Relations
   userId                    Int
