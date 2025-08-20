@@ -12,7 +12,10 @@ import type {
   DocumentLike, 
   DocumentComment, 
   QuestionFeedback,
-  User 
+  User,
+  Quiz,
+  QuizLike,
+  QuizComment 
 } from 'wasp/entities'
 
 // Toggle like on a document (quiz)
@@ -80,6 +83,19 @@ export const toggleDocumentLike: ToggleDocumentLike<
     
     isLiked = true
     likeCount = updatedDocument.likeCount
+
+    // Create notification for document owner (skip self-like)
+    try {
+      if (updatedDocument.userId !== userId) {
+        await (context as any).entities.Notification.create({
+          data: {
+            userId: updatedDocument.userId,
+            type: 'DOCUMENT_LIKED',
+            data: { documentId, title: updatedDocument.title, likerId: userId },
+          }
+        })
+      }
+    } catch {}
   }
 
   return { isLiked, likeCount }
@@ -318,6 +334,95 @@ export const incrementDocumentViews: IncrementDocumentViews<
   })
 
   return { success: true, viewCount: updatedDocument.viewCount }
+}
+
+// --- Quiz Engagement ---
+import type { ToggleQuizLike, AddQuizComment, GetQuizComments, IncrementQuizViews } from 'wasp/server/operations'
+
+export const toggleQuizLike: ToggleQuizLike<
+  { quizId: number },
+  { isLiked: boolean; likeCount: number }
+> = async (args, context) => {
+  if (!context.user) throw new HttpError(401, 'Not authorized')
+  const { quizId } = args
+
+  const quiz = await (context.entities as any).Quiz.findUnique({ where: { id: quizId }, select: { id: true, authorId: true, title: true, likeCount: true } })
+  if (!quiz) throw new HttpError(404, 'Quiz not found')
+
+  const existing = await (context.entities as any).QuizLike.findUnique({ where: { userId_quizId: { userId: context.user.id, quizId } } })
+  let isLiked: boolean
+  let likeCount: number
+  if (existing) {
+    await (context.entities as any).QuizLike.delete({ where: { id: existing.id } })
+    const updated = await (context.entities as any).Quiz.update({ where: { id: quizId }, data: { likeCount: { decrement: 1 } } })
+    isLiked = false
+    likeCount = updated.likeCount
+  } else {
+    await (context.entities as any).QuizLike.create({ data: { userId: context.user.id, quizId } })
+    const updated = await (context.entities as any).Quiz.update({ where: { id: quizId }, data: { likeCount: { increment: 1 } } })
+    isLiked = true
+    likeCount = updated.likeCount
+
+    // Notification to quiz author
+    try {
+      if (quiz.authorId !== context.user.id) {
+        await (context.entities as any).Notification.create({ data: { userId: quiz.authorId, type: 'QUIZ_LIKED', data: { quizId, title: quiz.title, likerId: context.user.id } } })
+      }
+    } catch {}
+  }
+  return { isLiked, likeCount }
+}
+
+export const addQuizComment: AddQuizComment<
+  { quizId: number; content: string },
+  any
+> = async (args, context) => {
+  if (!context.user) throw new HttpError(401, 'Not authorized')
+  const { quizId, content } = args
+  if (!content.trim()) throw new HttpError(400, 'Comment content cannot be empty')
+
+  const quiz = await (context.entities as any).Quiz.findUnique({ where: { id: quizId }, select: { id: true, authorId: true, title: true } })
+  if (!quiz) throw new HttpError(404, 'Quiz not found')
+
+  const comment = await (context.entities as any).QuizComment.create({
+    data: { content: content.trim(), userId: context.user.id, quizId },
+    include: { user: { select: { id: true, name: true, avatarUrl: true } } }
+  })
+
+  await (context.entities as any).Quiz.update({ where: { id: quizId }, data: { commentCount: { increment: 1 } } })
+
+  // Optionally notify author later
+  return comment
+}
+
+export const getQuizComments: GetQuizComments<
+  { quizId: number; limit?: number; offset?: number },
+  { comments: any[]; total: number }
+> = async (args, context) => {
+  const { quizId, limit = 20, offset = 0 } = args
+  const quiz = await (context.entities as any).Quiz.findUnique({ where: { id: quizId }, select: { id: true } })
+  if (!quiz) throw new HttpError(404, 'Quiz not found')
+
+  const comments = await (context.entities as any).QuizComment.findMany({
+    where: { quizId },
+    include: { user: { select: { id: true, name: true, avatarUrl: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+    skip: offset,
+  })
+  const total = await (context.entities as any).QuizComment.count({ where: { quizId } })
+  return { comments, total }
+}
+
+export const incrementQuizViews: IncrementQuizViews<
+  { quizId: number },
+  { success: boolean; viewCount: number }
+> = async (args, context) => {
+  const { quizId } = args
+  const quiz = await (context.entities as any).Quiz.findUnique({ where: { id: quizId }, select: { id: true } })
+  if (!quiz) throw new HttpError(404, 'Quiz not found')
+  const updated = await (context.entities as any).Quiz.update({ where: { id: quizId }, data: { viewCount: { increment: 1 } } })
+  return { success: true, viewCount: updated.viewCount }
 }
 
 // Get document engagement stats

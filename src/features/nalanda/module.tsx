@@ -23,7 +23,7 @@ export default function NalandaModulePage() {
           <p className='text-sm text-muted-foreground'>Pick a tile to start</p>
         </div>
         <Button asChild variant='outline'>
-          <Link to='/nalanda'>Back to Tree</Link>
+          <Link to='/feed'>Back</Link>
         </Button>
       </div>
 

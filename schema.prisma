@@ -46,6 +46,10 @@ model User {
   following                UserFollow[]     @relation("UserFollows")
   followers                UserFollow[]     @relation("UserFollowing")
   feedActivities           FeedActivity[]
+  notifications            Notification[]
+  quizzes                  Quiz[]
+  quizLikes                QuizLike[]
+  quizComments             QuizComment[]
   
   // Feedback System Relations
   documentLikes            DocumentLike[]
@@ -133,6 +137,7 @@ model Document {
   likeCount                 Int           @default(0)
   shareCount                Int           @default(0)
   commentCount              Int           @default(0)
+  isPublic                  Boolean       @default(true)
   
   // Relations
   userId                    Int
@@ -144,6 +149,7 @@ model Document {
   documentLikes            DocumentLike[]
   documentComments         DocumentComment[]
   feedActivities           FeedActivity[]
+  quizzes                  Quiz[]
 }
 
 // Groups for leaderboards/comparisons (users can belong to unlimited groups)
@@ -215,6 +221,8 @@ model QuizAttempt {
   user                      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   documentId                Int
   document                  Document      @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  quizId                    Int?
+  quiz                      Quiz?         @relation(fields: [quizId], references: [id], onDelete: Cascade)
   questionHistory          UserQuestionHistory[]
   feedActivities           FeedActivity[]
 }
@@ -531,6 +539,95 @@ enum ActivityType {
   FOLLOW_USER
   DOCUMENT_LIKED
   STREAK_MILESTONE
+}
+
+// Notifications System
+enum NotificationType {
+  FOLLOW
+  DOCUMENT_LIKED
+  QUIZ_LIKED
+  QUIZ_TAKEN
+  STREAK_WARNING
+}
+
+model Notification {
+  id          Int               @id @default(autoincrement())
+  createdAt   DateTime          @default(now())
+  readAt      DateTime?
+
+  type        NotificationType
+  data        Json
+
+  userId      Int               // Recipient
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// Public/published quiz entity (derived from a document or authored directly)
+model Quiz {
+  id            Int        @id @default(autoincrement())
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  title         String
+  description   String?
+  tags          String[]
+  category      String?
+  isPublic      Boolean    @default(true)
+
+  // Engagement counters
+  viewCount     Int        @default(0)
+  likeCount     Int        @default(0)
+  commentCount  Int        @default(0)
+  shareCount    Int        @default(0)
+
+  // Relations
+  authorId      Int
+  author        User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  derivedFromDocumentId Int?
+  derivedFromDocument   Document? @relation(fields: [derivedFromDocumentId], references: [id], onDelete: SetNull)
+
+  quizAttempts  QuizAttempt[]
+  quizLikes     QuizLike[]
+  quizComments  QuizComment[]
+
+  @@index([authorId])
+  @@index([category])
+  @@index([isPublic, updatedAt])
+}
+
+model QuizLike {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  quizId    Int
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, quizId])
+  @@index([quizId])
+  @@index([userId])
+}
+
+model QuizComment {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  content   String
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  quizId    Int
+  quiz      Quiz     @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId, createdAt])
+  @@index([userId])
 }
 
 // Feedback System Models

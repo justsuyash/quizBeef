@@ -34,6 +34,12 @@ api statsEvents {
   entities: [User],
 }
 
+api notificationsEvents {
+  fn: import { notificationsEvents } from "@src/server/events/stats",
+  httpRoute: (GET, "/api/notifications-events"),
+  entities: [User],
+}
+
 //#region Auth Routes
 route SignupRoute { path: "/sign-up", to: Signup }
 page Signup {
@@ -60,11 +66,7 @@ page PlayPage {
   authRequired: true
 }
 
-route NalandaRoute { path: "/nalanda", to: NalandaPage }
-page NalandaPage {
-  component: import NalandaPage from "@src/features/nalanda/index",
-  authRequired: true
-}
+// Removed Nalanda pages; replaced by Notifications
 
 route NalandaModuleRoute { path: "/nalanda/module/:moduleId", to: NalandaModulePage }
 page NalandaModulePage {
@@ -93,6 +95,12 @@ page PlayRecommendedPage {
 route SocialFeedRoute { path: "/feed", to: SocialFeedPage }
 page SocialFeedPage {
   component: import SocialFeedPage from "@src/features/social/feed",
+  authRequired: true
+}
+
+route NotificationsRoute { path: "/notifications", to: NotificationsPage }
+page NotificationsPage {
+  component: import NotificationsPage from "@src/features/notifications/index",
   authRequired: true
 }
 
@@ -729,6 +737,28 @@ query getDocumentEngagement {
 }
 //#endregion
 
+//#region Quiz Engagement
+action toggleQuizLike {
+  fn: import { toggleQuizLike } from "@src/features/feedback/operations",
+  entities: [User, Quiz, QuizLike]
+}
+
+action addQuizComment {
+  fn: import { addQuizComment } from "@src/features/feedback/operations",
+  entities: [User, Quiz, QuizComment]
+}
+
+query getQuizComments {
+  fn: import { getQuizComments } from "@src/features/feedback/operations",
+  entities: [Quiz, QuizComment, User]
+}
+
+action incrementQuizViews {
+  fn: import { incrementQuizViews } from "@src/features/feedback/operations",
+  entities: [Quiz]
+}
+//#endregion
+
 //#region Social Feed System
 action followUser {
   fn: import { followUser } from "@src/features/social/operations",
@@ -745,6 +775,11 @@ query getUserFeed {
   entities: [User, UserFollow, FeedActivity, Document, QuizAttempt]
 }
 
+query getFeed {
+  fn: import { getFeed } from "@src/features/social/operations",
+  entities: [User, UserFollow, Quiz]
+}
+
 query getFollowSuggestions {
   fn: import { getFollowSuggestions } from "@src/features/social/operations",
   entities: [User, UserFollow, QuizAttempt, Document]
@@ -755,6 +790,17 @@ query getUserFollowStats {
   entities: [User, UserFollow]
 }
 
+// Notifications
+query getNotifications {
+  fn: import { getNotifications } from "@src/features/social/operations",
+  entities: [User, Notification]
+}
+
+action markNotificationsRead {
+  fn: import { markNotificationsRead } from "@src/features/social/operations",
+  entities: [User, Notification]
+}
+
 action createFeedActivity {
   fn: import { createFeedActivity } from "@src/features/social/operations",
   entities: [User, FeedActivity, Document, QuizAttempt]
@@ -762,22 +808,32 @@ action createFeedActivity {
  
  query getTrending {
    fn: import { getTrending } from "@src/features/social/operations",
-   entities: [Document, QuizAttempt]
+   entities: [Document, QuizAttempt, Quiz]
  }
  
  query getRelatedToUserTopics {
    fn: import { getRelatedToUserTopics } from "@src/features/social/operations",
-   entities: [User, Document, QuizAttempt]
+   entities: [User, Document, QuizAttempt, Quiz]
  }
  
  query getReviseList {
    fn: import { getReviseList } from "@src/features/social/operations",
-   entities: [User, QuizAttempt, Document]
+   entities: [User, QuizAttempt, Document, Quiz, QuizLike]
  }
  
  query searchFeedSuggestions {
    fn: import { searchFeedSuggestions } from "@src/features/social/operations",
    entities: [User, UserFollow, Document]
+ }
+ 
+ query getUserQuizzes {
+   fn: import { getUserQuizzes } from "@src/features/social/operations",
+   entities: [User, Quiz]
+ }
+
+ action publishMyQuizzes {
+   fn: import { publishMyQuizzes } from "@src/features/social/operations",
+   entities: [User, Document, Quiz]
  }
 //#endregion
 

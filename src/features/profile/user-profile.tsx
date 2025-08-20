@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useAction } from 'wasp/client/operations'
-import { getUserProfile, createBeef, getStatsOverview, getUserAchievements, getQuizHistory, getCurrentUser } from 'wasp/client/operations'
+import { getUserProfile, createBeef, getStatsOverview, getUserAchievements, getQuizHistory, getCurrentUser, getUserQuizzes } from 'wasp/client/operations'
 import { useAuth } from 'wasp/client/auth'
 import { Button } from '../../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
@@ -84,6 +84,7 @@ export default function UserProfilePage() {
   const { data: current } = useQuery(getCurrentUser, undefined, { retry: 0 })
   const targetUserId = Number.isFinite(parsedRouteId) && parsedRouteId > 0 ? parsedRouteId : (current?.id || user?.id || 0)
   const { data: profile, isLoading, error } = useQuery(getUserProfile, { userId: targetUserId }, { enabled: !!targetUserId })
+  const { data: userQuizzes } = useQuery(getUserQuizzes, { userId: targetUserId, limit: 30, offset: 0 })
   
   // v1.7: Get additional data for Trophy Case layout
   const { data: stats } = useQuery(getStatsOverview, { range: 30 })
@@ -366,24 +367,23 @@ export default function UserProfilePage() {
 
         {/* Recent Activity intentionally removed per request */}
 
-        {/* Masonry-like feed of user's quizzes (Pinterest style) */}
+        {/* Masonry-like feed of user's published quizzes (Pinterest style) */}
         <div className="space-y-2">
           {/* Masonry column container shim (keeps columns balanced) */}
-          {Array.isArray(profileData.recentDocuments) && profileData.recentDocuments.length > 0 ? (
+          {Array.isArray(userQuizzes?.items) && userQuizzes.items.length > 0 ? (
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 [column-fill:_balance]"></div>
           ) : null}
           <div className="columns-1 sm:columns-2 lg:columns-3 gap-4">
-            {Array.isArray(profileData.recentDocuments) && profileData.recentDocuments.length > 0 ? (
-              profileData.recentDocuments.map((doc: any) => {
-                const category = doc.category || 'General'
-                const rawTags = Array.isArray(doc.tags) ? doc.tags : []
+            {Array.isArray(userQuizzes?.items) && userQuizzes.items.length > 0 ? (
+              userQuizzes.items.map((q: any) => {
+                const category = q.category || 'General'
+                const rawTags = Array.isArray(q.tags) ? q.tags : []
                 const tags = [category, ...rawTags].filter(Boolean).slice(0, 5)
-                const rawDesc = (doc.contentJson?.summary || doc.contentJson?.content || '').toString()
-                const description = rawDesc ? rawDesc.slice(0, 140) : ''
+                const description = (q.description || '').slice(0, 140)
                 return (
-                  <div key={doc.id} className="mb-4 break-inside-avoid rounded-md border bg-white p-4 shadow-sm hover:shadow transition">
+                  <div key={q.id} className="mb-4 break-inside-avoid rounded-md border bg-white p-4 shadow-sm hover:shadow transition">
                     <div className="text-xs text-muted-foreground mb-1">{category}</div>
-                    <div className="font-medium mb-1 line-clamp-2">{doc.title}</div>
+                    <div className="font-medium mb-1 line-clamp-2">{q.title}</div>
                     <div className="text-sm text-muted-foreground mb-2 line-clamp-3 min-h-[3.25rem]">{description || ' '}</div>
                     <div className="flex flex-wrap gap-1 mb-2 min-h-[1.5rem]">
                       {tags.map((t: string, i: number) => (
@@ -391,12 +391,11 @@ export default function UserProfilePage() {
                       ))}
                     </div>
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{new Date(doc.createdAt).toLocaleDateString()}</span>
+                      <span>{new Date(q.createdAt).toLocaleDateString()}</span>
                       <div className="flex items-center gap-4">
-                        <span title="Likes">❤ {(doc.likeCount ?? 0)}</span>
-                        <span title="Comments">💬 {(doc.commentCount ?? 0)}</span>
-                        <span title="Views">▣ {(doc.viewCount ?? 0)}</span>
-                        <button className="text-primary hover:underline" onClick={() => navigator.share ? navigator.share({ title: 'QuizBeef Quiz', text: doc.title, url: `/quiz/${doc.id}/settings` }).catch(()=>{}) : window.open(`/quiz/${doc.id}/settings`, '_blank')}>Share</button>
+                        <span title="Likes">❤ {(q.likeCount ?? 0)}</span>
+                        <span title="Comments">💬 {(q.commentCount ?? 0)}</span>
+                        <button className="text-primary hover:underline" onClick={() => navigator.share ? navigator.share({ title: 'QuizBeef Quiz', text: q.title, url: `/quiz/${q.id}/settings` }).catch(()=>{}) : window.open(`/quiz/${q.id}/settings`, '_blank')}>Share</button>
                       </div>
                     </div>
                   </div>

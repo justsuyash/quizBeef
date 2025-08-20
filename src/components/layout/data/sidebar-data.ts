@@ -66,9 +66,9 @@ export const sidebarData: SidebarData = {
           badge: 'NEW',
         },
         {
-          title: 'Nalanda',
-          url: '/nalanda',
-          icon: IconBrain,
+          title: 'Notifications',
+          url: '/notifications',
+          icon: IconNotification,
         },
         {
           title: 'My Documents',

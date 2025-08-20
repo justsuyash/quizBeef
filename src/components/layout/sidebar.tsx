@@ -8,7 +8,7 @@ import {
   LayoutDashboard,
   Zap,
   Settings,
-  Brain,
+  Bell,
   Users,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -78,11 +78,11 @@ const desktopNavItems: NavItem[] = [
     color: 'text-secondary',
   },
   {
-    id: 'nalanda',
-    label: 'Nalanda',
-    icon: Brain,
-    activeIcon: Brain,
-    href: '/nalanda',
+    id: 'notifications',
+    label: 'Notifications',
+    icon: Bell,
+    activeIcon: Bell,
+    href: '/notifications',
     color: 'text-secondary',
   },
   {
@@ -137,7 +137,7 @@ export function BottomNavigation() {
     if (currentPath === '/feed' || currentPath.startsWith('/feed')) return 'feed';
     // Treat legacy /dashboard and new /analytics as the same Analytics section
     if (currentPath === '/dashboard' || currentPath.startsWith('/analytics')) return 'analytics';
-    if (currentPath.startsWith('/nalanda')) return 'nalanda';
+    if (currentPath.startsWith('/notifications')) return 'notifications';
     if (currentPath.startsWith('/documents')) return 'documents';
     if (currentPath.startsWith('/beef')) return 'beef';
     if (currentPath.startsWith('/user') || currentPath.startsWith('/settings')) return 'profile';

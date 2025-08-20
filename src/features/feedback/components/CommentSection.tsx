@@ -7,18 +7,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '../../../components/ui/avat
 import { Separator } from '../../../components/ui/separator'
 import { Badge } from '../../../components/ui/badge'
 import { useQuery } from 'wasp/client/operations'
-import { addDocumentComment, getDocumentComments } from 'wasp/client/operations'
+import { addDocumentComment, getDocumentComments, addQuizComment, getQuizComments } from 'wasp/client/operations'
 import { useToast } from '../../../hooks/use-toast'
 import { cn } from '../../../lib/cn'
 
 interface CommentSectionProps {
-  documentId: number
+  documentId?: number
+  quizId?: number
   initialCommentCount: number
   className?: string
 }
 
 export function CommentSection({ 
-  documentId, 
+  documentId,
+  quizId, 
   initialCommentCount,
   className 
 }: CommentSectionProps) {
@@ -27,24 +29,40 @@ export function CommentSection({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const { toast } = useToast()
 
-  const { 
-    data: commentsData, 
-    isLoading: isLoadingComments,
-    refetch: refetchComments
-  } = useQuery(getDocumentComments, 
-    { documentId, limit: 10, offset: 0 },
-    { enabled: isExpanded }
+  const {
+    data: docComments,
+    isLoading: isLoadingDocComments,
+    refetch: refetchDocComments,
+  } = useQuery(
+    getDocumentComments,
+    { documentId: (documentId as number), limit: 10, offset: 0 },
+    { enabled: !!documentId && isExpanded }
   )
+
+  const {
+    data: quizComments,
+    isLoading: isLoadingQuizComments,
+    refetch: refetchQuizComments,
+  } = useQuery(
+    getQuizComments,
+    { quizId: (quizId as number), limit: 10, offset: 0 },
+    { enabled: !!quizId && isExpanded }
+  )
+
+  const commentsData = quizId ? quizComments : docComments
+  const isLoadingComments = quizId ? isLoadingQuizComments : isLoadingDocComments
+  const refetchComments = quizId ? refetchQuizComments : refetchDocComments
 
   const handleSubmitComment = async () => {
     if (!newComment.trim() || isSubmitting) return
 
     setIsSubmitting(true)
     try {
-      await addDocumentComment({ 
-        documentId, 
-        content: newComment.trim() 
-      })
+      if (quizId) {
+        await addQuizComment({ quizId, content: newComment.trim() })
+      } else {
+        await addDocumentComment({ documentId: documentId as number, content: newComment.trim() })
+      }
       
       setNewComment('')
       await refetchComments()

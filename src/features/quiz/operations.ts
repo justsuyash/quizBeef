@@ -349,6 +349,20 @@ export const completeQuiz: CompleteQuiz<
       console.warn('Achievement check failed after quiz completion:', achErr)
     }
 
+    // Notification: someone took your quiz (notify document owner if different)
+    try {
+      const docOwnerId = quizAttempt.document.userId
+      if (docOwnerId && docOwnerId !== context.user.id) {
+        await (context as any).entities.Notification.create({
+          data: {
+            userId: docOwnerId,
+            type: 'QUIZ_TAKEN',
+            data: { documentId: quizAttempt.document.id, title: quizAttempt.document.title, takerId: context.user.id },
+          }
+        })
+      }
+    } catch {}
+
     // Emit a lightweight stats refresh for this user (SSE)
     try {
       const { emitStatsUpdate } = await import('../../server/events/stats')

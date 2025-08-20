@@ -1,12 +1,13 @@
 import React, { useState } from 'react'
 import { Heart } from 'lucide-react'
 import { Button } from '../../../components/ui/button'
-import { toggleDocumentLike } from 'wasp/client/operations'
+import { toggleDocumentLike, toggleQuizLike } from 'wasp/client/operations'
 import { useToast } from '../../../hooks/use-toast'
 import { cn } from '../../../lib/cn'
 
 interface LikeButtonProps {
-  documentId: number
+  documentId?: number
+  quizId?: number
   initialLiked: boolean
   initialCount: number
   size?: 'sm' | 'md' | 'lg'
@@ -17,6 +18,7 @@ interface LikeButtonProps {
 
 export function LikeButton({
   documentId,
+  quizId,
   initialLiked,
   initialCount,
   size = 'md',
@@ -34,7 +36,9 @@ export function LikeButton({
 
     setIsLoading(true)
     try {
-      const result = await toggleDocumentLike({ documentId })
+      const result = quizId
+        ? await toggleQuizLike({ quizId })
+        : await toggleDocumentLike({ documentId: documentId as number })
       setIsLiked(result.isLiked)
       setLikeCount(result.likeCount)
       

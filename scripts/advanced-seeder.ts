@@ -46,6 +46,7 @@ async function main() {
     await seedRivals(allUsers)
     await seedRandomStreaks(allUsers)
     await seedLeaderboardGroups(allUsers)
+    await seedRecentAttemptsForCurrentUser() // Also call it here
     return
   }
 
@@ -85,6 +86,9 @@ async function main() {
 
   console.log(`👥 Creating leaderboard groups with proper distribution...`)
   await seedLeaderboardGroups(users)
+
+  console.log('📝 Seeding recent quiz attempts for the current user...')
+  await seedRecentAttemptsForCurrentUser()
 
   console.log('✅ Database seeded successfully with realistic data!')
   console.log(`   - ${users.length} users across ${POPULAR_COUNTRIES.length} countries`)
@@ -989,6 +993,95 @@ async function seedLeaderboardGroups(users: any[]) {
   }
 
   console.log(`   ✅ Created ${groupNames.length} leaderboard groups with varied membership`)
+}
+
+// New function to seed recent attempts
+async function seedRecentAttemptsForCurrentUser() {
+  const currentUser = await prisma.user.findFirst({
+    orderBy: { createdAt: 'desc' },
+  })
+
+  if (!currentUser) {
+    console.log('   No user found to seed recent attempts for.')
+    return
+  }
+
+  console.log(`   Found current user: ${currentUser.name} (ID: ${currentUser.id})`)
+
+  let document = await prisma.document.findFirst({
+    where: { userId: currentUser.id },
+    include: { questions: { include: { answers: true } } },
+  })
+
+  if (!document || document.questions.length === 0) {
+    console.log('   User has no documents with questions. Creating one for seeding.')
+    const existingSeederDoc = await prisma.document.findFirst({
+      where: { userId: currentUser.id, title: 'Recent Activity Seeding Doc' },
+    })
+    if (existingSeederDoc) {
+      document = await prisma.document.findUnique({
+        where: { id: existingSeederDoc.id },
+        include: { questions: { include: { answers: true } } },
+      })
+    } else {
+      document = await prisma.document.create({
+        data: {
+          userId: currentUser.id,
+          title: 'Recent Activity Seeding Doc',
+          category: 'General',
+          sourceType: 'TEXT_INPUT' as SourceType,
+          contentJson: { content: 'Auto-generated content for recent activity.' },
+          questions: {
+            create: {
+              questionText: 'This is a sample question.',
+              questionType: 'MULTIPLE_CHOICE' as QuestionType,
+              difficulty: 'EASY' as Difficulty,
+              answers: {
+                create: [
+                  { answerText: 'Correct', isCorrect: true },
+                  { answerText: 'Incorrect 1', isCorrect: false },
+                  { answerText: 'Incorrect 2', isCorrect: false },
+                ],
+              },
+            },
+          },
+        },
+        include: { questions: { include: { answers: true } } },
+      })
+    }
+  }
+
+  const attemptsToCreate = 5
+  console.log(`   Creating ${attemptsToCreate} recent quiz attempts...`)
+
+  for (let i = 0; i < attemptsToCreate; i++) {
+    const quizDate = faker.date.recent({ days: 6 }) // Within the last 6 days
+    const questions = document.questions
+    const selectedQuestions = faker.helpers.arrayElements(questions, Math.min(questions.length, 5))
+    if (selectedQuestions.length === 0) continue
+
+    const correctAnswers = faker.number.int({ min: 0, max: selectedQuestions.length })
+    const score = (correctAnswers / selectedQuestions.length) * 100
+    const timeSpent = faker.number.int({ min: 30, max: 300 }) // 30s to 5m
+    const startTime = new Date(quizDate.getTime() - timeSpent * 1000)
+
+    await prisma.quizAttempt.create({
+      data: {
+        userId: currentUser.id,
+        documentId: document.id,
+        startTime: startTime,
+        endTime: quizDate,
+        completedAt: quizDate,
+        createdAt: quizDate,
+        quizMode: 'PRACTICE' as QuizMode,
+        totalQuestions: selectedQuestions.length,
+        correctAnswers: correctAnswers,
+        score: score,
+        timeSpent: timeSpent,
+      },
+    })
+  }
+  console.log('   ✅ Successfully seeded recent quiz attempts.')
 }
 
 main()

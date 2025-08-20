@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from 'wasp/client/operations'
 import { useToast } from '../hooks/use-toast'
-import { getStatsOverview, getCurrentUser, getQloHistory } from 'wasp/client/operations'
+import { getStatsOverview, getCurrentUser, getQloHistory, getNotifications, markNotificationsRead } from 'wasp/client/operations'
 import { cn } from '../lib/cn'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { useAuth } from 'wasp/client/auth'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
+import { Bell } from 'lucide-react'
 
 interface StatsPillProps {
   className?: string
@@ -68,11 +70,15 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
 
   const { data: stats, isLoading, error, refetch } = useQuery(getStatsOverview, { range: 30 })
   const { data: qloSeries } = useQuery(getQloHistory)
+  const { data: notifications, refetch: refetchNotifications } = useQuery(getNotifications, { limit: 10 })
   const { toast } = useToast()
 
-  // SSE subscription for real-time updates
+  // SSE subscription for real-time updates (works via Vite proxy in dev)
   useEffect(() => {
-    const es = new EventSource('/api/stats-events')
+    const isDev = typeof window !== 'undefined' && window.location.port === '3000'
+    const sseUrl = isDev ? 'http://localhost:3001/api/stats-events' : '/api/stats-events'
+    // Note: EventSource withCredentials is widely supported; cast for TS
+    const es = new (window as any).EventSource(sseUrl, isDev ? { withCredentials: true } : undefined)
     let timeout: any
     es.onmessage = (ev) => {
       try {
@@ -84,6 +90,8 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
         timeout = setTimeout(() => {
           // Refetch the overview query to get the latest values
           refetch()
+          // Also refetch notifications for the bell
+          try { refetchNotifications() } catch {}
           // Friendly toast to simulate live update
           try {
             const message = payload.type === 'achievement_granted' ? 'New achievement unlocked!' : payload.type === 'quiz_completed' ? 'Quiz completed — stats updated.' : 'Stats updated.'
@@ -102,6 +110,18 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const _ = timeout && clearTimeout(timeout)
     }
+  }, [])
+
+  // Notifications SSE (for live unread badge/panel refresh)
+  useEffect(() => {
+    const isDev = typeof window !== 'undefined' && window.location.port === '3000'
+    const url = isDev ? 'http://localhost:3001/api/notifications-events' : '/api/notifications-events'
+    const es = new (window as any).EventSource(url, isDev ? { withCredentials: true } : undefined)
+    es.onmessage = () => {
+      try { refetchNotifications() } catch {}
+    }
+    es.onerror = () => es.close()
+    return () => es.close()
   }, [])
 
   // Micro-animations when values change
@@ -201,9 +221,8 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
 
   return (
     <div
-      onClick={handleClick}
       className={cn(
-        'flex items-center bg-white/90 backdrop-blur border border-black/10 rounded-full px-2.5 sm:px-3.5 py-1.5 sm:py-2 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer',
+        'flex items-center bg-white/90 backdrop-blur border border-black/10 rounded-full px-2.5 sm:px-3.5 py-1.5 sm:py-2 shadow-sm hover:shadow-md transition-all duration-200',
         'space-x-2 sm:space-x-3',
         className
       )}
@@ -216,8 +235,65 @@ export const StatsPill: React.FC<StatsPillProps> = ({ className }) => {
         <StatStack icon="🥷" value={stats.rivalsCount || 0} bubbleClasses={stats.rivalsCount > 0 ? 'bg-red-100' : 'bg-gray-100'} pulse={pulseFlags.rivals} layout="inside" />
       </div>
 
+      {/* Bell with unread badge + popover */}
+      <Popover>
+        <PopoverTrigger asChild>
+          {(() => {
+            const unread = (notifications?.items?.filter((n: any) => !n.readAt)?.length || 0)
+            const hasUnread = unread > 0
+            return (
+              <button type="button" className={cn(
+                'relative h-10 sm:h-11 w-10 sm:w-11 rounded-full flex items-center justify-center shadow-sm transition-colors',
+                hasUnread ? 'bg-yellow-100 text-yellow-900 hover:bg-yellow-100/90' : 'bg-gray-100 text-foreground hover:bg-gray-100/80'
+              )} aria-label="Notifications">
+                <Bell className="h-4 w-4" />
+                {hasUnread && (
+                  <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-4 min-w-4 rounded-full bg-red-500 text-white text-[10px] px-1">
+                    {Math.min(9, unread)}{unread > 9 ? '+' : ''}
+                  </span>
+                )}
+              </button>
+            )
+          })()}
+        </PopoverTrigger>
+        <PopoverContent className="w-80 p-0" align="end" side="bottom" sideOffset={8}>
+          <div className="p-3 border-b text-sm font-medium flex items-center justify-between bg-white">
+            <span>Notifications</span>
+            <button
+              className="text-xs text-primary hover:underline"
+              onClick={async () => {
+                try {
+                  const unreadIds = (notifications?.items || []).filter((n: any) => !n.readAt).map((n: any) => n.id)
+                  if (unreadIds.length) {
+                    await (markNotificationsRead as any)({ ids: unreadIds })
+                    await refetchNotifications()
+                  }
+                } catch {}
+              }}
+            >
+              Mark all read
+            </button>
+          </div>
+          <div className="max-h-72 overflow-auto">
+            {(notifications?.items || []).slice(0, 10).map((n: any) => (
+              <div key={n.id} className={cn('px-3 py-2 text-sm border-b last:border-b-0', !n.readAt ? 'bg-muted/40' : '')}>
+                <div className="font-medium text-xs mb-0.5">{n.type.replace(/_/g, ' ')}</div>
+                <div className="text-xs text-muted-foreground">{n.data?.title || n.data?.followerName || JSON.stringify(n.data)}</div>
+                <div className="text-[10px] text-muted-foreground">{new Date(n.createdAt).toLocaleString()}</div>
+              </div>
+            ))}
+            {(notifications?.items?.length || 0) === 0 && (
+              <div className="px-3 py-4 text-sm text-muted-foreground">You have no notifications.</div>
+            )}
+          </div>
+          <div className="p-2 text-center text-xs">
+            <a href="/notifications" className="text-primary hover:underline">View all</a>
+          </div>
+        </PopoverContent>
+      </Popover>
+
       {/* Avatar on the right - largest pill */}
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center cursor-pointer" onClick={handleClick}>
         <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-gray-100 border border-black/10 flex items-center justify-center shadow-sm">
           <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border border-black/10">
             <AvatarImage src={currentUser?.avatarUrl || undefined} alt="Profile" />

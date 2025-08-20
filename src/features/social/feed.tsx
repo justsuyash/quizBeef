@@ -1,18 +1,31 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import { Users, UserPlus, Sparkles, RefreshCw } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { useQuery } from 'wasp/client/operations'
-import { getUserFeed, getFollowSuggestions, getTrending, getRelatedToUserTopics, getReviseList, searchFeedSuggestions } from 'wasp/client/operations'
+import {
+  getUserFeed,
+  getFollowSuggestions,
+  getTrending,
+  getRelatedToUserTopics,
+  getReviseList,
+  searchFeedSuggestions,
+  getFeed,
+} from 'wasp/client/operations'
 import { Input } from '../../components/ui/input'
 import { ActivityFeedItem, UserCard } from './components'
+import { LikeButton, CommentSection } from '../feedback/components'
 
 export default function SocialFeedPage() {
   const [feedOffset, setFeedOffset] = useState(0)
   const [activities, setActivities] = useState<any[]>([])
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
+  const [quizFeedOffset, setQuizFeedOffset] = useState(0)
+  const [quizItems, setQuizItems] = useState<any[]>([])
+  const quizSentinelRef = useRef<HTMLDivElement | null>(null)
+  const isLoadingMoreQuizzesRef = useRef(false)
 
   const {
     data: feedData,
@@ -26,10 +39,11 @@ export default function SocialFeedPage() {
     isLoading: isSuggestionsLoading,
   } = useQuery(getFollowSuggestions, { limit: 6 })
 
-  const { data: trending } = useQuery(getTrending, { range: '7d' })
-  const { data: related } = useQuery(getRelatedToUserTopics, { limit: 5 })
-  const { data: revise } = useQuery(getReviseList, { limit: 5 })
+  const { data: trending, refetch: refetchTrending } = useQuery(getTrending, { range: '7d' })
+  const { data: related, refetch: refetchRelated } = useQuery(getRelatedToUserTopics, { limit: 5 })
+  const { data: revise, refetch: refetchRevise } = useQuery(getReviseList, { limit: 5 })
   const { data: search } = useQuery(searchFeedSuggestions, { q: debounced, limit: 6 }, { enabled: debounced.length > 1 })
+  const { data: quizFeed, isLoading: isQuizFeedLoading } = useQuery(getFeed, { limit: 10, offset: quizFeedOffset })
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 250)
@@ -43,15 +57,53 @@ export default function SocialFeedPage() {
     }
   }, [feedData, feedOffset])
 
+  useEffect(() => {
+    if (quizFeed?.items) {
+      if (quizFeedOffset === 0) setQuizItems(quizFeed.items)
+      else setQuizItems((prev) => [...prev, ...quizFeed.items])
+    }
+  }, [quizFeed, quizFeedOffset])
+
   const handleRefresh = async () => {
     setFeedOffset(0)
     setActivities([])
-    await refetchFeed()
+    await Promise.all([refetchFeed(), refetchTrending(), refetchRelated(), refetchRevise()])
   }
+
+  const [isSearchOpen, setSearchOpen] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
   const handleLoadMore = () => {
     if (feedData?.hasMore) setFeedOffset((prev) => prev + 10)
   }
+
+  // Infinite scroll for followed creators' public quizzes
+  useEffect(() => {
+    if (!quizSentinelRef.current) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0]
+        if (!first.isIntersecting) return
+        if (isLoadingMoreQuizzesRef.current) return
+        if (!quizFeed?.hasMore) return
+
+        isLoadingMoreQuizzesRef.current = true
+        setQuizFeedOffset((prev) => prev + 10)
+      },
+      { root: null, rootMargin: '0px', threshold: 1.0 }
+    )
+
+    observer.observe(quizSentinelRef.current)
+    return () => observer.disconnect()
+  }, [quizFeed?.hasMore])
+
+  useEffect(() => {
+    // Reset the loading flag when request state flips
+    if (!isQuizFeedLoading) {
+      isLoadingMoreQuizzesRef.current = false
+    }
+  }, [isQuizFeedLoading])
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
@@ -91,10 +143,12 @@ export default function SocialFeedPage() {
             <p className="text-muted-foreground">Stay connected with the QuizBeef community</p>
           </div>
         </div>
-        <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-2">
-          <RefreshCw className={`h-4 w-4 ${isFeedLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleRefresh} variant="outline" size="sm" className="gap-2">
+            <RefreshCw className={`h-4 w-4 ${isFeedLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <Tabs defaultValue="feed" className="w-full">
@@ -109,64 +163,86 @@ export default function SocialFeedPage() {
 
         <TabsContent value="feed" className="mt-6 space-y-6">
           {/* Trending */}
-          {trending && trending.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Trending</CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader>
+              <CardTitle>Trending</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {trending && trending.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   {trending.map((t: any) => (
-                    <div key={t.id} className="p-3 rounded border flex items-center justify-between">
-                      <div>
-                        <div className="font-medium">{t.title}</div>
-                        <div className="text-xs text-muted-foreground">{t.category || 'General'}</div>
+                    <div key={t.id} className="p-3 rounded border">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium">{t.title}</div>
+                          <div className="text-xs text-muted-foreground">{t.category || 'General'}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">Score {Math.round(t.score)}</div>
                       </div>
-                      <div className="text-xs text-muted-foreground">Score {Math.round(t.score)}</div>
+                      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                        <LikeButton quizId={t.id} initialLiked={false} initialCount={t.likeCount ?? 0} size="sm" />
+                        <span>💬 {t.commentCount ?? 0}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="text-sm text-muted-foreground">No trending quizzes yet.</div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Related to your topics */}
-          {related && related.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Related to your topics</CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader>
+              <CardTitle>Related to your topics</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {related && related.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   {related.map((r: any) => (
                     <div key={r.id} className="p-3 rounded border">
                       <div className="font-medium">{r.title}</div>
                       <div className="text-xs text-muted-foreground">{r.category || 'General'}</div>
+                      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                        <LikeButton quizId={r.id} initialLiked={false} initialCount={r.likeCount ?? 0} size="sm" />
+                        <span>💬 {r.commentCount ?? 0}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="text-sm text-muted-foreground">No related quizzes yet. Take more quizzes to personalize this.</div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Revise */}
-          {revise && revise.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Revise</CardTitle>
-              </CardHeader>
-              <CardContent>
+          <Card>
+            <CardHeader>
+              <CardTitle>Revise</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {revise && revise.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-2">
                   {revise.map((r: any) => (
                     <div key={r.attemptId} className="p-3 rounded border">
                       <div className="font-medium">{r.title}</div>
                       <div className="text-xs text-muted-foreground">Score {Math.round(r.score)} · {new Date(r.createdAt).toLocaleDateString()}</div>
+                      {r.quizId ? (
+                        <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                          <LikeButton quizId={r.quizId} initialLiked={r.userHasLiked ?? false} initialCount={r.likeCount ?? 0} size="sm" />
+                          <span>💬 {r.commentCount ?? 0}</span>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="text-sm text-muted-foreground">No items to revise yet. Complete some quizzes to see suggestions here.</div>
+              )}
+            </CardContent>
+          </Card>
 
           {isFeedLoading && activities.length === 0 ? (
             <div className="space-y-4">
@@ -212,6 +288,42 @@ export default function SocialFeedPage() {
                   </Button>
                 </div>
               )}
+
+              {/* Followed creators' public quizzes (infinite scroll) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>From creators you follow</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {quizItems.map((q: any) => (
+                      <div key={q.id} className="p-3 rounded border">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-medium">{q.title}</div>
+                            <div className="text-xs text-muted-foreground">{q.category || 'General'}</div>
+                          </div>
+                          <div className="text-xs text-muted-foreground">by {q.user?.name || 'User'}</div>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex items-center gap-4">
+                            <LikeButton quizId={q.id} initialLiked={q.userHasLiked} initialCount={q.likeCount ?? 0} size="sm" />
+                            <span>💬 {q.commentCount ?? 0}</span>
+                          </div>
+                          <div className="text-[11px]">{new Date(q.createdAt).toLocaleDateString()}</div>
+                        </div>
+                        <div className="mt-2">
+                          <CommentSection quizId={q.id} initialCommentCount={q.commentCount ?? 0} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Sentinel for infinite scroll */}
+                  {quizFeed?.hasMore && (
+                    <div ref={quizSentinelRef} className="h-6" />
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
         </TabsContent>
