@@ -363,6 +363,16 @@ export const completeQuiz: CompleteQuiz<
       }
     } catch {}
 
+    // Update denormalized global stats for the public Quiz (v1.9)
+    try {
+      const quizId = await resolveQuizIdForAttempt(context as any, completedQuiz.quizId, quizAttempt.documentId)
+      if (quizId) {
+        await updateQuizGlobalStatsInternal(context as any, quizId)
+      }
+    } catch (e) {
+      console.warn('updateQuizGlobalStats failed (non-fatal):', e)
+    }
+
     // Emit a lightweight stats refresh for this user (SSE)
     try {
       const { emitStatsUpdate } = await import('../../server/events/stats')
@@ -825,6 +835,57 @@ export const generateStudentExplanation: GenerateStudentExplanation<{
     console.error('Error generating student explanation:', error)
     throw new HttpError(500, 'Failed to generate explanation')
   }
+}
+
+// ---------- v1.9 Global Stats (internal helpers) ----------
+
+async function resolveQuizIdForAttempt(context: any, attemptQuizId: number | null | undefined, documentId: number): Promise<number | null> {
+  if (attemptQuizId) return attemptQuizId
+  // Fallback: find a public Quiz derived from this document
+  try {
+    const quiz = await (context.entities as any).Quiz.findFirst({
+      where: { derivedFromDocumentId: documentId, isPublic: true },
+      select: { id: true },
+      orderBy: { createdAt: 'desc' }
+    })
+    return quiz?.id ?? null
+  } catch {
+    return null
+  }
+}
+
+async function updateQuizGlobalStatsInternal(context: any, quizId: number): Promise<void> {
+  // Count & average over attempts linked to this quiz
+  // Prefer attempts by quizId; fall back to attempts by derived document if none
+  const statsByQuiz = await context.entities.QuizAttempt.aggregate({
+    _count: { _all: true },
+    _avg: { score: true },
+    where: { quizId, completedAt: { not: null } }
+  })
+
+  let attempts = statsByQuiz._count?._all ?? 0
+  let avgScore = statsByQuiz._avg?.score ?? null
+
+  if (attempts === 0) {
+    // Fallback via document relation
+    const quiz = await (context.entities as any).Quiz.findUnique({ where: { id: quizId }, select: { derivedFromDocumentId: true } })
+    if (quiz?.derivedFromDocumentId) {
+      const statsByDoc = await context.entities.QuizAttempt.aggregate({
+        _count: { _all: true },
+        _avg: { score: true },
+        where: { documentId: quiz.derivedFromDocumentId, completedAt: { not: null } }
+      })
+      attempts = statsByDoc._count?._all ?? 0
+      avgScore = statsByDoc._avg?.score ?? null
+    }
+  }
+
+  const accuracy = avgScore ? Math.round(((avgScore / 100) * 10000)) / 10000 : 0
+
+  await (context.entities as any).Quiz.update({
+    where: { id: quizId },
+    data: { attempts, accuracy }
+  })
 }
 
 

@@ -227,6 +227,16 @@ model QuizAttempt {
   feedActivities           FeedActivity[]
 }
 
+// Default, locked game mode per public Quiz (v1.9)
+enum GameMode {
+  RAPID_FIRE
+  PRECISION
+  STUDY
+  TIME_ATTACK
+  FLASHCARD_FRENZY
+  TEST_MODE
+}
+
 enum QuestionType {
   MULTIPLE_CHOICE
   TRUE_FALSE
@@ -581,6 +591,13 @@ model Quiz {
   likeCount     Int        @default(0)
   commentCount  Int        @default(0)
   shareCount    Int        @default(0)
+
+  // Global performance (denormalized, v1.9)
+  attempts      Int        @default(0)
+  accuracy      Float      @default(0) // store as 0..1 (e.g., 0.8532)
+
+  // Locked default game mode for this quiz (v1.9)
+  defaultGameMode GameMode  @default(RAPID_FIRE)
 
   // Relations
   authorId      Int
